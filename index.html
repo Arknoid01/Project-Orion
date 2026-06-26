@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Olympos — Prototype</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>ΟΛΥΜΠΟΣ — Prototype</h1>
+  <span data-i18n="app.subtitle">Prototype</span>
+  <select id="langSelect" onchange="setLanguage(this.value)">
+    <option value="fr">FR</option>
+    <option value="en">EN</option>
+  </select>
+  <button id="debugToggle" onclick="toggleDebugPanel()">🐛 Debug</button>
+</header>
+
+<div id="debugPanel">
+  <div id="debugState">—</div>
+  <div id="debugLogList"></div>
+</div>
+
+<div id="resourceBar">
+  <div class="res">🌾 <span data-i18n="resource.wheat">Blé</span> : <span id="resWheat">0/50</span></div>
+  <div class="res">⛏️ <span data-i18n="resource.marble">Marbre</span> : <span id="resMarble">0/60</span></div>
+  <div class="res">🏛️ <span data-i18n="resource.sculpture">Sculptures</span> : <span id="resSculpture">0/30</span></div>
+</div>
+
+<div id="main">
+
+  <div id="panel">
+    <h2 data-i18n="panel.buildings">Bâtiments</h2>
+    <div id="buildingButtons"></div>
+    <button id="demolishBtn" class="buildBtn" data-i18n="action.demolish">🔨 Démolir</button>
+    <button id="resetBtn" class="buildBtn" data-i18n="action.reset">↺ Réinitialiser la carte</button>
+  </div>
+
+  <div>
+    <div id="canvasWrap">
+      <canvas id="gameCanvas" width="900" height="560"></canvas>
+    </div>
+    <div id="infoBar" data-i18n="info.hover">Survolez une case pour voir son contenu.</div>
+  </div>
+
+  <div id="inspector">
+    <h2 data-i18n="panel.inspector">Inspecteur</h2>
+    <p class="placeholder" data-i18n="inspector.placeholder">Sélectionne une maison pour voir son niveau, sa population
+    et ses besoins — arrive en Phase 2 (évolution des maisons).</p>
+  </div>
+
+</div>
+
+<!-- Ordre important : chaque fichier peut utiliser ce qui est défini dans les précédents -->
+<!-- debug.js et i18n.js en premier : doivent être disponibles partout ailleurs -->
+<script src="js/debug.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/config.js"></script>
+<script src="js/procgen.js"></script>
+<script src="js/grid.js"></script>
+<script src="js/render.js"></script>
+<script src="js/production.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
