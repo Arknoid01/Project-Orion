@@ -8,6 +8,7 @@
 <body>
 
 <header>
+  <button id="drawerToggle" class="iconBtn" onclick="toggleDrawer()">☰</button>
   <h1>ΟΛΥΜΠΟΣ — Prototype</h1>
   <span data-i18n="app.subtitle">Prototype</span>
   <select id="langSelect" onchange="setLanguage(this.value)">
@@ -28,27 +29,31 @@
   <div class="res">🏛️ <span data-i18n="resource.sculpture">Sculptures</span> : <span id="resSculpture">0/30</span></div>
 </div>
 
+<div id="drawerBackdrop" onclick="toggleDrawer()"></div>
+
 <div id="main">
 
-  <div id="panel">
-    <h2 data-i18n="panel.buildings">Bâtiments</h2>
-    <button id="roadBtn" class="buildBtn" data-i18n="action.road">🛣️ Route</button>
-    <div id="buildingButtons"></div>
-    <button id="demolishBtn" class="buildBtn" data-i18n="action.demolish">🔨 Démolir</button>
-    <button id="resetBtn" class="buildBtn" data-i18n="action.reset">↺ Réinitialiser la carte</button>
+  <div id="sideDrawer">
+    <div id="panel">
+      <h2 data-i18n="panel.buildings">Bâtiments</h2>
+      <button id="roadBtn" class="buildBtn" data-i18n="action.road">🛣️ Route</button>
+      <div id="buildingButtons"></div>
+      <button id="demolishBtn" class="buildBtn" data-i18n="action.demolish">🔨 Démolir</button>
+      <button id="resetBtn" class="buildBtn" data-i18n="action.reset">↺ Réinitialiser la carte</button>
+    </div>
+
+    <div id="inspector">
+      <h2 data-i18n="panel.inspector">Inspecteur</h2>
+      <p class="placeholder" data-i18n="inspector.placeholder">Sélectionne une maison pour voir son niveau, sa population
+      et ses besoins — arrive en Phase 2 (évolution des maisons).</p>
+    </div>
   </div>
 
-  <div>
+  <div id="gameArea">
     <div id="canvasWrap">
       <canvas id="gameCanvas" width="900" height="560"></canvas>
     </div>
     <div id="infoBar" data-i18n="info.hover">Survolez une case pour voir son contenu.</div>
-  </div>
-
-  <div id="inspector">
-    <h2 data-i18n="panel.inspector">Inspecteur</h2>
-    <p class="placeholder" data-i18n="inspector.placeholder">Sélectionne une maison pour voir son niveau, sa population
-    et ses besoins — arrive en Phase 2 (évolution des maisons).</p>
   </div>
 
 </div>
