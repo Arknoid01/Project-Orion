@@ -54,6 +54,7 @@ function tick(){
 
   debugCheckInvariants();
   evaluateHouses();
+  advanceWalkers();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
   updateResourceBar(caps);
   render();

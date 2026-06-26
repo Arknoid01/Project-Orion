@@ -205,6 +205,38 @@ function drawRoad(cx, cy){
   ctx.stroke();
 }
 
+function drawPatrolBlock(cx, cy){
+  // petite borne (façon horos grec) signalant un demi-tour forcé du walker
+  ctx.fillStyle = '#5a4a3a';
+  ctx.fillRect(cx - 3, cy - 12, 6, 12);
+  ctx.beginPath();
+  ctx.arc(cx, cy - 13, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#cfcac0';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.stroke();
+}
+
+/* ===================== RENDU WALKERS ===================== */
+function drawWalkers(){
+  walkers.forEach(w => {
+    if (w.path.length <= 1) return; // non connecté, rien à animer
+    const tile = w.path[w.pathIndex];
+    const { x, y } = tileCenter(tile.col, tile.row);
+    ctx.beginPath();
+    ctx.arc(x, y - 6, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#e8c468';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.font = '10px serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#3a2c1d';
+    ctx.fillText('🚶', x, y - 2);
+  });
+}
+
 /* ===================== RENDU PRINCIPAL ===================== */
 function render(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -219,12 +251,15 @@ function render(){
       drawDiamond(x, y, TERRAIN_COLORS[cell.terrain]);
       if (cell.hasRoad){
         drawRoad(x, y);
+        if (cell.patrolBlock) drawPatrolBlock(x, y);
       }
       if (cell.building){
         drawBuilding(x, y, cell.building, col, row);
       }
     }
   }
+
+  drawWalkers();
 
   // surbrillance de la case survolée
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){
@@ -234,6 +269,8 @@ function render(){
       color = canPlace(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (roadMode){
       color = canPlaceRoad(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
+    } else if (blockMode){
+      color = canToggleBlock(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (demolishMode){
       const c = grid[hoverTile.row][hoverTile.col];
       color = (c.building || c.hasRoad) ? 'rgba(255,60,60,0.45)' : 'rgba(255,255,255,0.2)';

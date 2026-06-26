@@ -10,13 +10,15 @@ const OFFSET_Y = 50;  // marge haute
 // validTerrain: terrain requis sous le bâtiment
 // produces / consumes : ressource produite/consommée par tick
 // storageBonus : bonus de capacité de stockage apporté à la ville
-// sprite : chemin du PNG réel (généré via le pipeline ComfyUI), sinon rendu procédural de secours
-// name : clé de traduction (voir js/i18n.js), pas le texte affiché directement
+// isService / range / capacity : bâtiments à walker (voir walkers.js).
+// range = longueur max du trajet de patrouille (en cases de route), capacity = nb de
+// maisons desservies au maximum par ce bâtiment.
 const BUILDING_DEFS = {
   farm:     { name:'building.farm',     icon:'🌾', color:'#c9a227', validTerrain:'wheat',  produces:'wheat',     rate:2, sprite:'assets/buildings/farm.png' },
   quarry:   { name:'building.quarry',   icon:'⛏️', color:'#9aa5ab', validTerrain:'marble', produces:'marble',    rate:1 },
   granary:  { name:'building.granary',  icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150}, sprite:'assets/buildings/granary.png' },
   workshop: { name:'building.workshop', icon:'🏛️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:0.5 },
+  fountain: { name:'building.fountain', icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water', range:20, capacity:8 },
   maison:   { name:'building.maison',   icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true }
 };
 

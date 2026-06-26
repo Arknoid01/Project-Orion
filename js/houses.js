@@ -10,7 +10,7 @@ function hasAdjacentRoad(col, row){
 // Remplacer le stub par la vraie vérification suffira, le reste du code n'a pas à changer.
 const NEED_CHECKERS = {
   route: hasAdjacentRoad,
-  water: (col, row) => false,
+  water: (col, row) => isHouseServedBy('water', col, row),
   food:  (col, row) => false,
   beauty:(col, row) => false,
 };

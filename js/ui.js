@@ -16,6 +16,7 @@ function closeDrawerIfMobile(){
 let selectedBuilding = null; // clé de BUILDING_DEFS
 let demolishMode = false;
 let roadMode = false;
+let blockMode = false; // pose/retrait de borne de blocage de patrouille
 let hoverTile = null;
 let inspectedTile = null; // { col, row } de la dernière case cliquée, pour rafraîchir l'inspecteur à chaque tick
 
@@ -35,6 +36,11 @@ function canPlaceRoad(col, row){
   return cell.terrain !== 'water';
 }
 
+function canToggleBlock(col, row){
+  if (!inBounds(col, row)) return false;
+  return grid[row][col].hasRoad === true;
+}
+
 /* ===================== PALETTE DE BATIMENTS ===================== */
 function buildPalette(){
   const container = document.getElementById('buildingButtons');
@@ -48,6 +54,7 @@ function buildPalette(){
     btn.addEventListener('click', () => {
       demolishMode = false;
       roadMode = false;
+      blockMode = false;
       selectedBuilding = (selectedBuilding === key) ? null : key;
       refreshButtonStates();
       render();
@@ -63,6 +70,7 @@ function refreshButtonStates(){
   });
   document.getElementById('demolishBtn').classList.toggle('active', demolishMode);
   document.getElementById('roadBtn').classList.toggle('active', roadMode);
+  document.getElementById('blockBtn').classList.toggle('active', blockMode);
 }
 
 /* ===================== INSPECTEUR ===================== */
@@ -109,6 +117,7 @@ function renderInspector(col, row){
 document.getElementById('demolishBtn').addEventListener('click', () => {
   selectedBuilding = null;
   roadMode = false;
+  blockMode = false;
   demolishMode = !demolishMode;
   refreshButtonStates();
   render();
@@ -118,7 +127,18 @@ document.getElementById('demolishBtn').addEventListener('click', () => {
 document.getElementById('roadBtn').addEventListener('click', () => {
   selectedBuilding = null;
   demolishMode = false;
+  blockMode = false;
   roadMode = !roadMode;
+  refreshButtonStates();
+  render();
+  closeDrawerIfMobile();
+});
+
+document.getElementById('blockBtn').addEventListener('click', () => {
+  selectedBuilding = null;
+  demolishMode = false;
+  roadMode = false;
+  blockMode = !blockMode;
   refreshButtonStates();
   render();
   closeDrawerIfMobile();
@@ -162,11 +182,20 @@ canvas.addEventListener('click', (e) => {
     } else if (cell.hasRoad){
       debugInfo('Route supprimée', { col, row });
       cell.hasRoad = false;
+      cell.patrolBlock = false;
     }
+    recomputeAllWalkers();
   } else if (roadMode){
     if (canPlaceRoad(col, row)){
       debugInfo('Route construite', { col, row });
       cell.hasRoad = true;
+      recomputeAllWalkers();
+    }
+  } else if (blockMode){
+    if (canToggleBlock(col, row)){
+      cell.patrolBlock = !cell.patrolBlock;
+      debugInfo(cell.patrolBlock ? 'Borne de blocage posée' : 'Borne de blocage retirée', { col, row });
+      recomputeAllWalkers();
     }
   } else if (selectedBuilding && canPlace(col, row)){
     debugInfo(`Construction : ${t(BUILDING_DEFS[selectedBuilding].name)}`, { col, row });
@@ -175,6 +204,7 @@ canvas.addEventListener('click', (e) => {
       cell.houseLevel = 0;
       cell.population = HOUSE_LEVELS[0].population;
     }
+    recomputeAllWalkers();
   }
   renderInspector(col, row);
   render();
