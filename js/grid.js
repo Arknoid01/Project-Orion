@@ -8,11 +8,11 @@ let grid = []; // grid[row][col] = { terrain, building, hasRoad, houseLevel, pop
 /* ===================== GENERATION DE LA CARTE ===================== */
 function terrainAt(col, row){
   // coin mer en bas à droite
-  if (row >= GRID_ROWS - 2 && col >= GRID_COLS - 4) return 'water';
+  if (row >= GRID_ROWS - 3 && col >= GRID_COLS - 6) return 'water';
   // champs de blé en haut à gauche
-  if (row < 4 && col < 5) return 'wheat';
+  if (row < 6 && col < 7) return 'wheat';
   // gisement de marbre en haut à droite
-  if (row < 3 && col >= GRID_COLS - 4) return 'marble';
+  if (row < 4 && col >= GRID_COLS - 6) return 'marble';
   return 'grass';
 }
 
@@ -21,7 +21,7 @@ function initGrid(){
   for (let row = 0; row < GRID_ROWS; row++){
     const line = [];
     for (let col = 0; col < GRID_COLS; col++){
-      line.push({ terrain: terrainAt(col, row), building: null, hasRoad: false, houseLevel: 0, population: 0, patrolBlock: false });
+      line.push({ terrain: terrainAt(col, row), building: null, hasRoad: false, houseLevel: 0, population: 0, patrolBlock: false, beauty: 0 });
     }
     grid.push(line);
   }

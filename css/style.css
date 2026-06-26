@@ -103,6 +103,13 @@ header span{
   background: var(--terracotta);
   color: var(--marble);
 }
+/* action trop chère : grisée, mais toujours cliquable (affiche un message au clic) */
+.buildBtn.unaffordable{
+  opacity:0.45;
+}
+.buildBtn.unaffordable small{
+  color:#a33;
+}
 .swatch{
   width:14px; height:14px;
   border-radius:3px;

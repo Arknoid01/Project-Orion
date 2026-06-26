@@ -33,7 +33,9 @@ let hoverTile = null;
 let inspectedTile = null; // { col, row } de la dernière case cliquée, pour rafraîchir l'inspecteur à chaque tick
 
 /* ===================== REGLES DE PLACEMENT ===================== */
-function canPlace(col, row){
+// Vérifie uniquement le terrain/occupation (sans le coût) — sert à distinguer
+// "emplacement invalide" de "trop cher" pour la notification au clic.
+function canPlaceTerrain(col, row){
   if (!inBounds(col, row)) return false;
   const cell = grid[row][col];
   if (cell.building || cell.hasRoad) return false;
@@ -41,11 +43,21 @@ function canPlace(col, row){
   return cell.terrain === def.validTerrain;
 }
 
-function canPlaceRoad(col, row){
+// Version complète (terrain + budget) utilisée pour la surbrillance de survol.
+function canPlace(col, row){
+  if (!canPlaceTerrain(col, row)) return false;
+  return canAfford(BUILDING_DEFS[selectedBuilding].cost);
+}
+
+function canPlaceRoadTerrain(col, row){
   if (!inBounds(col, row)) return false;
   const cell = grid[row][col];
   if (cell.building || cell.hasRoad) return false;
   return cell.terrain !== 'water';
+}
+
+function canPlaceRoad(col, row){
+  return canPlaceRoadTerrain(col, row) && canAfford(ROAD_COST);
 }
 
 function canToggleBlock(col, row){
@@ -61,8 +73,9 @@ function buildPalette(){
     btn.className = 'buildBtn';
     btn.dataset.key = key;
     const reqLabel = t('terrainReq.' + def.validTerrain);
+    const costLabel = t('economy.cost', { n: def.cost });
     btn.innerHTML = `<span class="swatch" style="background:${def.color}"></span>
-      <span>${def.icon} ${t(def.name)}<small>${reqLabel}</small></span>`;
+      <span>${def.icon} ${t(def.name)}<small>${reqLabel} · ${costLabel}</small></span>`;
     btn.addEventListener('click', () => {
       demolishMode = false;
       roadMode = false;
@@ -85,7 +98,108 @@ function refreshButtonStates(){
   document.getElementById('blockBtn').classList.toggle('active', blockMode);
 }
 
+// Grise les actions dont le coût dépasse le trésor (rafraîchi à chaque tick).
+function refreshAffordability(){
+  document.querySelectorAll('.buildBtn[data-key]').forEach(btn => {
+    const def = BUILDING_DEFS[btn.dataset.key];
+    btn.classList.toggle('unaffordable', !canAfford(def.cost));
+  });
+  const roadBtn = document.getElementById('roadBtn');
+  if (roadBtn) roadBtn.classList.toggle('unaffordable', !canAfford(ROAD_COST));
+}
+
 /* ===================== INSPECTEUR ===================== */
+// Arrondi d'affichage des cadences (1 décimale max).
+function fmtRate(n){ return `${Math.round(n * 10) / 10}`; }
+function resLabel(key){ return t('resource.' + key); }
+
+// --- Maison : niveau, population, cachet, besoins du prochain niveau ---
+function houseInspectorHtml(cell, col, row){
+  const levelDef = HOUSE_LEVELS[cell.houseLevel];
+  const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
+  const needsHtml = nextDef
+    ? nextDef.requires.map(need => {
+        const ok = NEED_CHECKERS[need](col, row);
+        return `<li class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅' : '❌'} ${t('need.' + need)}</li>`;
+      }).join('')
+    : `<li>${t('need.maxLevel')}</li>`;
+  return `
+    <p><strong>${t(levelDef.nameKey)}</strong> — ${t('inspector.level')} ${cell.houseLevel}</p>
+    <p>👥 ${t('inspector.population')} : ${cell.population}</p>
+    <p>🎨 ${t('inspector.beauty')} : ${Math.round(cell.beauty || 0)} / ${BEAUTY_THRESHOLD}</p>
+    <p class="needsTitle">${t('inspector.nextNeeds')}</p>
+    <ul class="needsList">${needsHtml}</ul>`;
+}
+
+// --- Bâtiment : production / transformation / stockage / service / déco ---
+function buildingInspectorHtml(type, col, row){
+  const def = BUILDING_DEFS[type];
+  let html = `<p><strong>${def.icon} ${t(def.name)}</strong></p>`;
+  html += `<p>🧱 ${t('inspector.terrain')} : ${t('terrainName.' + def.validTerrain)}</p>`;
+
+  let eco = `💰 ${t('inspector.cost')} : ${def.cost} dr.`;
+  if (def.upkeep) eco += ` · ${t('inspector.upkeep')} : ${def.upkeep}${t('inspector.perTick')}`;
+  html += `<p>${eco}</p>`;
+
+  if (def.workers){
+    html += `<p>👷 ${t('inspector.workers')} : ${def.workers} · ${t('inspector.laborRate')} : ${Math.round(employment.ratio * 100)}%</p>`;
+  }
+
+  // production simple (matière première depuis le terrain)
+  if (def.produces && !def.consumes){
+    const eff = def.rate * productionMultiplier * employment.ratio;
+    html += `<p>📦 ${t('inspector.produces')} : ${resLabel(def.produces)} — ${fmtRate(eff)}${t('inspector.perTick')} (${t('inspector.baseRate')} ${def.rate})</p>`;
+    if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
+  }
+
+  // transformation (consomme une matière -> produit un bien)
+  if (def.consumes){
+    const [inRes, amt] = Object.entries(def.consumes)[0];
+    const eff = def.rate * productionMultiplier * employment.ratio;
+    html += `<p>🔄 ${t('inspector.transforms')} : ${amt} ${resLabel(inRes)} → ${fmtRate(eff)} ${resLabel(def.produces)}${t('inspector.perTick')}</p>`;
+    const ok = resources[inRes] >= amt;
+    html += `<p class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅ ' + t('inspector.inputOk') : '❌ ' + t('inspector.inputMissing')} (${resLabel(inRes)} : ${Math.floor(resources[inRes])})</p>`;
+    if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
+  }
+
+  // stockage (augmente les plafonds de la ville)
+  if (def.storageBonus){
+    const parts = Object.entries(def.storageBonus).map(([r, n]) => `${resLabel(r)} +${n}`).join(', ');
+    html += `<p>🏬 ${t('inspector.storage')} : ${parts}</p>`;
+  }
+
+  // service à walker (couverture des maisons)
+  if (def.isService){
+    const walker = walkers.find(w => w.col === col && w.row === row);
+    const served = walker ? walker.servedHouses.length : 0;
+    const connected = !!walker && walker.path.length > 1;
+    html += `<p>🚶 ${t('inspector.service')} : ${t('service.' + def.serviceType)}</p>`;
+    html += `<p>📡 ${t('inspector.range')} : ${def.range} · ${t('inspector.capacity')} : ${def.capacity}</p>`;
+    html += `<p class="${served > 0 ? 'need-ok' : ''}">🏠 ${t('inspector.served')} : ${served}/${def.capacity}</p>`;
+    html += `<p class="${connected ? 'need-ok' : 'need-missing'}">${connected ? '✅ ' + t('inspector.connected') : '❌ ' + t('inspector.notConnected')}</p>`;
+    if (def.serviceType === 'market'){
+      const goods = MARKET_GOODS.map(g => `${resLabel(g.resource)} (${Math.floor(resources[g.resource])})`).join(', ');
+      html += `<p>🛒 ${t('inspector.distributes')} : ${goods}</p>`;
+    }
+  }
+
+  // décoration (diffuse du cachet)
+  if (def.isDecoration){
+    html += `<p>🎨 ${t('inspector.decoration')} — ${t('inspector.charm')} : ${def.beauty} · ${t('inspector.range')} : ${def.range}</p>`;
+  }
+
+  return html;
+}
+
+// --- Case sans bâtiment : route ou terrain libre ---
+function tileInspectorHtml(cell){
+  const title = cell.hasRoad ? `🛣️ ${t('inspector.tileTitleRoad')}` : t('inspector.tileTitleEmpty');
+  let html = `<p><strong>${title}</strong></p>`;
+  html += `<p>🧱 ${t('inspector.terrain')} : ${t('terrainName.' + cell.terrain)}</p>`;
+  if (cell.beauty) html += `<p>🎨 ${t('inspector.beauty')} : ${Math.round(cell.beauty)} / ${BEAUTY_THRESHOLD}</p>`;
+  return html;
+}
+
 function renderInspector(col, row){
   inspectedTile = inBounds(col, row) ? { col, row } : null;
 
@@ -93,8 +207,7 @@ function renderInspector(col, row){
   const placeholder = panel.querySelector('.placeholder');
   let info = panel.querySelector('.houseInfo');
 
-  const cell = inspectedTile ? grid[row][col] : null;
-  if (!cell || cell.building !== 'maison'){
+  if (!inspectedTile){
     placeholder.style.display = '';
     if (info) info.style.display = 'none';
     return;
@@ -108,21 +221,14 @@ function renderInspector(col, row){
   }
   info.style.display = '';
 
-  const levelDef = HOUSE_LEVELS[cell.houseLevel];
-  const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
-  const needsHtml = nextDef
-    ? nextDef.requires.map(need => {
-        const ok = NEED_CHECKERS[need](col, row);
-        return `<li class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅' : '❌'} ${t('need.' + need)}</li>`;
-      }).join('')
-    : `<li>${t('need.maxLevel')}</li>`;
-
-  info.innerHTML = `
-    <p><strong>${t(levelDef.nameKey)}</strong> — ${t('inspector.level')} ${cell.houseLevel}</p>
-    <p>👥 ${t('inspector.population')} : ${cell.population}</p>
-    <p class="needsTitle">${t('inspector.nextNeeds')}</p>
-    <ul class="needsList">${needsHtml}</ul>
-  `;
+  const cell = grid[row][col];
+  if (cell.building === 'maison'){
+    info.innerHTML = houseInspectorHtml(cell, col, row);
+  } else if (cell.building){
+    info.innerHTML = buildingInspectorHtml(cell.building, col, row);
+  } else {
+    info.innerHTML = tileInspectorHtml(cell);
+  }
 }
 
 /* ===================== EVENEMENTS ===================== */
@@ -177,6 +283,7 @@ canvas.addEventListener('mousemove', (e) => {
     const buildingLabel = cell.building ? t(BUILDING_DEFS[cell.building].name) : t('info.empty');
     let text = t('info.tile', { col, row, terrain: t('terrainName.' + cell.terrain), building: buildingLabel });
     if (cell.hasRoad) text += ` — ${t('info.hasRoad')}`;
+    if (cell.beauty) text += ` — ${t('info.beauty', { n: Math.round(cell.beauty) })}`;
     info.textContent = text;
   } else {
     info.textContent = t('info.hover');
@@ -204,10 +311,14 @@ canvas.addEventListener('click', (e) => {
     }
     recomputeAllWalkers();
   } else if (roadMode){
-    if (canPlaceRoad(col, row)){
-      debugInfo('Route construite', { col, row });
-      cell.hasRoad = true;
-      recomputeAllWalkers();
+    if (canPlaceRoadTerrain(col, row)){
+      if (!spend(ROAD_COST)){
+        showNotification(t('economy.cantAfford'), 'bad');
+      } else {
+        debugInfo('Route construite', { col, row });
+        cell.hasRoad = true;
+        recomputeAllWalkers();
+      }
     }
   } else if (blockMode){
     if (canToggleBlock(col, row)){
@@ -215,15 +326,21 @@ canvas.addEventListener('click', (e) => {
       debugInfo(cell.patrolBlock ? 'Borne de blocage posée' : 'Borne de blocage retirée', { col, row });
       recomputeAllWalkers();
     }
-  } else if (selectedBuilding && canPlace(col, row)){
-    debugInfo(`Construction : ${t(BUILDING_DEFS[selectedBuilding].name)}`, { col, row });
-    cell.building = selectedBuilding;
-    if (selectedBuilding === 'maison'){
-      cell.houseLevel = 0;
-      cell.population = HOUSE_LEVELS[0].population;
+  } else if (selectedBuilding && canPlaceTerrain(col, row)){
+    const def = BUILDING_DEFS[selectedBuilding];
+    if (!spend(def.cost)){
+      showNotification(t('economy.cantAfford'), 'bad');
+    } else {
+      debugInfo(`Construction : ${t(def.name)}`, { col, row });
+      cell.building = selectedBuilding;
+      if (selectedBuilding === 'maison'){
+        cell.houseLevel = 0;
+        cell.population = HOUSE_LEVELS[0].population;
+      }
+      recomputeAllWalkers();
     }
-    recomputeAllWalkers();
   }
+  recomputeBeauty(); // retour visuel immédiat du cachet (le tick le recalcule aussi)
   renderInspector(col, row);
   render();
   updateResourceBar();

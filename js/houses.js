@@ -4,15 +4,23 @@ function hasAdjacentRoad(col, row){
   return neighbors.some(([c, r]) => inBounds(c, r) && grid[r][c].hasRoad);
 }
 
-// Un seul besoin est réellement vérifiable aujourd'hui. Les autres sont des stubs
-// volontaires : ils renvoient toujours false jusqu'à ce que le système correspondant
-// existe (aqueduc pour 'water', marché pour 'food', embellissement pour 'beauty').
-// Remplacer le stub par la vraie vérification suffira, le reste du code n'a pas à changer.
+// Chaque besoin est câblé à son système :
+//   route    -> adjacence d'une route
+//   water    -> couverture d'une fontaine (walker)
+//   food/oil/wine/wool -> biens distribués par un marché (consomme le stock)
+//   religion -> couverture d'un temple (walker)
+//   health   -> couverture d'une infirmerie (walker)
+//   beauty   -> cachet accumulé sur la case (voir beauty.js)
 const NEED_CHECKERS = {
-  route: hasAdjacentRoad,
-  water: (col, row) => isHouseServedBy('water', col, row),
-  food:  (col, row) => isHouseFed(col, row),
-  beauty:(col, row) => false,
+  route:    hasAdjacentRoad,
+  water:    (col, row) => isHouseServedBy('water', col, row),
+  food:     (col, row) => isHouseSupplied('food', col, row),
+  oil:      (col, row) => isHouseSupplied('oil', col, row),
+  wine:     (col, row) => isHouseSupplied('wine', col, row),
+  wool:     (col, row) => isHouseSupplied('wool', col, row),
+  religion: (col, row) => isHouseServedBy('religion', col, row),
+  health:   (col, row) => isHouseServedBy('health', col, row),
+  beauty:   (col, row) => isTileBeautiful(col, row),
 };
 
 function needsMet(requires, col, row){

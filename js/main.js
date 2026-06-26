@@ -1,7 +1,8 @@
 /* ===================== ORCHESTRATION ===================== */
 function resetGame(){
   initGrid();
-  resources = { wheat:0, marble:0, sculpture:0 };
+  resources = { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 };
+  treasury = STARTING_TREASURY;
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
@@ -13,6 +14,7 @@ function resetGame(){
   totalWheatProduced = 0;
   victoryAnnounced = false;
   recomputeAllWalkers();
+  recomputeLabor();
   debugInfo('Partie réinitialisée');
   refreshUI();
   saveGame({ silent: true }); // persiste immédiatement l'état remis à zéro

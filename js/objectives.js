@@ -9,10 +9,15 @@ const OBJECTIVE_METRICS = {
   favor:        () => favor,
 };
 
+// Index du niveau "villa" repéré par sa clé (et non "dernier niveau"), pour rester
+// correct si d'autres niveaux sont ajoutés au-dessus (ex. 'domaine'). On compte
+// villa ET au-delà comme objectif atteint.
+const VILLA_LEVEL_INDEX = HOUSE_LEVELS.findIndex(l => l.key === 'villa');
+
 function hasVillaSomewhere(){
   let found = false;
   forEachBuilding((type, col, row) => {
-    if (type === 'maison' && grid[row][col].houseLevel === HOUSE_LEVELS.length - 1) found = true;
+    if (type === 'maison' && grid[row][col].houseLevel >= VILLA_LEVEL_INDEX) found = true;
   });
   return found;
 }

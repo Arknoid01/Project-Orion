@@ -11,6 +11,7 @@ function saveGame(opts){
     version: SAVE_VERSION,
     grid,
     resources,
+    treasury,
     favor,
     productionMultiplier,
     productionEffectTicksLeft,
@@ -44,6 +45,7 @@ function sanitizeGrid(loadedGrid){
         houseLevel: cell.houseLevel || 0,
         population: cell.population || 0,
         patrolBlock: !!cell.patrolBlock,
+        beauty: typeof cell.beauty === 'number' ? cell.beauty : 0,
       };
     }
   }
@@ -78,7 +80,14 @@ function loadGame(){
   }
 
   grid = sanitizeGrid(payload.grid);
-  resources = payload.resources || { wheat:0, marble:0, sculpture:0 };
+  // Fusion avec des valeurs par défaut complètes : une sauvegarde plus ancienne
+  // n'a pas les nouvelles ressources (huile, vin...) — sans ça elles seraient
+  // undefined et casseraient les additions de production (NaN).
+  resources = Object.assign(
+    { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 },
+    payload.resources || {}
+  );
+  treasury = typeof payload.treasury === 'number' ? payload.treasury : STARTING_TREASURY;
   favor = typeof payload.favor === 'number' ? payload.favor : 50;
   productionMultiplier = payload.productionMultiplier || 1;
   productionEffectTicksLeft = payload.productionEffectTicksLeft || 0;
@@ -88,6 +97,7 @@ function loadGame(){
   if (payload.lang) currentLang = payload.lang;
 
   recomputeAllWalkers();
+  recomputeLabor();
   debugInfo('Partie chargée depuis la sauvegarde');
   return true;
 }
