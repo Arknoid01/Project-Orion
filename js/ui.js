@@ -1,15 +1,23 @@
 /* ===================== ETAT UI ===================== */
 let selectedBuilding = null; // clé de BUILDING_DEFS
 let demolishMode = false;
+let roadMode = false;
 let hoverTile = null;
 
 /* ===================== REGLES DE PLACEMENT ===================== */
 function canPlace(col, row){
   if (!inBounds(col, row)) return false;
   const cell = grid[row][col];
-  if (cell.building) return false;
+  if (cell.building || cell.hasRoad) return false;
   const def = BUILDING_DEFS[selectedBuilding];
   return cell.terrain === def.validTerrain;
+}
+
+function canPlaceRoad(col, row){
+  if (!inBounds(col, row)) return false;
+  const cell = grid[row][col];
+  if (cell.building || cell.hasRoad) return false;
+  return cell.terrain !== 'water';
 }
 
 /* ===================== PALETTE DE BATIMENTS ===================== */
@@ -24,6 +32,7 @@ function buildPalette(){
       <span>${def.icon} ${t(def.name)}<small>${reqLabel}</small></span>`;
     btn.addEventListener('click', () => {
       demolishMode = false;
+      roadMode = false;
       selectedBuilding = (selectedBuilding === key) ? null : key;
       refreshButtonStates();
       render();
@@ -37,6 +46,7 @@ function refreshButtonStates(){
     btn.classList.toggle('active', btn.dataset.key === selectedBuilding);
   });
   document.getElementById('demolishBtn').classList.toggle('active', demolishMode);
+  document.getElementById('roadBtn').classList.toggle('active', roadMode);
 }
 
 /* ===================== INSPECTEUR (stub, Phase 2 le remplira) ===================== */
@@ -48,7 +58,16 @@ function renderInspector(col, row){
 /* ===================== EVENEMENTS ===================== */
 document.getElementById('demolishBtn').addEventListener('click', () => {
   selectedBuilding = null;
+  roadMode = false;
   demolishMode = !demolishMode;
+  refreshButtonStates();
+  render();
+});
+
+document.getElementById('roadBtn').addEventListener('click', () => {
+  selectedBuilding = null;
+  demolishMode = false;
+  roadMode = !roadMode;
   refreshButtonStates();
   render();
 });
@@ -66,7 +85,9 @@ canvas.addEventListener('mousemove', (e) => {
   if (inBounds(col, row)){
     const cell = grid[row][col];
     const buildingLabel = cell.building ? t(BUILDING_DEFS[cell.building].name) : t('info.empty');
-    info.textContent = t('info.tile', { col, row, terrain: t('terrainName.' + cell.terrain), building: buildingLabel });
+    let text = t('info.tile', { col, row, terrain: t('terrainName.' + cell.terrain), building: buildingLabel });
+    if (cell.hasRoad) text += ` — ${t('info.hasRoad')}`;
+    info.textContent = text;
   } else {
     info.textContent = t('info.hover');
   }
@@ -80,14 +101,24 @@ canvas.addEventListener('click', (e) => {
   const { col, row } = screenToTile(mx, my);
   if (!inBounds(col, row)) return;
 
+  const cell = grid[row][col];
+
   if (demolishMode){
-    if (grid[row][col].building){
-      debugInfo(`Démolition : ${t(BUILDING_DEFS[grid[row][col].building].name)}`, { col, row });
+    if (cell.building){
+      debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
+      cell.building = null;
+    } else if (cell.hasRoad){
+      debugInfo('Route supprimée', { col, row });
+      cell.hasRoad = false;
     }
-    grid[row][col].building = null;
+  } else if (roadMode){
+    if (canPlaceRoad(col, row)){
+      debugInfo('Route construite', { col, row });
+      cell.hasRoad = true;
+    }
   } else if (selectedBuilding && canPlace(col, row)){
     debugInfo(`Construction : ${t(BUILDING_DEFS[selectedBuilding].name)}`, { col, row });
-    grid[row][col].building = selectedBuilding;
+    cell.building = selectedBuilding;
   }
   renderInspector(col, row);
   render();

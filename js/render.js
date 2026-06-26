@@ -186,11 +186,27 @@ function drawHouse(cx, cy, v){
   }
 }
 
+/* ===================== RENDU ROUTE ===================== */
+function drawRoad(cx, cy){
+  // tuile de route légèrement plus petite que la tuile de terrain, pour qu'on voie
+  // encore la couleur du terrain en bordure (effet "chemin tracé sur le sol")
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - TILE_H * 0.4);
+  ctx.lineTo(cx + TILE_W * 0.4, cy);
+  ctx.lineTo(cx, cy + TILE_H * 0.4);
+  ctx.lineTo(cx - TILE_W * 0.4, cy);
+  ctx.closePath();
+  ctx.fillStyle = '#9c8868';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.stroke();
+}
+
 /* ===================== RENDU PRINCIPAL ===================== */
 function render(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // tuiles + bâtiments, triés en diagonale pour la profondeur
+  // tuiles + routes + bâtiments, triés en diagonale pour la profondeur
   for (let sum = 0; sum <= (GRID_COLS - 1) + (GRID_ROWS - 1); sum++){
     for (let col = 0; col < GRID_COLS; col++){
       const row = sum - col;
@@ -198,6 +214,9 @@ function render(){
       const cell = grid[row][col];
       const { x, y } = tileCenter(col, row);
       drawDiamond(x, y, TERRAIN_COLORS[cell.terrain]);
+      if (cell.hasRoad){
+        drawRoad(x, y);
+      }
       if (cell.building){
         drawBuilding(x, y, cell.building, col, row);
       }
@@ -210,8 +229,11 @@ function render(){
     let color = 'rgba(255,255,255,0.35)';
     if (selectedBuilding){
       color = canPlace(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
+    } else if (roadMode){
+      color = canPlaceRoad(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (demolishMode){
-      color = grid[hoverTile.row][hoverTile.col].building ? 'rgba(255,60,60,0.45)' : 'rgba(255,255,255,0.2)';
+      const c = grid[hoverTile.row][hoverTile.col];
+      color = (c.building || c.hasRoad) ? 'rgba(255,60,60,0.45)' : 'rgba(255,255,255,0.2)';
     }
     drawDiamond(x, y, color, 'rgba(0,0,0,0.4)');
   }
