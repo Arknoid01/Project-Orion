@@ -290,7 +290,10 @@ canvas{ display:block; cursor: pointer; }
     background: var(--parchment-dark);
     z-index: 1000;
     padding: 16px;
+    padding-bottom: 48px; /* marge pour ne pas couper le dernier élément pile au bord */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* défilement tactile fluide sur mobile/Safari */
+    touch-action: pan-y;
     box-shadow: 4px 0 16px rgba(0,0,0,0.4);
     transform: translateX(-100%);
     transition: transform 0.25s ease;
@@ -310,4 +313,29 @@ canvas{ display:block; cursor: pointer; }
   header h1{ font-size:18px; }
   header span{ display:none; } /* sous-titre masqué pour économiser la place sur petit écran */
   #resourceBar{ padding: 8px 12px; gap: 10px; font-size: 12px; }
+
+  /* Tuiles de bâtiments compactes : grille 2 colonnes au lieu d'une longue liste verticale */
+  #buildingButtons{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  #buildingButtons .buildBtn{
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px 4px;
+    margin-bottom: 0;
+    min-height: 64px;
+  }
+  #buildingButtons .buildBtn .swatch{ display: none; } /* l'icône suffit à identifier le bâtiment */
+  #buildingButtons .buildBtn > span{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+  }
+  #buildingButtons .buildBtn small{ font-size: 9px; }
 }
