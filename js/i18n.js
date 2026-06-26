@@ -50,6 +50,12 @@ const STRINGS = {
     'inspector.level': 'niveau',
     'inspector.population': 'Population',
     'inspector.nextNeeds': 'Besoins pour évoluer :',
+    'panel.mythology': 'Mythologie',
+    'action.offering': '🏺 Faire une offrande (-5 sculptures)',
+    'resource.favor': 'Faveur',
+    'mythology.blessing': '✨ Les dieux sont satisfaits : production en hausse !',
+    'mythology.catastrophe': '⚡ Les dieux sont mécontents : production en baisse !',
+    'mythology.notEnoughSculpture': 'Pas assez de sculptures pour une offrande (besoin de {cost})',
   },
   en: {
     'app.subtitle': 'Prototype',
@@ -94,6 +100,12 @@ const STRINGS = {
     'inspector.level': 'level',
     'inspector.population': 'Population',
     'inspector.nextNeeds': 'Needs to evolve:',
+    'panel.mythology': 'Mythology',
+    'action.offering': '🏺 Make an offering (-5 sculptures)',
+    'resource.favor': 'Favor',
+    'mythology.blessing': '✨ The gods are pleased: production rising!',
+    'mythology.catastrophe': '⚡ The gods are displeased: production falling!',
+    'mythology.notEnoughSculpture': 'Not enough sculptures for an offering (needs {cost})',
   }
 };
 

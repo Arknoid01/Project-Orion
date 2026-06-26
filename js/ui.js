@@ -1,3 +1,15 @@
+/* ===================== NOTIFICATIONS ===================== */
+// Bannière temporaire pour les événements visibles par le joueur (bénédictions,
+// catastrophes...). Générique, réutilisable par n'importe quel futur système.
+let notificationTimer = null;
+function showNotification(message, type){
+  const el = document.getElementById('notification');
+  el.textContent = message;
+  el.className = `show notif-${type || 'info'}`;
+  clearTimeout(notificationTimer);
+  notificationTimer = setTimeout(() => { el.className = ''; }, 4000);
+}
+
 /* ===================== TIROIR MOBILE ===================== */
 function toggleDrawer(){
   document.getElementById('sideDrawer').classList.toggle('open');
@@ -145,6 +157,8 @@ document.getElementById('blockBtn').addEventListener('click', () => {
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => resetGame());
+
+document.getElementById('offeringBtn').addEventListener('click', () => makeOffering());
 
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();

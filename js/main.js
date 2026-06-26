@@ -7,11 +7,15 @@ function resetGame(){
   roadMode = false;
   blockMode = false;
   DEBUG.tickCount = 0;
+  favor = 50;
+  productionMultiplier = 1;
+  productionEffectTicksLeft = 0;
   recomputeAllWalkers();
   debugInfo('Partie réinitialisée');
   refreshButtonStates();
   render();
   updateResourceBar();
+  renderMythologyPanel();
 }
 
 /* ===================== INIT ===================== */

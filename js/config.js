@@ -61,3 +61,15 @@ const WALKER_FRAMES_PER_CYCLE = 9;
 const WALKER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
 const WALKER_ANIM_FRAME_MS = 110; // ~9 frames -> un cycle complet toutes les ~990ms
 const WALKER_DISPLAY_SIZE = 40;   // taille d'affichage sur la grille (mise à l'échelle depuis 64px)
+
+/* ===================== MYTHOLOGIE ===================== */
+const FAVOR_MAX = 100;
+const FAVOR_DECAY_PER_TICK = 0.1;          // déclin naturel, sans offrande
+const FAVOR_OFFERING_COST = { sculpture: 5 };
+const FAVOR_OFFERING_GAIN = 15;
+const FAVOR_BLESSING_THRESHOLD = 80;       // au-dessus : bénédiction possible
+const FAVOR_CATASTROPHE_THRESHOLD = 20;    // en-dessous : catastrophe possible
+const FAVOR_EVENT_CHANCE_PER_TICK = 0.03;  // 3%/tick une fois le seuil franchi
+const PRODUCTION_BOOST_MULTIPLIER = 1.5;
+const PRODUCTION_PENALTY_MULTIPLIER = 0.5;
+const PRODUCTION_EFFECT_DURATION_TICKS = 20; // ~20 secondes

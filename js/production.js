@@ -27,6 +27,7 @@ function forEachBuilding(callback){
 function tick(){
   DEBUG.tickCount++;
   lastTickTimestamp = performance.now();
+  tickMythology();
   const caps = computeCaps();
 
   // production simple (ferme, carrière)
@@ -34,7 +35,7 @@ function tick(){
     const def = BUILDING_DEFS[type];
     if (def.produces && !def.consumes){
       const before = resources[def.produces];
-      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate);
+      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier);
       if (before < caps[def.produces] && resources[def.produces] >= caps[def.produces]){
         debugWarn(`Stock saturé : ${def.produces} a atteint son plafond (${caps[def.produces]})`);
       }
@@ -48,7 +49,7 @@ function tick(){
       const [resName, amount] = Object.entries(def.consumes)[0];
       if (resources[resName] >= amount){
         resources[resName] -= amount;
-        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate);
+        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier);
       }
     }
   });
@@ -68,4 +69,5 @@ function updateResourceBar(caps){
   document.getElementById('resMarble').textContent = `${Math.floor(resources.marble)}/${caps.marble}`;
   document.getElementById('resSculpture').textContent = `${Math.floor(resources.sculpture)}/${caps.sculpture}`;
   document.getElementById('resPopulation').textContent = computeTotalPopulation();
+  document.getElementById('resFavor').textContent = `${Math.round(favor)}/${FAVOR_MAX}`;
 }
