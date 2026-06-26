@@ -1,3 +1,17 @@
+/* ===================== TIROIR MOBILE ===================== */
+function toggleDrawer(){
+  document.getElementById('sideDrawer').classList.toggle('open');
+  document.getElementById('drawerBackdrop').classList.toggle('open');
+}
+
+function closeDrawerIfMobile(){
+  // ne ferme que si le tiroir est en mode "overlay" (mobile) ; inoffensif sur desktop
+  if (window.innerWidth <= 860){
+    document.getElementById('sideDrawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('open');
+  }
+}
+
 /* ===================== ETAT UI ===================== */
 let selectedBuilding = null; // clé de BUILDING_DEFS
 let demolishMode = false;
@@ -36,6 +50,7 @@ function buildPalette(){
       selectedBuilding = (selectedBuilding === key) ? null : key;
       refreshButtonStates();
       render();
+      closeDrawerIfMobile();
     });
     container.appendChild(btn);
   });
@@ -62,6 +77,7 @@ document.getElementById('demolishBtn').addEventListener('click', () => {
   demolishMode = !demolishMode;
   refreshButtonStates();
   render();
+  closeDrawerIfMobile();
 });
 
 document.getElementById('roadBtn').addEventListener('click', () => {
@@ -70,6 +86,7 @@ document.getElementById('roadBtn').addEventListener('click', () => {
   roadMode = !roadMode;
   refreshButtonStates();
   render();
+  closeDrawerIfMobile();
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => resetGame());
