@@ -18,20 +18,36 @@ function pickDeterministic(rng, arr){
   return arr[Math.floor(rng() * arr.length)];
 }
 
-// DFS qui serpente le long des routes connectées, sans repasser deux fois sur la même
-// case, jusqu'à épuiser le budget maxSteps ou arriver dans une impasse. Le choix de
-// branche à un carrefour est déterministe (seed basé sur la position du bâtiment),
-// donc reproductible — et la borne de blocage permet au joueur de l'influencer.
+// Construit un trajet linéaire (utilisé tel quel par l'aller-retour). Quand le bâtiment
+// a exactement 2 sorties (route qui passe tout droit), on explore les DEUX sens, recollés
+// avec le bâtiment au centre — sinon une seule moitié de la route serait jamais visitée.
+// Pour 1, 3 ou 4 sorties (impasse ou carrefour), un seul sens est choisi de façon
+// déterministe, ce qui garde l'intérêt "plusieurs marchés nécessaires" à un carrefour complexe.
 function computePatrolPath(startCol, startRow, maxSteps){
-  const path = [{ col: startCol, row: startRow }];
-  const firstNeighbors = roadNeighbors(startCol, startRow);
-  if (firstNeighbors.length === 0) return path; // pas connecté à une route : immobile
+  const startTile = { col: startCol, row: startRow };
+  const neighbors = roadNeighbors(startCol, startRow);
+  if (neighbors.length === 0) return { path: [startTile], startIndex: 0 }; // pas connecté : immobile
 
   const rng = mulberry32(hashSeed(startCol, startRow));
-  const visited = new Set([tileKey(startCol, startRow)]);
-  let current = pickDeterministic(rng, firstNeighbors);
 
-  while (current && path.length <= maxSteps){
+  if (neighbors.length === 2){
+    const branchA = walkBranch(rng, neighbors[0], startTile, maxSteps);
+    const branchB = walkBranch(rng, neighbors[1], startTile, maxSteps);
+    const path = [...[...branchA].reverse(), startTile, ...branchB];
+    return { path, startIndex: branchA.length };
+  }
+
+  const branch = walkBranch(rng, pickDeterministic(rng, neighbors), startTile, maxSteps);
+  return { path: [startTile, ...branch], startIndex: 0 };
+}
+
+// Suit une seule direction le long des routes connectées, sans repasser deux fois sur la
+// même case, jusqu'à épuiser maxSteps ou arriver dans une impasse.
+function walkBranch(rng, firstTile, startTile, maxSteps){
+  const path = [];
+  const visited = new Set([tileKey(startTile.col, startTile.row)]);
+  let current = firstTile;
+  while (current && path.length < maxSteps){
     path.push(current);
     visited.add(tileKey(current.col, current.row));
     const next = roadNeighbors(current.col, current.row).filter(n => !visited.has(tileKey(n.col, n.row)));
@@ -65,9 +81,13 @@ function recomputeAllWalkers(){
   forEachBuilding((type, col, row) => {
     const def = BUILDING_DEFS[type];
     if (!def.isService) return;
-    const path = computePatrolPath(col, row, def.range);
+    const { path, startIndex } = computePatrolPath(col, row, def.range);
     const servedHouses = computeServedHouses(path, def.capacity);
-    walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, prevPathIndex: 0, direction: 1, facing: 'down', servedHouses });
+    walkers.push({
+      col, row, type, serviceType: def.serviceType,
+      path, pathIndex: startIndex, prevPathIndex: startIndex, direction: 1, facing: 'right',
+      servedHouses,
+    });
   });
   debugInfo(`Patrouilles recalculées : ${walkers.length} bâtiment(s) de service actif(s)`);
 }
