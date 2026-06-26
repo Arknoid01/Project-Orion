@@ -19,8 +19,12 @@ const BUILDING_DEFS = {
   granary:  { name:'building.granary',  icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150}, sprite:'assets/buildings/granary.png' },
   workshop: { name:'building.workshop', icon:'🏛️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:0.5 },
   fountain: { name:'building.fountain', icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water', range:20, capacity:8 },
+  market:   { name:'building.market',   icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'food',  range:20, capacity:8 },
   maison:   { name:'building.maison',   icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true }
 };
+
+// Quantité de blé consommée par maison nourrie, par tick (voir market.js).
+const FOOD_PER_HOUSE = 1;
 
 const TERRAIN_COLORS = {
   grass:  '#7ea24c',
@@ -33,9 +37,8 @@ const BASE_CAP = { wheat:50, marble:60, sculpture:30 };
 
 /* ===================== NIVEAUX DE MAISON ===================== */
 // requires : liste de clés de besoin (voir NEED_CHECKERS dans houses.js).
-// Seul 'route' est réellement fonctionnel pour l'instant ; les autres sont
-// des conditions prévues pour les phases futures (aqueduc, marché, embellissement)
-// et resteront non remplies jusqu'à ce que ces systèmes existent.
+// route/water/food sont fonctionnels. 'beauty' reste un stub en attente
+// de la phase embellissement, et renverra toujours false jusqu'à ce moment-là.
 const HOUSE_LEVELS = [
   { key:'hut',    nameKey:'houseLevel.hut',    population:2,  requires:[] },
   { key:'house',  nameKey:'houseLevel.house',  population:5,  requires:['route'] },

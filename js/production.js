@@ -54,6 +54,7 @@ function tick(){
   });
 
   debugCheckInvariants();
+  processMarkets();
   evaluateHouses();
   advanceWalkers();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);

@@ -11,7 +11,7 @@ function hasAdjacentRoad(col, row){
 const NEED_CHECKERS = {
   route: hasAdjacentRoad,
   water: (col, row) => isHouseServedBy('water', col, row),
-  food:  (col, row) => false,
+  food:  (col, row) => isHouseFed(col, row),
   beauty:(col, row) => false,
 };
 
