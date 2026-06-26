@@ -17,6 +17,7 @@ let selectedBuilding = null; // clé de BUILDING_DEFS
 let demolishMode = false;
 let roadMode = false;
 let hoverTile = null;
+let inspectedTile = null; // { col, row } de la dernière case cliquée, pour rafraîchir l'inspecteur à chaque tick
 
 /* ===================== REGLES DE PLACEMENT ===================== */
 function canPlace(col, row){
@@ -64,10 +65,44 @@ function refreshButtonStates(){
   document.getElementById('roadBtn').classList.toggle('active', roadMode);
 }
 
-/* ===================== INSPECTEUR (stub, Phase 2 le remplira) ===================== */
+/* ===================== INSPECTEUR ===================== */
 function renderInspector(col, row){
-  // TODO Phase 2 : afficher niveau/population/besoins si la case contient une maison.
-  // Pour l'instant le panneau reste sur son texte de placeholder (voir index.html).
+  inspectedTile = inBounds(col, row) ? { col, row } : null;
+
+  const panel = document.getElementById('inspector');
+  const placeholder = panel.querySelector('.placeholder');
+  let info = panel.querySelector('.houseInfo');
+
+  const cell = inspectedTile ? grid[row][col] : null;
+  if (!cell || cell.building !== 'maison'){
+    placeholder.style.display = '';
+    if (info) info.style.display = 'none';
+    return;
+  }
+
+  placeholder.style.display = 'none';
+  if (!info){
+    info = document.createElement('div');
+    info.className = 'houseInfo';
+    panel.appendChild(info);
+  }
+  info.style.display = '';
+
+  const levelDef = HOUSE_LEVELS[cell.houseLevel];
+  const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
+  const needsHtml = nextDef
+    ? nextDef.requires.map(need => {
+        const ok = NEED_CHECKERS[need](col, row);
+        return `<li class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅' : '❌'} ${t('need.' + need)}</li>`;
+      }).join('')
+    : `<li>${t('need.maxLevel')}</li>`;
+
+  info.innerHTML = `
+    <p><strong>${t(levelDef.nameKey)}</strong> — ${t('inspector.level')} ${cell.houseLevel}</p>
+    <p>👥 ${t('inspector.population')} : ${cell.population}</p>
+    <p class="needsTitle">${t('inspector.nextNeeds')}</p>
+    <ul class="needsList">${needsHtml}</ul>
+  `;
 }
 
 /* ===================== EVENEMENTS ===================== */
@@ -136,6 +171,10 @@ canvas.addEventListener('click', (e) => {
   } else if (selectedBuilding && canPlace(col, row)){
     debugInfo(`Construction : ${t(BUILDING_DEFS[selectedBuilding].name)}`, { col, row });
     cell.building = selectedBuilding;
+    if (selectedBuilding === 'maison'){
+      cell.houseLevel = 0;
+      cell.population = HOUSE_LEVELS[0].population;
+    }
   }
   renderInspector(col, row);
   render();

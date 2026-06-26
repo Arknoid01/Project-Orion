@@ -29,6 +29,18 @@ const TERRAIN_COLORS = {
 
 const BASE_CAP = { wheat:50, marble:60, sculpture:30 };
 
+/* ===================== NIVEAUX DE MAISON ===================== */
+// requires : liste de clés de besoin (voir NEED_CHECKERS dans houses.js).
+// Seul 'route' est réellement fonctionnel pour l'instant ; les autres sont
+// des conditions prévues pour les phases futures (aqueduc, marché, embellissement)
+// et resteront non remplies jusqu'à ce que ces systèmes existent.
+const HOUSE_LEVELS = [
+  { key:'hut',    nameKey:'houseLevel.hut',    population:2,  requires:[] },
+  { key:'house',  nameKey:'houseLevel.house',  population:5,  requires:['route'] },
+  { key:'decent', nameKey:'houseLevel.decent', population:9,  requires:['route','water'] },
+  { key:'villa',  nameKey:'houseLevel.villa',  population:15, requires:['route','water','food'] },
+];
+
 /* ===================== PALETTES MAISONS PROCEDURALES ===================== */
 const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];
 const HOUSE_ROOF_COLORS  = ['#a8512f', '#8c3f24', '#9c6b3f', '#6f5a4a'];

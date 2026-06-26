@@ -1,7 +1,8 @@
 /* ===================== ETAT DE LA CARTE ===================== */
 // hasRoad : pas encore utilisé (arrive avec le système de routes), prévu dès maintenant
 // pour éviter de redécouper la structure de cellule plus tard.
-let grid = []; // grid[row][col] = { terrain, building, hasRoad }
+// houseLevel/population : pertinents uniquement quand building === 'maison' (voir houses.js).
+let grid = []; // grid[row][col] = { terrain, building, hasRoad, houseLevel, population }
 
 /* ===================== GENERATION DE LA CARTE ===================== */
 function terrainAt(col, row){
@@ -19,7 +20,7 @@ function initGrid(){
   for (let row = 0; row < GRID_ROWS; row++){
     const line = [];
     for (let col = 0; col < GRID_COLS; col++){
-      line.push({ terrain: terrainAt(col, row), building: null, hasRoad: false });
+      line.push({ terrain: terrainAt(col, row), building: null, hasRoad: false, houseLevel: 0, population: 0 });
     }
     grid.push(line);
   }

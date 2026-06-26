@@ -53,6 +53,8 @@ function tick(){
   });
 
   debugCheckInvariants();
+  evaluateHouses();
+  if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
   updateResourceBar(caps);
   render();
 }
@@ -62,4 +64,5 @@ function updateResourceBar(caps){
   document.getElementById('resWheat').textContent = `${Math.floor(resources.wheat)}/${caps.wheat}`;
   document.getElementById('resMarble').textContent = `${Math.floor(resources.marble)}/${caps.marble}`;
   document.getElementById('resSculpture').textContent = `${Math.floor(resources.sculpture)}/${caps.sculpture}`;
+  document.getElementById('resPopulation').textContent = computeTotalPopulation();
 }

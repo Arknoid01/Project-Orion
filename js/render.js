@@ -56,7 +56,10 @@ function drawBuilding(cx, cy, type, col, row){
   const def = BUILDING_DEFS[type];
 
   if (def.isHouse){
-    drawHouse(cx, cy, composeHouseVariant(hashSeed(col, row)));
+    const cell = grid[row][col];
+    const variant = composeHouseVariant(hashSeed(col, row));
+    variant.widthScale *= 1 + cell.houseLevel * 0.18; // grandit visuellement avec le niveau
+    drawHouse(cx, cy, variant);
     return;
   }
 
