@@ -14,6 +14,11 @@ function resetGame(){
   victoryAnnounced = false;
   recomputeAllWalkers();
   debugInfo('Partie réinitialisée');
+  refreshUI();
+  saveGame({ silent: true }); // persiste immédiatement l'état remis à zéro
+}
+
+function refreshUI(){
   refreshButtonStates();
   render();
   updateResourceBar();
@@ -24,6 +29,14 @@ function resetGame(){
 /* ===================== INIT ===================== */
 applyStaticTranslations();
 buildPalette();
-resetGame();
+
+if (loadGame()){
+  debugInfo('Sauvegarde restaurée au chargement de la page');
+  refreshUI();
+} else {
+  resetGame(); // s'occupe déjà de son propre refreshUI()
+}
+
 setInterval(tick, 1000);
+setInterval(() => saveGame({ silent: true }), 10000); // sauvegarde auto toutes les 10s
 startRenderLoop();

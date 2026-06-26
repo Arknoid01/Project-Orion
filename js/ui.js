@@ -156,7 +156,11 @@ document.getElementById('blockBtn').addEventListener('click', () => {
   closeDrawerIfMobile();
 });
 
-document.getElementById('resetBtn').addEventListener('click', () => resetGame());
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (confirm(t('action.confirmReset'))) resetGame();
+});
+
+document.getElementById('saveBtn').addEventListener('click', () => saveGame());
 
 document.getElementById('offeringBtn').addEventListener('click', () => makeOffering());
 

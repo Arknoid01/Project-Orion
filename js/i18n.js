@@ -16,7 +16,9 @@ const STRINGS = {
     'panel.inspector': 'Inspecteur',
     'inspector.placeholder': 'Sélectionne une maison pour voir son niveau, sa population et ses besoins — arrive en Phase 2.',
     'action.demolish': '🔨 Démolir',
+    'action.save': '💾 Sauvegarder',
     'action.reset': '↺ Réinitialiser la carte',
+    'action.confirmReset': 'Réinitialiser la carte ? Ta sauvegarde actuelle sera définitivement perdue.',
     'action.road': '🛣️ Route',
     'action.block': '🚧 Borne de blocage',
     'info.hasRoad': 'route',
@@ -62,6 +64,8 @@ const STRINGS = {
     'objective.villa': 'Faire monter une maison en Villa',
     'objective.favor': 'Atteindre un bon niveau de faveur divine',
     'objective.victory': '🏆 Victoire ! Tous les objectifs sont atteints.',
+    'save.saved': '💾 Partie sauvegardée',
+    'save.saveError': '⚠️ Impossible de sauvegarder (stockage local indisponible)',
   },
   en: {
     'app.subtitle': 'Prototype',
@@ -72,7 +76,9 @@ const STRINGS = {
     'panel.inspector': 'Inspector',
     'inspector.placeholder': 'Select a house to see its level, population and needs — coming in Phase 2.',
     'action.demolish': '🔨 Demolish',
+    'action.save': '💾 Save',
     'action.reset': '↺ Reset map',
+    'action.confirmReset': 'Reset the map? Your current save will be permanently lost.',
     'action.road': '🛣️ Road',
     'action.block': '🚧 Block marker',
     'info.hasRoad': 'road',
@@ -118,6 +124,8 @@ const STRINGS = {
     'objective.villa': 'Grow a house into a Villa',
     'objective.favor': 'Reach a good level of divine favor',
     'objective.victory': '🏆 Victory! All objectives reached.',
+    'save.saved': '💾 Game saved',
+    'save.saveError': '⚠️ Could not save (local storage unavailable)',
   }
 };
 
