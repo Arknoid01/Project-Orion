@@ -282,22 +282,34 @@ canvas{ display:block; cursor: pointer; }
 
   #sideDrawer{
     position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    width: 82%;
-    max-width: 320px;
+    inset: 0 auto 0 0; /* top/right/bottom/left : évite les dépassements liés à 100vh */
+    height: 100dvh;    /* vrai viewport mobile, mieux que 100vh avec la barre navigateur */
+    max-height: 100dvh;
+    width: min(86vw, 340px);
     background: var(--parchment-dark);
     z-index: 1000;
-    padding: 16px;
-    padding-bottom: 48px; /* marge pour ne pas couper le dernier élément pile au bord */
+    padding: 12px;
+    padding-bottom: max(72px, env(safe-area-inset-bottom));
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch; /* défilement tactile fluide sur mobile/Safari */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     touch-action: pan-y;
     box-shadow: 4px 0 16px rgba(0,0,0,0.4);
-    transform: translateX(-100%);
+    transform: translateX(-105%);
     transition: transform 0.25s ease;
   }
+
+  #sideDrawer > *{
+    max-width: 100%;
+  }
+
+  #panel,
+  #inspector,
+  #mythologyPanel{
+    min-width: 0;
+  }
+
   #sideDrawer.open{ transform: translateX(0); }
 
   #drawerBackdrop.open{
