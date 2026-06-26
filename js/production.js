@@ -36,6 +36,8 @@ function tick(){
     if (def.produces && !def.consumes){
       const before = resources[def.produces];
       resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier);
+      const added = resources[def.produces] - before;
+      if (def.produces === 'wheat') totalWheatProduced += added;
       if (before < caps[def.produces] && resources[def.produces] >= caps[def.produces]){
         debugWarn(`Stock saturé : ${def.produces} a atteint son plafond (${caps[def.produces]})`);
       }
@@ -58,6 +60,7 @@ function tick(){
   processMarkets();
   evaluateHouses();
   advanceWalkers();
+  checkObjectives();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
   updateResourceBar(caps);
   render();

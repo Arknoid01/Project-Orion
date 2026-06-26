@@ -73,3 +73,13 @@ const FAVOR_EVENT_CHANCE_PER_TICK = 0.03;  // 3%/tick une fois le seuil franchi
 const PRODUCTION_BOOST_MULTIPLIER = 1.5;
 const PRODUCTION_PENALTY_MULTIPLIER = 0.5;
 const PRODUCTION_EFFECT_DURATION_TICKS = 20; // ~20 secondes
+
+/* ===================== OBJECTIFS DE MISSION ===================== */
+// metric : clé vers OBJECTIVE_METRICS (voir objectives.js), pas une fonction directement —
+// même principe que NEED_CHECKERS, pour garder ce fichier en pure donnée.
+const OBJECTIVES = [
+  { key:'population',    nameKey:'objective.population',    metric:'population',    target:50 },
+  { key:'wheatProduced',  nameKey:'objective.wheatProduced',  metric:'wheatProduced',  target:100 },
+  { key:'villa',          nameKey:'objective.villa',          metric:'villa',          target:1 },
+  { key:'favor',          nameKey:'objective.favor',          metric:'favor',          target:80 },
+];

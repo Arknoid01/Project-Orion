@@ -10,12 +10,15 @@ function resetGame(){
   favor = 50;
   productionMultiplier = 1;
   productionEffectTicksLeft = 0;
+  totalWheatProduced = 0;
+  victoryAnnounced = false;
   recomputeAllWalkers();
   debugInfo('Partie réinitialisée');
   refreshButtonStates();
   render();
   updateResourceBar();
   renderMythologyPanel();
+  renderObjectivesPanel();
 }
 
 /* ===================== INIT ===================== */

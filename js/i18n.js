@@ -56,6 +56,12 @@ const STRINGS = {
     'mythology.blessing': '✨ Les dieux sont satisfaits : production en hausse !',
     'mythology.catastrophe': '⚡ Les dieux sont mécontents : production en baisse !',
     'mythology.notEnoughSculpture': 'Pas assez de sculptures pour une offrande (besoin de {cost})',
+    'panel.objectives': 'Objectifs',
+    'objective.population': 'Atteindre une population suffisante',
+    'objective.wheatProduced': 'Produire assez de blé au total',
+    'objective.villa': 'Faire monter une maison en Villa',
+    'objective.favor': 'Atteindre un bon niveau de faveur divine',
+    'objective.victory': '🏆 Victoire ! Tous les objectifs sont atteints.',
   },
   en: {
     'app.subtitle': 'Prototype',
@@ -106,6 +112,12 @@ const STRINGS = {
     'mythology.blessing': '✨ The gods are pleased: production rising!',
     'mythology.catastrophe': '⚡ The gods are displeased: production falling!',
     'mythology.notEnoughSculpture': 'Not enough sculptures for an offering (needs {cost})',
+    'panel.objectives': 'Objectives',
+    'objective.population': 'Reach a sufficient population',
+    'objective.wheatProduced': 'Produce enough wheat overall',
+    'objective.villa': 'Grow a house into a Villa',
+    'objective.favor': 'Reach a good level of divine favor',
+    'objective.victory': '🏆 Victory! All objectives reached.',
   }
 };
 
