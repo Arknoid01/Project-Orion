@@ -24,8 +24,11 @@
   <div id="debugLogList"></div>
 </div>
 
+<div id="notification"></div>
+
 <div id="resourceBar">
   <div class="res">👥 <span data-i18n="resource.population">Population</span> : <span id="resPopulation">0</span></div>
+  <div class="res">⚡ <span data-i18n="resource.favor">Faveur</span> : <span id="resFavor">50/100</span></div>
   <div class="res">🌾 <span data-i18n="resource.wheat">Blé</span> : <span id="resWheat">0/50</span></div>
   <div class="res">⛏️ <span data-i18n="resource.marble">Marbre</span> : <span id="resMarble">0/60</span></div>
   <div class="res">🏛️ <span data-i18n="resource.sculpture">Sculptures</span> : <span id="resSculpture">0/30</span></div>
@@ -50,6 +53,13 @@
       <p class="placeholder" data-i18n="inspector.placeholder">Sélectionne une maison pour voir son niveau, sa population
       et ses besoins — arrive en Phase 2 (évolution des maisons).</p>
     </div>
+
+    <div id="mythologyPanel">
+      <h2 data-i18n="panel.mythology">Mythologie</h2>
+      <div id="favorBar"><div id="favorBarFill"></div></div>
+      <div id="favorLabel">50/100</div>
+      <button id="offeringBtn" class="buildBtn" data-i18n="action.offering">🏺 Faire une offrande (-5 sculptures)</button>
+    </div>
   </div>
 
   <div id="gameArea">
@@ -71,6 +81,7 @@
 <script src="js/houses.js"></script>
 <script src="js/walkers.js"></script>
 <script src="js/market.js"></script>
+<script src="js/mythology.js"></script>
 <script src="js/loop.js"></script>
 <script src="js/render.js"></script>
 <script src="js/production.js"></script>
