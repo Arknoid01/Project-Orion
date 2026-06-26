@@ -27,11 +27,16 @@
 <div id="notification"></div>
 
 <div id="resourceBar">
+  <div class="res">💰 <span data-i18n="resource.treasury">Trésor</span> : <span id="resTreasury">0</span></div>
   <div class="res">👥 <span data-i18n="resource.population">Population</span> : <span id="resPopulation">0</span></div>
+  <div class="res">👷 <span data-i18n="resource.employment">Emploi</span> : <span id="resEmployment">0/0</span></div>
   <div class="res">⚡ <span data-i18n="resource.favor">Faveur</span> : <span id="resFavor">50/100</span></div>
   <div class="res">🌾 <span data-i18n="resource.wheat">Blé</span> : <span id="resWheat">0/50</span></div>
   <div class="res">⛏️ <span data-i18n="resource.marble">Marbre</span> : <span id="resMarble">0/60</span></div>
   <div class="res">🏛️ <span data-i18n="resource.sculpture">Sculptures</span> : <span id="resSculpture">0/30</span></div>
+  <div class="res">🛢️ <span data-i18n="resource.oil">Huile</span> : <span id="resOil">0/40</span></div>
+  <div class="res">🍷 <span data-i18n="resource.wine">Vin</span> : <span id="resWine">0/40</span></div>
+  <div class="res">🧶 <span data-i18n="resource.wool">Laine</span> : <span id="resWool">0/40</span></div>
 </div>
 
 <div id="drawerBackdrop" onclick="toggleDrawer()"></div>
@@ -51,8 +56,7 @@
 
     <div id="inspector">
       <h2 data-i18n="panel.inspector">Inspecteur</h2>
-      <p class="placeholder" data-i18n="inspector.placeholder">Sélectionne une maison pour voir son niveau, sa population
-      et ses besoins — arrive en Phase 2 (évolution des maisons).</p>
+      <p class="placeholder" data-i18n="inspector.placeholder">Clique sur une case (bâtiment, maison, route, terrain) pour voir tout son détail.</p>
     </div>
 
     <div id="mythologyPanel">
@@ -71,7 +75,7 @@
 
   <div id="gameArea">
     <div id="canvasWrap">
-      <canvas id="gameCanvas" width="900" height="560"></canvas>
+      <canvas id="gameCanvas" width="1320" height="720"></canvas>
     </div>
     <div id="infoBar" data-i18n="info.hover">Survolez une case pour voir son contenu.</div>
   </div>
@@ -87,12 +91,15 @@
 <script src="js/grid.js"></script>
 <script src="js/houses.js"></script>
 <script src="js/walkers.js"></script>
+<script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
 <script src="js/mythology.js"></script>
 <script src="js/objectives.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
 <script src="js/render.js"></script>
+<script src="js/economy.js"></script>
+<script src="js/labor.js"></script>
 <script src="js/production.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
