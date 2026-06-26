@@ -8,6 +8,10 @@
   --olive:#5d6b3a;
 }
 * { box-sizing: border-box; }
+html, body{
+  overflow-x: hidden; /* filet de sécurité : aucun élément ne peut forcer un scroll horizontal de toute la page */
+  max-width: 100vw;
+}
 body{
   margin:0;
   font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
@@ -19,6 +23,7 @@ header{
   color: var(--marble);
   padding: 14px 24px;
   display:flex;
+  flex-wrap: wrap;
   align-items:baseline;
   gap:14px;
   border-bottom: 4px solid var(--ink);
@@ -35,6 +40,7 @@ header span{
 }
 #resourceBar{
   display:flex;
+  flex-wrap: wrap;
   gap:18px;
   background: var(--parchment-dark);
   padding:10px 24px;
@@ -155,6 +161,57 @@ canvas{ display:block; cursor: pointer; }
 .houseInfo .need-ok{ color:#4a7a2e; }
 .houseInfo .need-missing{ color:#a33; }
 
+/* ===================== MYTHOLOGIE ===================== */
+#mythologyPanel{
+  background: var(--parchment-dark);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 12px;
+}
+#favorBar{
+  height: 14px;
+  background: #cfc2a0;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+#favorBarFill{
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #8c6fb5, #b08fd6);
+  transition: width 0.4s ease;
+}
+#favorBarFill.favor-high{ background: linear-gradient(90deg, #c9a227, #e8c468); }
+#favorBarFill.favor-low{ background: linear-gradient(90deg, #7a1f1f, #b53030); }
+#favorLabel{
+  font-size: 12px;
+  text-align: right;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+/* ===================== NOTIFICATION ===================== */
+#notification{
+  position: fixed;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--terracotta-dark);
+  color: var(--marble);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 2000;
+  transition: top 0.4s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+#notification.show{ top: 16px; }
+#notification.notif-good{ background: #4a7a2e; }
+#notification.notif-bad{ background: #7a1f1f; }
+
 /* ===================== DEBUG ===================== */
 #debugToggle{
   background: rgba(255,255,255,0.15);
@@ -249,6 +306,8 @@ canvas{ display:block; cursor: pointer; }
   }
 
   #gameArea{ width:100%; }
+  header{ padding: 10px 12px; gap: 8px; }
   header h1{ font-size:18px; }
   header span{ display:none; } /* sous-titre masqué pour économiser la place sur petit écran */
+  #resourceBar{ padding: 8px 12px; gap: 10px; font-size: 12px; }
 }
