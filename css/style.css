@@ -147,6 +147,13 @@ canvas{ display:block; cursor: pointer; }
   font-style: italic;
   margin:0;
 }
+.houseInfo{ font-size:13px; }
+.houseInfo p{ margin:4px 0; }
+.houseInfo .needsTitle{ font-weight:bold; margin-top:8px; font-size:12px; }
+.houseInfo .needsList{ list-style:none; margin:4px 0; padding:0; font-size:12px; }
+.houseInfo .needsList li{ padding:2px 0; }
+.houseInfo .need-ok{ color:#4a7a2e; }
+.houseInfo .need-missing{ color:#a33; }
 
 /* ===================== DEBUG ===================== */
 #debugToggle{
