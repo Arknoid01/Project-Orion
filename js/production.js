@@ -26,6 +26,7 @@ function forEachBuilding(callback){
 
 function tick(){
   DEBUG.tickCount++;
+  lastTickTimestamp = performance.now();
   const caps = computeCaps();
 
   // production simple (ferme, carrière)

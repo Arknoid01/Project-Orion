@@ -48,3 +48,13 @@ const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];
 const HOUSE_ROOF_COLORS  = ['#a8512f', '#8c3f24', '#9c6b3f', '#6f5a4a'];
 const HOUSE_TRIM_COLORS  = ['#a8472f', '#5d6b3a', '#7d6b4a'];
 const HOUSE_ROOF_SHAPES  = ['pyramid', 'dome', 'flat'];
+
+/* ===================== SPRITE DE PERSONNAGE (WALKER) ===================== */
+// Feuille LPC (Universal LPC Spritesheet) : 64x64 par frame, 4 lignes (directions),
+// 9 frames de marche utilisées par ligne (les colonnes 9-12 sont du remplissage vide).
+const WALKER_SPRITE_PATH = 'assets/characters/walk.png';
+const WALKER_FRAME_SIZE = 64;
+const WALKER_FRAMES_PER_CYCLE = 9;
+const WALKER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
+const WALKER_ANIM_FRAME_MS = 110; // ~9 frames -> un cycle complet toutes les ~990ms
+const WALKER_DISPLAY_SIZE = 40;   // taille d'affichage sur la grille (mise à l'échelle depuis 64px)

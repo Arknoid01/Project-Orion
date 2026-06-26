@@ -15,6 +15,11 @@ Object.entries(BUILDING_DEFS).forEach(([key, def]) => {
   BUILDING_SPRITES[key] = img;
 });
 
+const WALKER_SPRITE = new Image();
+WALKER_SPRITE.onload = () => debugInfo(`Sprite chargé : ${WALKER_SPRITE_PATH}`);
+WALKER_SPRITE.onerror = () => debugWarn(`Sprite introuvable : ${WALKER_SPRITE_PATH}`);
+WALKER_SPRITE.src = WALKER_SPRITE_PATH;
+
 /* ===================== PRIMITIVES DE DESSIN ===================== */
 function drawDiamond(cx, cy, fillColor, strokeColor){
   ctx.beginPath();
@@ -218,27 +223,39 @@ function drawPatrolBlock(cx, cy){
 }
 
 /* ===================== RENDU WALKERS ===================== */
-function drawWalkers(){
+function drawWalkers(now){
+  const spriteReady = WALKER_SPRITE.complete && WALKER_SPRITE.naturalWidth > 0;
+
   walkers.forEach(w => {
     if (w.path.length <= 1) return; // non connecté, rien à animer
-    const tile = w.path[w.pathIndex];
-    const { x, y } = tileCenter(tile.col, tile.row);
-    ctx.beginPath();
-    ctx.arc(x, y - 6, 7, 0, Math.PI * 2);
-    ctx.fillStyle = '#e8c468';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.font = '10px serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#3a2c1d';
-    ctx.fillText('🚶', x, y - 2);
+    const { x, y } = getWalkerScreenPos(w, now);
+
+    if (spriteReady){
+      const frame = Math.floor(now / WALKER_ANIM_FRAME_MS) % WALKER_FRAMES_PER_CYCLE;
+      const sx = frame * WALKER_FRAME_SIZE;
+      const sy = WALKER_DIRECTION_ROWS[w.facing] * WALKER_FRAME_SIZE;
+      const d = WALKER_DISPLAY_SIZE;
+      ctx.drawImage(
+        WALKER_SPRITE,
+        sx, sy, WALKER_FRAME_SIZE, WALKER_FRAME_SIZE,
+        x - d / 2, y - d + 8, d, d
+      );
+    } else {
+      // repli : petit cercle, tant que le sprite n'est pas chargé
+      ctx.beginPath();
+      ctx.arc(x, y - 6, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#e8c468';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
   });
 }
 
 /* ===================== RENDU PRINCIPAL ===================== */
-function render(){
+function render(now){
+  now = now || performance.now();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // tuiles + routes + bâtiments, triés en diagonale pour la profondeur
@@ -259,7 +276,7 @@ function render(){
     }
   }
 
-  drawWalkers();
+  drawWalkers(now);
 
   // surbrillance de la case survolée
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){

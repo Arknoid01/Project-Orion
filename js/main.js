@@ -19,3 +19,4 @@ applyStaticTranslations();
 buildPalette();
 resetGame();
 setInterval(tick, 1000);
+startRenderLoop();

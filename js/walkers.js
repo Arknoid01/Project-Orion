@@ -67,7 +67,7 @@ function recomputeAllWalkers(){
     if (!def.isService) return;
     const path = computePatrolPath(col, row, def.range);
     const servedHouses = computeServedHouses(path, def.capacity);
-    walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, direction: 1, servedHouses });
+    walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, prevPathIndex: 0, direction: 1, facing: 'down', servedHouses });
   });
   debugInfo(`Patrouilles recalculées : ${walkers.length} bâtiment(s) de service actif(s)`);
 }
@@ -75,12 +75,41 @@ function recomputeAllWalkers(){
 function advanceWalkers(){
   walkers.forEach(w => {
     if (w.path.length <= 1) return; // pas connecté à une route, ne bouge pas
+    w.prevPathIndex = w.pathIndex;
     w.pathIndex += w.direction;
     if (w.pathIndex >= w.path.length - 1){ w.pathIndex = w.path.length - 1; w.direction = -1; }
     else if (w.pathIndex <= 0){ w.pathIndex = 0; w.direction = 1; }
+
+    const from = w.path[w.prevPathIndex];
+    const to = w.path[w.pathIndex];
+    if (to.col > from.col) w.facing = 'right';
+    else if (to.col < from.col) w.facing = 'left';
+    else if (to.row > from.row) w.facing = 'down';
+    else if (to.row < from.row) w.facing = 'up';
+    // si from === to (cas limite), on garde le dernier facing connu plutôt que de le changer
   });
 }
 
 function isHouseServedBy(serviceType, col, row){
   return walkers.some(w => w.serviceType === serviceType && w.servedHouses.some(h => h.col === col && h.row === row));
+}
+
+/* ===================== POSITION ECRAN INTERPOLEE ===================== */
+// Glisse visuellement entre la case précédente et la case actuelle en fonction du temps
+// écoulé depuis le dernier tick — la simulation reste à 1 pas/seconde, seul l'affichage
+// est rafraîchi en continu (voir loop.js).
+function getWalkerScreenPos(walker, now){
+  const tile = walker.path[walker.pathIndex];
+  if (walker.path.length <= 1) return tileCenter(tile.col, tile.row);
+
+  const fromTile = walker.path[walker.prevPathIndex];
+  const elapsed = now - lastTickTimestamp;
+  const t = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
+
+  const fromPos = tileCenter(fromTile.col, fromTile.row);
+  const toPos = tileCenter(tile.col, tile.row);
+  return {
+    x: fromPos.x + (toPos.x - fromPos.x) * t,
+    y: fromPos.y + (toPos.y - fromPos.y) * t,
+  };
 }
