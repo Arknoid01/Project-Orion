@@ -147,7 +147,7 @@ function buildingInspectorHtml(type, col, row){
 
   // production simple (matière première depuis le terrain)
   if (def.produces && !def.consumes){
-    const eff = def.rate * productionMultiplier * employment.ratio;
+    const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
     html += `<p>📦 ${t('inspector.produces')} : ${resLabel(def.produces)} — ${fmtRate(eff)}${t('inspector.perTick')} (${t('inspector.baseRate')} ${def.rate})</p>`;
     if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
   }
@@ -155,7 +155,7 @@ function buildingInspectorHtml(type, col, row){
   // transformation (consomme une matière -> produit un bien)
   if (def.consumes){
     const [inRes, amt] = Object.entries(def.consumes)[0];
-    const eff = def.rate * productionMultiplier * employment.ratio;
+    const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
     html += `<p>🔄 ${t('inspector.transforms')} : ${amt} ${resLabel(inRes)} → ${fmtRate(eff)} ${resLabel(def.produces)}${t('inspector.perTick')}</p>`;
     const ok = resources[inRes] >= amt;
     html += `<p class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅ ' + t('inspector.inputOk') : '❌ ' + t('inspector.inputMissing')} (${resLabel(inRes)} : ${Math.floor(resources[inRes])})</p>`;
@@ -180,6 +180,10 @@ function buildingInspectorHtml(type, col, row){
     if (def.serviceType === 'market'){
       const goods = MARKET_GOODS.map(g => `${resLabel(g.resource)} (${Math.floor(resources[g.resource])})`).join(', ');
       html += `<p>🛒 ${t('inspector.distributes')} : ${goods}</p>`;
+    }
+    if (def.serviceType === 'tax'){
+      const estimate = served * taxCollectionRate(); // approximation : population moyenne ignorée ici
+      html += `<p>💰 ${t('government.collection')} (${t('government.thisOffice')}) ≈ ${estimate.toFixed(1)} dr.${t('inspector.perTick')}</p>`;
     }
   }
 
@@ -269,6 +273,10 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 document.getElementById('saveBtn').addEventListener('click', () => saveGame());
 
 document.getElementById('offeringBtn').addEventListener('click', () => makeOffering());
+
+document.getElementById('taxRateSlider').addEventListener('input', (e) => {
+  setTaxRate(e.target.value / 100);
+});
 
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();

@@ -42,7 +42,7 @@ function tick(){
     const def = BUILDING_DEFS[type];
     if (def.produces && !def.consumes){
       const before = resources[def.produces];
-      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier * employment.ratio);
+      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier());
       const added = resources[def.produces] - before;
       if (def.produces === 'wheat') totalWheatProduced += added;
       if (before < caps[def.produces] && resources[def.produces] >= caps[def.produces]){
@@ -58,7 +58,7 @@ function tick(){
       const [resName, amount] = Object.entries(def.consumes)[0];
       if (resources[resName] >= amount){
         resources[resName] -= amount;
-        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier * employment.ratio);
+        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier());
       }
     }
   });

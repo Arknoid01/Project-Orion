@@ -35,7 +35,11 @@ function evaluateHouses(){
     const currentDef = HOUSE_LEVELS[cell.houseLevel];
     const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
 
-    if (nextDef && needsMet(nextDef.requires, col, row)){
+    // L'évolution est désormais probabiliste (pas instantanée) : un taux d'imposition
+    // élevé ralentit la croissance de la ville (voir taxGrowthChance dans taxes.js).
+    // La dégradation, elle, reste immédiate : perdre un besoin n'est pas une question
+    // de politique fiscale.
+    if (nextDef && needsMet(nextDef.requires, col, row) && Math.random() < taxGrowthChance()){
       cell.houseLevel++;
       cell.population = HOUSE_LEVELS[cell.houseLevel].population;
       debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });

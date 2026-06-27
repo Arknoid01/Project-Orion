@@ -9,6 +9,7 @@ function resetGame(){
   blockMode = false;
   DEBUG.tickCount = 0;
   favor = 50;
+  taxRate = TAX_RATE_DEFAULT;
   productionMultiplier = 1;
   productionEffectTicksLeft = 0;
   totalWheatProduced = 0;
@@ -26,6 +27,7 @@ function refreshUI(){
   updateResourceBar();
   renderMythologyPanel();
   renderObjectivesPanel();
+  renderTaxPanel();
 }
 
 /* ===================== INIT ===================== */

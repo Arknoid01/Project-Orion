@@ -1,9 +1,10 @@
 /* ===================== ECONOMIE (DRACHMES) ===================== */
-// Trésor de la cité en drachmes. Modèle léger et passif :
-//   - les maisons paient une taxe par tick proportionnelle à leur population
+// Trésor de la cité en drachmes. Modèle léger :
+//   - les maisons DESSERVIES par un bureau des impôts (walker) paient une taxe par tick,
+//     proportionnelle à leur population ET au taux réglable par le joueur (voir taxes.js)
 //   - chaque bâtiment coûte un entretien par tick
 //   - poser un bâtiment / une route dépense son coût immédiatement
-// Pas de walker collecteur, pas de salaires par métier : tout est global.
+// Pas de salaires par métier : tout le reste est global.
 
 let treasury = STARTING_TREASURY;
 
@@ -24,9 +25,14 @@ function spend(amount){
 
 function collectTaxes(){
   let collected = 0;
-  forEachBuilding((type, col, row) => {
-    if (type === 'maison') collected += grid[row][col].population * TAX_PER_POP;
-  });
+  const perPop = taxCollectionRate();
+  walkers
+    .filter(w => w.serviceType === 'tax')
+    .forEach(w => {
+      for (const house of w.servedHouses){
+        collected += grid[house.row][house.col].population * perPop;
+      }
+    });
   treasury += collected;
   return collected;
 }

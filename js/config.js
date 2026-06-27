@@ -38,6 +38,7 @@ const BUILDING_DEFS = {
   market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:20, capacity:8, sprite:'assets/buildings/market.png', cost:120, upkeep:1 },
   temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:20, capacity:8, sprite:'assets/buildings/temple.png', cost:150, upkeep:2 },
   clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:20, capacity:8, sprite:'assets/buildings/clinic.png', cost:150, upkeep:2 },
+  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:20, capacity:8, cost:150, upkeep:2 },
   // ---- Habitation ----
   maison:    { name:'building.maison',    icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true, cost:40 },
   // ---- Décorations : diffusent du "cachet" (beauty) autour d'elles (voir beauty.js) ----
@@ -109,8 +110,24 @@ const BEAUTY_THRESHOLD = 6;
 // Tout est en drachmes. Modèle léger : taxes et entretien passifs (par tick),
 // un seul ratio d'emploi global (voir economy.js et labor.js).
 const STARTING_TREASURY = 1500;  // trésor au démarrage d'une partie
-const TAX_PER_POP = 0.25;        // drachmes prélevées par habitant logé et par tick
+const TAX_PER_POP = 0.25;        // conservé pour compatibilité (non utilisé : voir TAX_BASE_PER_POP)
 const ROAD_COST = 5;             // coût de pose d'une case de route (pas un BUILDING_DEFS)
+
+/* ===================== IMPOTS (BUREAU DES IMPOTS) ===================== */
+// Contrairement à l'ancien système (taxe globale fixe sur toute la population),
+// seules les maisons DESSERVIES par un bureau des impôts (walker, serviceType='tax')
+// paient — voir economy.js. Le taux est réglable par le joueur (panneau Gouvernement),
+// et influence trois choses :
+//   - collecte    : proportionnelle directe au taux (voir taxCollectionRate)
+//   - efficacité  : pénalise la production si le taux est haut (voir taxes.js)
+//   - croissance  : ralentit l'évolution des maisons si le taux est haut (voir houses.js)
+const TAX_BASE_PER_POP = 0.5;     // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
+const TAX_RATE_DEFAULT = 0.5;     // taux neutre au démarrage (0 = aucun impôt, 1 = maximum)
+// Courbes (linéaires) : voir taxes.js pour les fonctions qui les appliquent.
+const TAX_EFFICIENCY_AT_ZERO = 1.2;  // multiplicateur de production à taux 0 (bonus)
+const TAX_EFFICIENCY_AT_MAX  = 0.7;  // multiplicateur de production à taux 1 (pénalité)
+const TAX_GROWTH_CHANCE_AT_ZERO = 0.9;   // probabilité d'évolution d'une maison par tick, taux 0
+const TAX_GROWTH_CHANCE_AT_MAX  = 0.15;  // probabilité d'évolution d'une maison par tick, taux 1
 
 /* ===================== PALETTES MAISONS PROCEDURALES ===================== */
 const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];

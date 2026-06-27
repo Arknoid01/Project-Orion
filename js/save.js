@@ -13,6 +13,7 @@ function saveGame(opts){
     resources,
     treasury,
     favor,
+    taxRate,
     productionMultiplier,
     productionEffectTicksLeft,
     totalWheatProduced,
@@ -89,6 +90,7 @@ function loadGame(){
   );
   treasury = typeof payload.treasury === 'number' ? payload.treasury : STARTING_TREASURY;
   favor = typeof payload.favor === 'number' ? payload.favor : 50;
+  taxRate = typeof payload.taxRate === 'number' ? payload.taxRate : TAX_RATE_DEFAULT;
   productionMultiplier = payload.productionMultiplier || 1;
   productionEffectTicksLeft = payload.productionEffectTicksLeft || 0;
   totalWheatProduced = payload.totalWheatProduced || 0;
