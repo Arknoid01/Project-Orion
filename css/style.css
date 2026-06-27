@@ -459,3 +459,146 @@ canvas{ display:block; cursor: pointer; touch-action: pan-x pan-y; } /* le pince
   }
   #buildingButtons .buildBtn small{ font-size: 9px; }
 }
+
+/* ===================== BOITE DE DIALOGUE ===================== */
+#dialogOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 20, 10, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+#dialogOverlay.open{ display: flex; }
+#dialogBox{
+  background: var(--parchment);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  max-width: 420px;
+  width: 100%;
+  padding: 20px 22px;
+  animation: dialogPop 0.18s ease-out;
+}
+@keyframes dialogPop{
+  from{ transform: scale(0.92); opacity: 0; }
+  to{ transform: scale(1); opacity: 1; }
+}
+.dialogTitle{
+  margin: 0 0 10px;
+  font-size: 18px;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 8px;
+}
+.dialogBody{
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.dialogActions{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dialogBtn{
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px 14px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--parchment-dark);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  transition: filter 0.15s ease;
+}
+.dialogBtn:hover{ filter: brightness(1.06); }
+.dialogBtn:disabled{ opacity: 0.5; cursor: not-allowed; }
+.dialogBtnHint{ font-size: 11px; opacity: 0.8; }
+.dialog-primary{ background: var(--terracotta); color: var(--marble); }
+.dialog-good{ background: #4a7a2e; color: var(--marble); }
+.dialog-danger{ background: #7a1f1f; color: var(--marble); }
+.dialog-neutral{ background: var(--parchment-dark); }
+
+/* ===================== DIPLOMATIE ===================== */
+#diplomacyPanel{
+  background: var(--parchment-dark);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 12px;
+}
+.diploRow{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.diploCity{ font-size: 13px; font-weight: bold; }
+.diploStatus{ font-size: 11px; text-align: right; }
+.diploValue{ font-size: 11px; text-align: right; opacity: 0.75; }
+.diploBar{
+  grid-column: 1 / -1;
+  height: 8px;
+  background: #cfc2a0;
+  border: 1px solid var(--ink);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.diploBarFill{ height: 100%; transition: width 0.4s ease; }
+.diplo-ally{ color: #4a7a2e; }
+.diplo-neutral{ color: #8a6d2f; }
+.diplo-hostile{ color: #a33; }
+.diploBarFill.diplo-ally{ background: linear-gradient(90deg, #4a7a2e, #6fa544); }
+.diploBarFill.diplo-neutral{ background: linear-gradient(90deg, #c9a227, #e8c468); }
+.diploBarFill.diplo-hostile{ background: linear-gradient(90deg, #7a1f1f, #b53030); }
+
+/* ===================== COMMERCE EXTERIEUR ===================== */
+#tradePanel{
+  background: var(--parchment-dark);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 12px;
+}
+#tradeList .placeholder{ font-size: 12px; opacity: 0.75; margin: 4px 0; }
+.tradeInfo{ font-size: 12px; opacity: 0.85; margin: 4px 0; }
+.tradeRow{
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.tradeRow small{ opacity: 0.75; white-space: nowrap; }
+
+/* ===================== HEROS & MONSTRES ===================== */
+#creaturePanel{
+  background: var(--parchment-dark);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 12px;
+}
+#creatureList .placeholder{ font-size: 12px; opacity: 0.75; margin: 4px 0; }
+.creatureThreat{ font-size: 13px; font-weight: bold; color: #a33; margin: 2px 0; }
+.creatureCalm{ font-size: 12px; opacity: 0.85; margin: 2px 0; }
+.creatureHero{ font-size: 12px; color: #2f5aa0; margin: 2px 0; }
+.creatureCost{ font-size: 11px; opacity: 0.8; margin: 4px 0 0; }
+.monsterBar{
+  height: 10px;
+  background: #cfc2a0;
+  border: 1px solid var(--ink);
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 4px 0 8px;
+}
+.monsterBarFill{
+  height: 100%;
+  background: linear-gradient(90deg, #7a1f1f, #c33);
+  transition: width 0.3s ease;
+}

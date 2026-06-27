@@ -73,7 +73,10 @@ function tick(){
   checkDefeat();
   tickFestival();
   checkMonthChange();
+  tickDiplomacy();
+  tickCreatures();
   renderCalendarPanel();
+  renderCreaturePanel();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
   updateResourceBar(caps);
   render();

@@ -386,6 +386,41 @@ function drawWalkers(now){
   });
 }
 
+/* ===================== RENDU MONSTRE & HEROS ===================== */
+function drawAgentToken(x, y, icon, ringColor){
+  ctx.beginPath();
+  ctx.arc(x, y - 8, 13, 0, Math.PI * 2);
+  ctx.fillStyle = ringColor;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(icon, x, y - 7);
+}
+
+function drawHpBar(x, y, ratio){
+  const w = 26, h = 4;
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(x - w / 2, y - 28, w, h);
+  ctx.fillStyle = '#c33';
+  ctx.fillRect(x - w / 2, y - 28, w * Math.max(0, Math.min(1, ratio)), h);
+}
+
+function drawCreatures(now){
+  if (typeof monster !== 'undefined' && monster){
+    const { x, y } = getCreatureScreenPos(monster, now);
+    drawAgentToken(x, y, monster.icon, 'rgba(150,30,30,0.92)');
+    drawHpBar(x, y, monster.hp / MONSTER_HP);
+  }
+  if (typeof hero !== 'undefined' && hero){
+    const { x, y } = getCreatureScreenPos(hero, now);
+    drawAgentToken(x, y, '🦸', 'rgba(60,110,200,0.92)');
+  }
+}
+
 /* ===================== ICONES DE STATUT DES MAISONS ===================== */
 function drawHouseStatusIcons(cx, cy, col, row, cell){
   const icons = getHouseStatusIcons(col, row, cell);
@@ -464,6 +499,7 @@ function render(now){
   }
 
   drawWalkers(now);
+  drawCreatures(now);
 
   // surbrillance de la case survolée
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){

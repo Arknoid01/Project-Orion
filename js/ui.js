@@ -197,6 +197,13 @@ function buildingInspectorHtml(type, col, row){
     html += `<p>🎨 ${t('inspector.decoration')} — ${t('inspector.charm')} : ${def.beauty} · ${t('inspector.range')} : ${def.range}</p>`;
   }
 
+  // comptoir de commerce (exporte mensuellement)
+  if (def.isTradePost){
+    const enabled = EXPORT_GOODS.filter(g => tradeExports[g.resource]).map(g => resLabel(g.resource)).join(', ');
+    html += `<p>🚢 ${t('inspector.exports')} : ${enabled || '—'}</p>`;
+    html += `<p>📦 ${t('inspector.exportRate')} : ${EXPORT_QTY_PER_POST}${t('inspector.perMonth')}</p>`;
+  }
+
   return html;
 }
 
@@ -272,7 +279,7 @@ document.getElementById('blockBtn').addEventListener('click', () => {
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  if (confirm(t('action.confirmReset'))) resetGame();
+  showConfirm(t('action.reset'), t('action.confirmReset'), () => resetGame());
 });
 
 document.getElementById('saveBtn').addEventListener('click', () => saveGame());
@@ -359,6 +366,7 @@ canvas.addEventListener('click', (e) => {
   }
   recomputeBeauty(); // retour visuel immédiat du cachet (le tick le recalcule aussi)
   renderInspector(col, row);
+  renderTradePanel(); // le nombre de comptoirs (donc la capacité d'export) a pu changer
   render();
   updateResourceBar();
 });

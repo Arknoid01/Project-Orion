@@ -21,6 +21,9 @@ function resetGame(){
   defeatAnnounced = false;
   defeatReason = null;
   festivalTicksLeft = 0;
+  initDiplomacy();
+  initTrade();
+  resetCreatures();
   recomputeAllWalkers();
   recomputeLabor();
   debugInfo('Partie réinitialisée');
@@ -37,6 +40,9 @@ function refreshUI(){
   renderTaxPanel();
   renderCalendarPanel();
   renderFestivalPanel();
+  renderDiplomacyPanel();
+  renderTradePanel();
+  renderCreaturePanel();
 }
 
 /* ===================== INIT ===================== */

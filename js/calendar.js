@@ -27,6 +27,7 @@ function checkMonthChange(){
     const icon = SEASON_ICONS[state.season];
     showNotification(t('calendar.monthChange', { icon, month: t('calendar.month.' + state.month) }), 'good');
     debugInfo('Changement de mois', { month: state.month, year: state.year });
+    if (typeof processForeignTrade === 'function') processForeignTrade(); // ventes mensuelles à l'export
   }
 }
 

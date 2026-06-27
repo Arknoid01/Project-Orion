@@ -26,6 +26,10 @@
 
 <div id="notification"></div>
 
+<div id="dialogOverlay" onclick="onDialogBackdrop(event)">
+  <div id="dialogBox" role="dialog" aria-modal="true"></div>
+</div>
+
 <div id="resourceBar">
   <div class="res">💰 <span data-i18n="resource.treasury">Trésor</span> : <span id="resTreasury">0</span></div>
   <div class="res">👥 <span data-i18n="resource.population">Population</span> : <span id="resPopulation">0</span></div>
@@ -69,6 +73,21 @@
       <div id="festivalStatus"></div>
     </div>
 
+    <div id="diplomacyPanel">
+      <h2 data-i18n="panel.diplomacy">Diplomatie</h2>
+      <div id="diplomacyList"></div>
+    </div>
+
+    <div id="tradePanel">
+      <h2 data-i18n="panel.trade">Commerce extérieur</h2>
+      <div id="tradeList"></div>
+    </div>
+
+    <div id="creaturePanel">
+      <h2 data-i18n="panel.creatures">Héros &amp; Monstres</h2>
+      <div id="creatureList"></div>
+    </div>
+
     <div id="governmentPanel">
       <h2 data-i18n="panel.government">Gouvernement</h2>
       <label for="taxRateSlider" data-i18n="government.taxRate">Taux d'imposition</label>
@@ -104,6 +123,7 @@
 <!-- debug.js et i18n.js en premier : doivent être disponibles partout ailleurs -->
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/dialog.js"></script>
 <script src="js/config.js"></script>
 <script src="js/procgen.js"></script>
 <script src="js/grid.js"></script>
@@ -117,6 +137,9 @@
 <script src="js/defeat.js"></script>
 <script src="js/festivals.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/diplomacy.js"></script>
+<script src="js/trade.js"></script>
+<script src="js/creatures.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
 <script src="js/render.js"></script>

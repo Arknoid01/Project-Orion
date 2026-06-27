@@ -22,6 +22,10 @@ function saveGame(opts){
     defeatAnnounced,
     defeatReason,
     festivalTicksLeft,
+    diplomacy,
+    tradeExports,
+    monster,
+    hero,
     tickCount: DEBUG.tickCount,
     lang: currentLang,
   };
@@ -103,6 +107,12 @@ function loadGame(){
   defeatAnnounced = !!payload.defeatAnnounced;
   defeatReason = payload.defeatReason || null;
   festivalTicksLeft = payload.festivalTicksLeft || 0;
+  if (payload.diplomacy) diplomacy = payload.diplomacy;
+  ensureDiplomacyState(); // complète une sauvegarde antérieure à la diplomatie
+  if (payload.tradeExports) tradeExports = payload.tradeExports;
+  ensureTradeState(); // complète une sauvegarde antérieure au commerce extérieur
+  monster = payload.monster || null; // créatures transitoires : null par défaut
+  hero = payload.hero || null;
   DEBUG.tickCount = payload.tickCount || 0;
   if (payload.lang) currentLang = payload.lang;
 

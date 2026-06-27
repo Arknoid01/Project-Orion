@@ -46,6 +46,13 @@ const BUILDING_DEFS = {
   // ---- Stockage ----
   granary:   { name:'building.granary',   icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150}, sprite:'assets/buildings/granary.png', cost:80, upkeep:1 },
   warehouse: { name:'building.warehouse', icon:'📦', color:'#9c7b4a', validTerrain:'grass',  storageBonus:{olives:80, oil:100, grapes:80, wine:100, wool:100}, sprite:'assets/buildings/warehouse.png', cost:100, upkeep:1 },
+  // ---- Commerce extérieur ----
+  // Exporte chaque mois les marchandises sélectionnées (voir trade.js). Plusieurs
+  // comptoirs cumulent leur débit d'export.
+  tradingPost:{ name:'building.tradingPost', icon:'⚖️', color:'#b08d57', validTerrain:'grass', isTradePost:true, cost:250, upkeep:2, workers:4 },
+  // ---- Défense mythologique ----
+  // Permet d'invoquer un héros quand un monstre menace la cité (voir creatures.js).
+  heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:300, upkeep:3 },
   // ---- Services à walker (desservent les maisons à portée) ----
   fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:20, capacity:8, sprite:'assets/buildings/fountain.png', cost:80,  upkeep:1 },
   market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:20, capacity:8, sprite:'assets/buildings/market.png', cost:120, upkeep:1 },
@@ -70,6 +77,20 @@ const MARKET_GOODS = [
   { need:'wine', resource:'wine',  perHouse:1 },
   { need:'wool', resource:'wool',  perHouse:1 },
 ];
+
+/* ===================== COMMERCE EXTERIEUR ===================== */
+// Biens exportables et leur prix de vente unitaire (drachmes). Une fois par mois,
+// chaque comptoir de commerce vend jusqu'à EXPORT_QTY_PER_POST unités de CHAQUE bien
+// activé par le joueur (dans la limite du stock disponible). Voir trade.js.
+const EXPORT_GOODS = [
+  { resource:'wheat',     price:3 },
+  { resource:'oil',       price:9 },
+  { resource:'wine',      price:12 },
+  { resource:'wool',      price:8 },
+  { resource:'marble',    price:6 },
+  { resource:'sculpture', price:28 },
+];
+const EXPORT_QTY_PER_POST = 20; // unités vendues par bien activé, par comptoir, par mois
 
 // Couleurs de repli, utilisées tant que le sprite de terrain n'est pas chargé.
 const TERRAIN_COLORS = {
@@ -252,3 +273,97 @@ const MONTHS = [
 ];
 
 const SEASON_ICONS = { summer:'☀️', autumn:'🍂', winter:'❄️', spring:'🌸' };
+
+/* ===================== DIPLOMATIE ===================== */
+// Cités-États voisines avec lesquelles Olympos entretient une relation (0-100).
+// Un événement périodique propose un choix au joueur (voir diplomacy.js) dont les
+// conséquences modifient trésor / ressources / faveur ET la relation avec la cité.
+const DIPLO_CITIES = [
+  { key: 'sparta',  icon: '🛡️' },
+  { key: 'corinth', icon: '⚓' },
+  { key: 'thebes',  icon: '🦅' },
+];
+
+const DIPLO_RELATION_START = 50;   // relation de départ avec chaque cité
+const DIPLO_RELATION_MIN = 0;
+const DIPLO_RELATION_MAX = 100;
+const DIPLO_EVENT_INTERVAL_DAYS = 12; // un événement tous les ~12 jours de jeu
+const DIPLO_FIRST_EVENT_DAY = 8;      // pas d'événement avant ce jour (laisse démarrer)
+
+// Seuils de qualification d'une relation (libellé + couleur dans le panneau).
+const DIPLO_ALLY_THRESHOLD = 66;
+const DIPLO_HOSTILE_THRESHOLD = 34;
+
+// Table d'événements. Pour chaque événement :
+//   minRel/maxRel : plage de relation de la cité où l'événement peut se produire
+//   weight        : poids du tirage aléatoire parmi les événements éligibles
+//   vars          : valeurs injectées dans les textes i18n (titre/corps/résultat)
+//   choices[]     : { key, type, requires?, effects, result, resultType }
+//     requires : conditions pour activer le bouton ({ treasury, resources:{} })
+//     effects  : deltas appliqués au choix ({ treasury, favor, relation, resources:{} })
+//     result   : suffixe de clé i18n 'diplomacy.result.<result>' (notification)
+const DIPLO_EVENTS = [
+  {
+    key: 'gift', minRel: 55, maxRel: 100, weight: 3,
+    vars: { amount: 150 },
+    choices: [
+      { key: 'accept', type: 'good',    effects: { treasury: 150, relation: 4 },  result: 'giftAccepted',  resultType: 'good' },
+      { key: 'decline', type: 'neutral', effects: { relation: 10 },                result: 'giftDeclined',  resultType: 'good' },
+    ],
+  },
+  {
+    key: 'alliance', minRel: 60, maxRel: 100, weight: 2,
+    vars: { qty: 12, res: 'wine' },
+    choices: [
+      { key: 'accept', type: 'primary', requires: { resources: { wine: 12 } }, effects: { resources: { wine: -12 }, relation: 18, favor: 5 }, result: 'allianceSealed', resultType: 'good' },
+      { key: 'decline', type: 'neutral', effects: { relation: -8 }, result: 'allianceDeclined', resultType: 'bad' },
+    ],
+  },
+  {
+    key: 'tradeDeal', minRel: 0, maxRel: 100, weight: 3,
+    vars: { qty: 15, res: 'marble', gold: 280 },
+    choices: [
+      { key: 'accept', type: 'good', requires: { resources: { marble: 15 } }, effects: { resources: { marble: -15 }, treasury: 280, relation: 6 }, result: 'tradeAccepted', resultType: 'good' },
+      { key: 'decline', type: 'neutral', effects: { relation: -3 }, result: 'tradeDeclined', resultType: 'bad' },
+    ],
+  },
+  {
+    key: 'tribute', minRel: 0, maxRel: 60, weight: 3,
+    vars: { amount: 220 },
+    choices: [
+      { key: 'pay', type: 'primary', requires: { treasury: 220 }, effects: { treasury: -220, relation: 12 }, result: 'tributePaid', resultType: 'good' },
+      { key: 'refuse', type: 'danger', effects: { relation: -15 }, result: 'tributeRefused', resultType: 'bad' },
+    ],
+  },
+  {
+    key: 'raidThreat', minRel: 0, maxRel: 38, weight: 2,
+    vars: { amount: 160, loss: 320 },
+    choices: [
+      { key: 'pay', type: 'primary', requires: { treasury: 160 }, effects: { treasury: -160, relation: 10 }, result: 'raidAppeased', resultType: 'good' },
+      { key: 'refuse', type: 'danger', effects: { treasury: -320, relation: -8, resources: { wheat: -15 } }, result: 'raidHappened', resultType: 'bad' },
+    ],
+  },
+];
+
+/* ===================== MONSTRES & HEROS ===================== */
+// Un monstre apparaît aléatoirement, erre dans la cité et peut détruire un bâtiment
+// ou mettre le feu à une maison. Le joueur construit un temple des héros puis, en
+// payant les ressources requises, invoque un héros qui rejoint le monstre (vrai
+// déplacement point-à-point avec recalcul de chemin) et le tue. Voir creatures.js.
+const MONSTER_TYPES = [
+  { key: 'medusa',   icon: '🐍' },
+  { key: 'hydra',    icon: '🐉' },
+  { key: 'minotaur', icon: '🐂' },
+  { key: 'cyclops',  icon: '👁️' },
+  { key: 'cerberus', icon: '🐺' },
+];
+
+const MONSTER_HP = 6;                 // dégâts du héros nécessaires pour le tuer
+const MONSTER_MOVE_EVERY_TICKS = 2;   // se déplace d'une case tous les 2 ticks (lent)
+const MONSTER_ATTACK_CHANCE = 0.18;   // probabilité de méfait à chaque déplacement
+const MONSTER_SPAWN_CHANCE = 0.004;   // ~1 apparition toutes les ~4 min tant qu'aucun monstre
+const MONSTER_MIN_DAY = 6;            // pas d'apparition avant ce jour de jeu
+
+const HERO_MOVE_EVERY_TICKS = 1;      // plus rapide que le monstre, pour le rattraper
+const HERO_DAMAGE = 2;                // dégâts infligés par tick au contact
+const HERO_SUMMON_COST = { sculpture: 8, oil: 10, wine: 10 };
