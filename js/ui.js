@@ -1,9 +1,15 @@
 /* ===================== NOTIFICATIONS ===================== */
 // Bannière temporaire pour les événements visibles par le joueur (bénédictions,
 // catastrophes...). Générique, réutilisable par n'importe quel futur système.
+// Défensif : si l'interface actuelle n'a pas (encore) cet élément, on ne plante
+// jamais -- on logue juste en debug et on continue (voir le brief de migration UI).
 let notificationTimer = null;
 function showNotification(message, type){
   const el = document.getElementById('notification');
+  if (!el){
+    if (typeof debugInfo === 'function') debugInfo('[notification ignorée, élément absent]', { message });
+    return;
+  }
   el.textContent = message;
   el.className = `show notif-${type || 'info'}`;
   clearTimeout(notificationTimer);
@@ -12,15 +18,19 @@ function showNotification(message, type){
 
 /* ===================== TIROIR MOBILE ===================== */
 function toggleDrawer(){
-  document.getElementById('sideDrawer').classList.toggle('open');
-  document.getElementById('drawerBackdrop').classList.toggle('open');
+  const drawer = document.getElementById('sideDrawer');
+  const backdrop = document.getElementById('drawerBackdrop');
+  if (drawer) drawer.classList.toggle('open');
+  if (backdrop) backdrop.classList.toggle('open');
 }
 
 function closeDrawerIfMobile(){
   // ne ferme que si le tiroir est en mode "overlay" (mobile) ; inoffensif sur desktop
   if (window.innerWidth <= 860){
-    document.getElementById('sideDrawer').classList.remove('open');
-    document.getElementById('drawerBackdrop').classList.remove('open');
+    const drawer = document.getElementById('sideDrawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+    if (drawer) drawer.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
   }
 }
 
@@ -65,9 +75,87 @@ function canToggleBlock(col, row){
   return grid[row][col].hasRoad === true;
 }
 
+/* ===================== SELECTION (boutons + callGameAction de la nouvelle UI) ===================== */
+// Fonctions canoniques, appelables des DEUX interfaces : les boutons de l'ancienne
+// (#roadBtn etc.) ET les cartes de la nouvelle (via callGameAction('selectRoadMode')
+// etc., déjà présent dans son HTML). Une seule logique, pas de duplication.
+function selectBuilding(key){
+  if (!BUILDING_DEFS[key]){
+    showNotification(t('action.notYetAvailable'), 'bad'); // ex: 'barracks' (Guerre, pas encore construit)
+    return;
+  }
+  demolishMode = false;
+  roadMode = false;
+  blockMode = false;
+  selectedBuilding = (selectedBuilding === key) ? null : key;
+  refreshButtonStates();
+  render();
+  closeDrawerIfMobile();
+  updateSelectedBuildPill();
+}
+
+function selectRoadMode(){
+  selectedBuilding = null;
+  demolishMode = false;
+  blockMode = false;
+  roadMode = !roadMode;
+  refreshButtonStates();
+  render();
+  closeDrawerIfMobile();
+  updateSelectedBuildPill();
+}
+
+function selectBlockMode(){
+  selectedBuilding = null;
+  demolishMode = false;
+  roadMode = false;
+  blockMode = !blockMode;
+  refreshButtonStates();
+  render();
+  closeDrawerIfMobile();
+  updateSelectedBuildPill();
+}
+
+function selectDemolishMode(){
+  selectedBuilding = null;
+  roadMode = false;
+  blockMode = false;
+  demolishMode = !demolishMode;
+  refreshButtonStates();
+  render();
+  closeDrawerIfMobile();
+  updateSelectedBuildPill();
+}
+
+// Pastille "sélection actuelle" de la nouvelle interface (#selectedBuildPill).
+// Inoffensif si absent (ancienne interface).
+function updateSelectedBuildPill(){
+  const pill = document.getElementById('selectedBuildPill');
+  const nameEl = document.getElementById('selectedBuildName');
+  if (!pill || !nameEl) return;
+  if (selectedBuilding){
+    nameEl.textContent = t(BUILDING_DEFS[selectedBuilding].name);
+    pill.classList.add('show');
+  } else if (roadMode){
+    nameEl.textContent = t('action.road');
+    pill.classList.add('show');
+  } else if (blockMode){
+    nameEl.textContent = t('action.block');
+    pill.classList.add('show');
+  } else if (demolishMode){
+    nameEl.textContent = t('action.demolish');
+    pill.classList.add('show');
+  } else {
+    pill.classList.remove('show');
+  }
+}
+
 /* ===================== PALETTE DE BATIMENTS ===================== */
+// Défensif : sur une interface qui n'a pas encore de #buildingButtons (migration UI
+// en cours), on ne construit juste pas la palette -- pas de crash.
 function buildPalette(){
   const container = document.getElementById('buildingButtons');
+  if (!container) return;
   Object.entries(BUILDING_DEFS).forEach(([key, def]) => {
     const btn = document.createElement('button');
     btn.className = 'buildBtn';
@@ -76,15 +164,7 @@ function buildPalette(){
     const costLabel = t('economy.cost', { n: def.cost });
     btn.innerHTML = `<span class="swatch" style="background:${def.color}"></span>
       <span>${def.icon} ${t(def.name)}<small>${reqLabel} · ${costLabel}</small></span>`;
-    btn.addEventListener('click', () => {
-      demolishMode = false;
-      roadMode = false;
-      blockMode = false;
-      selectedBuilding = (selectedBuilding === key) ? null : key;
-      refreshButtonStates();
-      render();
-      closeDrawerIfMobile();
-    });
+    btn.addEventListener('click', () => selectBuilding(key));
     container.appendChild(btn);
   });
 }
@@ -93,9 +173,12 @@ function refreshButtonStates(){
   document.querySelectorAll('.buildBtn[data-key]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.key === selectedBuilding);
   });
-  document.getElementById('demolishBtn').classList.toggle('active', demolishMode);
-  document.getElementById('roadBtn').classList.toggle('active', roadMode);
-  document.getElementById('blockBtn').classList.toggle('active', blockMode);
+  const demolishBtn = document.getElementById('demolishBtn');
+  const roadBtn = document.getElementById('roadBtn');
+  const blockBtn = document.getElementById('blockBtn');
+  if (demolishBtn) demolishBtn.classList.toggle('active', demolishMode);
+  if (roadBtn) roadBtn.classList.toggle('active', roadMode);
+  if (blockBtn) blockBtn.classList.toggle('active', blockMode);
 }
 
 // Grise les actions dont le coût dépasse le trésor (rafraîchi à chaque tick).
@@ -197,11 +280,13 @@ function buildingInspectorHtml(type, col, row){
     html += `<p>🎨 ${t('inspector.decoration')} — ${t('inspector.charm')} : ${def.beauty} · ${t('inspector.range')} : ${def.range}</p>`;
   }
 
-  // comptoir de commerce (exporte mensuellement)
+  // comptoir de commerce (exporte/importe mensuellement)
   if (def.isTradePost){
-    const enabled = EXPORT_GOODS.filter(g => tradeExports[g.resource]).map(g => resLabel(g.resource)).join(', ');
-    html += `<p>🚢 ${t('inspector.exports')} : ${enabled || '—'}</p>`;
+    const exp = EXPORT_GOODS.filter(g => tradeExports[g.resource]).map(g => resLabel(g.resource)).join(', ');
+    const imp = IMPORT_GOODS.filter(g => tradeImports[g.resource]).map(g => resLabel(g.resource)).join(', ');
+    html += `<p>🚢 ${t('inspector.exports')} : ${exp || '—'}</p>`;
     html += `<p>📦 ${t('inspector.exportRate')} : ${EXPORT_QTY_PER_POST}${t('inspector.perMonth')}</p>`;
+    html += `<p>🛬 ${t('trade.importSection')} : ${imp || '—'}</p>`;
   }
 
   return html;
@@ -216,20 +301,24 @@ function tileInspectorHtml(cell){
   return html;
 }
 
+// Défensif : sur une interface sans #inspector (migration UI en cours), on calcule
+// quand même inspectedTile (d'autres systèmes en dépendent) mais on n'écrit rien au DOM.
 function renderInspector(col, row){
   inspectedTile = inBounds(col, row) ? { col, row } : null;
 
   const panel = document.getElementById('inspector');
+  if (!panel) return;
+
   const placeholder = panel.querySelector('.placeholder');
   let info = panel.querySelector('.houseInfo');
 
   if (!inspectedTile){
-    placeholder.style.display = '';
+    if (placeholder) placeholder.style.display = '';
     if (info) info.style.display = 'none';
     return;
   }
 
-  placeholder.style.display = 'none';
+  if (placeholder) placeholder.style.display = 'none';
   if (!info){
     info = document.createElement('div');
     info.className = 'houseInfo';
@@ -248,52 +337,40 @@ function renderInspector(col, row){
 }
 
 /* ===================== EVENEMENTS ===================== */
-document.getElementById('demolishBtn').addEventListener('click', () => {
-  selectedBuilding = null;
-  roadMode = false;
-  blockMode = false;
-  demolishMode = !demolishMode;
-  refreshButtonStates();
-  render();
-  closeDrawerIfMobile();
+// Petit utilitaire : attache un listener seulement si l'élément existe dans
+// l'interface actuelle -- aucune de ces lignes ne doit jamais faire planter le
+// reste du fichier, qui que ce soit la page HTML chargée autour (voir le brief
+// de migration UI : plusieurs interfaces peuvent coexister pendant la transition).
+function on(id, event, handler){
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
+on('demolishBtn', 'click', () => selectDemolishMode());
+on('roadBtn', 'click', () => selectRoadMode());
+on('blockBtn', 'click', () => selectBlockMode());
+
+on('resetBtn', 'click', () => {
+  if (typeof showConfirm === 'function'){
+    showConfirm(t('action.reset'), t('action.confirmReset'), () => resetGame());
+  } else if (confirm(t('action.confirmReset'))){
+    resetGame();
+  }
 });
 
-document.getElementById('roadBtn').addEventListener('click', () => {
-  selectedBuilding = null;
-  demolishMode = false;
-  blockMode = false;
-  roadMode = !roadMode;
-  refreshButtonStates();
-  render();
-  closeDrawerIfMobile();
-});
+on('saveBtn', 'click', () => saveGame());
+on('offeringBtn', 'click', () => makeOffering());
+on('festivalBtn', 'click', () => holdFestival());
 
-document.getElementById('blockBtn').addEventListener('click', () => {
-  selectedBuilding = null;
-  demolishMode = false;
-  roadMode = false;
-  blockMode = !blockMode;
-  refreshButtonStates();
-  render();
-  closeDrawerIfMobile();
-});
-
-document.getElementById('resetBtn').addEventListener('click', () => {
-  showConfirm(t('action.reset'), t('action.confirmReset'), () => resetGame());
-});
-
-document.getElementById('saveBtn').addEventListener('click', () => saveGame());
-
-document.getElementById('offeringBtn').addEventListener('click', () => makeOffering());
-document.getElementById('festivalBtn').addEventListener('click', () => holdFestival());
-
-document.getElementById('taxRateSlider').addEventListener('input', (e) => {
+on('taxRateSlider', 'input', (e) => {
   setTaxRate(e.target.value / 100);
 });
 
-document.getElementById('zoomInBtn').addEventListener('click', () => zoomIn());
-document.getElementById('zoomOutBtn').addEventListener('click', () => zoomOut());
+on('zoomInBtn', 'click', () => zoomIn());
+on('zoomOutBtn', 'click', () => zoomOut());
 
+// canvas existe toujours (render.js le crée avant ui.js dans l'ordre de chargement),
+// donc pas besoin de garde ici -- mais infoBar (à l'intérieur du handler) si.
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) / zoomLevel;
@@ -302,15 +379,17 @@ canvas.addEventListener('mousemove', (e) => {
   hoverTile = { col, row };
 
   const info = document.getElementById('infoBar');
-  if (inBounds(col, row)){
-    const cell = grid[row][col];
-    const buildingLabel = cell.building ? t(BUILDING_DEFS[cell.building].name) : t('info.empty');
-    let text = t('info.tile', { col, row, terrain: t('terrainName.' + cell.terrain), building: buildingLabel });
-    if (cell.hasRoad) text += ` — ${t('info.hasRoad')}`;
-    if (cell.beauty) text += ` — ${t('info.beauty', { n: Math.round(cell.beauty) })}`;
-    info.textContent = text;
-  } else {
-    info.textContent = t('info.hover');
+  if (info){
+    if (inBounds(col, row)){
+      const cell = grid[row][col];
+      const buildingLabel = cell.building ? t(BUILDING_DEFS[cell.building].name) : t('info.empty');
+      let text = t('info.tile', { col, row, terrain: t('terrainName.' + cell.terrain), building: buildingLabel });
+      if (cell.hasRoad) text += ` — ${t('info.hasRoad')}`;
+      if (cell.beauty) text += ` — ${t('info.beauty', { n: Math.round(cell.beauty) })}`;
+      info.textContent = text;
+    } else {
+      info.textContent = t('info.hover');
+    }
   }
   render();
 });
@@ -363,10 +442,14 @@ canvas.addEventListener('click', (e) => {
       }
       recomputeAllWalkers();
     }
+  } else if (!demolishMode && !roadMode && !blockMode && !selectedBuilding){
+    // Aucun mode actif : on inspecte la case (ouvre l'observateur dans la nouvelle UI).
+    if (typeof openTileObserver === 'function') openTileObserver(col, row);
   }
   recomputeBeauty(); // retour visuel immédiat du cachet (le tick le recalcule aussi)
   renderInspector(col, row);
   renderTradePanel(); // le nombre de comptoirs (donc la capacité d'export) a pu changer
   render();
   updateResourceBar();
+  if (typeof renderHud === 'function') renderHud();
 });

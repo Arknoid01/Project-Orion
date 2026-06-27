@@ -24,6 +24,7 @@ function saveGame(opts){
     festivalTicksLeft,
     diplomacy,
     tradeExports,
+    tradeImports,
     monster,
     hero,
     tickCount: DEBUG.tickCount,
@@ -110,6 +111,7 @@ function loadGame(){
   if (payload.diplomacy) diplomacy = payload.diplomacy;
   ensureDiplomacyState(); // complète une sauvegarde antérieure à la diplomatie
   if (payload.tradeExports) tradeExports = payload.tradeExports;
+  if (payload.tradeImports) tradeImports = payload.tradeImports;
   ensureTradeState(); // complète une sauvegarde antérieure au commerce extérieur
   monster = payload.monster || null; // créatures transitoires : null par défaut
   hero = payload.hero || null;

@@ -30,6 +30,7 @@ function setZoom(value, anchorScreenX, anchorScreenY){
   if (newZoom === oldZoom) return;
 
   const wrap = document.getElementById('canvasWrap');
+  if (!wrap) { zoomLevel = newZoom; applyCanvasResolution(); render(); return; } // repli minimal, sans ancrage
   const wrapRect = wrap.getBoundingClientRect();
   if (anchorScreenX === undefined) anchorScreenX = wrapRect.left + wrapRect.width / 2;
   if (anchorScreenY === undefined) anchorScreenY = wrapRect.top + wrapRect.height / 2;

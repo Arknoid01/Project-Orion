@@ -31,6 +31,7 @@ const STRINGS = {
     'action.confirmReset': 'Réinitialiser la carte ? Ta sauvegarde actuelle sera définitivement perdue.',
     'action.road': '🛣️ Route',
     'action.block': '🚧 Borne de blocage',
+    'action.notYetAvailable': '⏳ Pas encore disponible dans cette version',
     'info.hasRoad': 'route',
     'terrainReq.wheat': 'sur blé',
     'terrainReq.marble': 'sur marbre',
@@ -210,6 +211,10 @@ const STRINGS = {
     'trade.inStock': 'stock {n}',
     'trade.nextSale': 'Prochaine vente estimée : +{gold} dr.',
     'trade.income': '🚢 Exportations : +{gold} drachmes',
+    'trade.exportSection': 'Exporter',
+    'trade.importSection': 'Importer',
+    'trade.nextPurchase': 'Prochain achat estimé : -{gold} dr.',
+    'trade.expense': '🚢 Importations : -{gold} drachmes',
     'panel.creatures': 'Héros & Monstres',
     'creature.noMonster': '🕊️ Aucune menace : la cité est paisible.',
     'monster.appeared': '👹 Un monstre, {monster}, est apparu dans la cité !',
@@ -257,6 +262,7 @@ const STRINGS = {
     'action.confirmReset': 'Reset the map? Your current save will be permanently lost.',
     'action.road': '🛣️ Road',
     'action.block': '🚧 Block marker',
+    'action.notYetAvailable': '⏳ Not available yet in this version',
     'info.hasRoad': 'road',
     'terrainReq.wheat': 'on wheat',
     'terrainReq.marble': 'on marble',
@@ -436,6 +442,10 @@ const STRINGS = {
     'trade.inStock': 'stock {n}',
     'trade.nextSale': 'Estimated next sale: +{gold} dr.',
     'trade.income': '🚢 Exports: +{gold} drachmas',
+    'trade.exportSection': 'Export',
+    'trade.importSection': 'Import',
+    'trade.nextPurchase': 'Estimated next purchase: -{gold} dr.',
+    'trade.expense': '🚢 Imports: -{gold} drachmas',
     'panel.creatures': 'Heroes & Monsters',
     'creature.noMonster': '🕊️ No threat: the city is at peace.',
     'monster.appeared': '👹 A monster, {monster}, has appeared in the city!',
@@ -487,9 +497,10 @@ function setLanguage(lang){
   applyStaticTranslations();
   // re-génère la palette et la barre de ressources avec les nouveaux libellés
   if (typeof buildPalette === 'function'){
-    document.getElementById('buildingButtons').innerHTML = '';
+    const container = document.getElementById('buildingButtons');
+    if (container) container.innerHTML = '';
     buildPalette();
-    refreshButtonStates();
+    if (typeof refreshButtonStates === 'function') refreshButtonStates();
   }
   if (typeof updateResourceBar === 'function') updateResourceBar();
 }

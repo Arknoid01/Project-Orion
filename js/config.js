@@ -92,6 +92,21 @@ const EXPORT_GOODS = [
 ];
 const EXPORT_QTY_PER_POST = 20; // unités vendues par bien activé, par comptoir, par mois
 
+// Biens importables et leur prix d'achat unitaire -- volontairement plus cher que le
+// prix de vente du même bien (écart réaliste, évite aussi l'aller-retour export/import
+// pour faire du profit sans rien produire). Pensé pour compenser une ressource qu'on ne
+// produit pas encore, pas comme méthode d'acquisition principale -> capacité plus faible
+// que l'export (IMPORT_QTY_PER_POST < EXPORT_QTY_PER_POST).
+const IMPORT_GOODS = [
+  { resource:'wheat',     price:5 },
+  { resource:'oil',       price:14 },
+  { resource:'wine',      price:18 },
+  { resource:'wool',      price:13 },
+  { resource:'marble',    price:10 },
+  { resource:'sculpture', price:42 },
+];
+const IMPORT_QTY_PER_POST = 15; // unités achetées par bien activé, par comptoir, par mois
+
 // Couleurs de repli, utilisées tant que le sprite de terrain n'est pas chargé.
 const TERRAIN_COLORS = {
   grass:  '#7ea24c',

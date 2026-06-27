@@ -35,6 +35,7 @@ function refreshUI(){
   refreshButtonStates();
   render();
   updateResourceBar();
+  if (typeof renderHud === 'function') renderHud();
   renderMythologyPanel();
   renderObjectivesPanel();
   renderTaxPanel();

@@ -79,21 +79,30 @@ function tick(){
   renderCreaturePanel();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
   updateResourceBar(caps);
+  if (typeof renderHud === 'function') renderHud();
   render();
+}
+
+// Défensif : écrit dans chaque pastille seulement si elle existe dans l'interface
+// actuelle -- pendant la migration UI, certaines (ou toutes) peuvent ne pas encore
+// exister sans que ça doive jamais interrompre le tick.
+function setText(id, value){
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function updateResourceBar(caps){
   caps = caps || computeCaps();
-  document.getElementById('resWheat').textContent = `${Math.floor(resources.wheat)}/${caps.wheat}`;
-  document.getElementById('resMarble').textContent = `${Math.floor(resources.marble)}/${caps.marble}`;
-  document.getElementById('resSculpture').textContent = `${Math.floor(resources.sculpture)}/${caps.sculpture}`;
-  document.getElementById('resOil').textContent = `${Math.floor(resources.oil)}/${caps.oil}`;
-  document.getElementById('resWine').textContent = `${Math.floor(resources.wine)}/${caps.wine}`;
-  document.getElementById('resWool').textContent = `${Math.floor(resources.wool)}/${caps.wool}`;
-  document.getElementById('resPopulation').textContent = computeTotalPopulation();
-  document.getElementById('resFavor').textContent = `${Math.round(favor)}/${FAVOR_MAX}`;
-  document.getElementById('resTreasury').textContent = Math.floor(treasury);
+  setText('resWheat', `${Math.floor(resources.wheat)}/${caps.wheat}`);
+  setText('resMarble', `${Math.floor(resources.marble)}/${caps.marble}`);
+  setText('resSculpture', `${Math.floor(resources.sculpture)}/${caps.sculpture}`);
+  setText('resOil', `${Math.floor(resources.oil)}/${caps.oil}`);
+  setText('resWine', `${Math.floor(resources.wine)}/${caps.wine}`);
+  setText('resWool', `${Math.floor(resources.wool)}/${caps.wool}`);
+  setText('resPopulation', computeTotalPopulation());
+  setText('resFavor', `${Math.round(favor)}/${FAVOR_MAX}`);
+  setText('resTreasury', Math.floor(treasury));
   // emploi : main-d'œuvre disponible (population) / postes à pourvoir (industrie)
-  document.getElementById('resEmployment').textContent = `${employment.supply}/${employment.demand}`;
+  setText('resEmployment', `${employment.supply}/${employment.demand}`);
   refreshAffordability();
 }
