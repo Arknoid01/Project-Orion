@@ -65,6 +65,8 @@
       <div id="favorBar"><div id="favorBarFill"></div></div>
       <div id="favorLabel">50/100</div>
       <button id="offeringBtn" class="buildBtn" data-i18n="action.offering">🏺 Faire une offrande (-5 sculptures)</button>
+      <button id="festivalBtn" class="buildBtn" data-i18n="action.festival">🎉 Organiser un festival (-10 vin, -5 sculptures)</button>
+      <div id="festivalStatus"></div>
     </div>
 
     <div id="governmentPanel">
@@ -80,6 +82,7 @@
     <div id="objectivesPanel">
       <h2 data-i18n="panel.objectives">Objectifs</h2>
       <div id="victoryBanner" data-i18n="objective.victory" style="display:none;"></div>
+      <div id="defeatBanner" style="display:none;"></div>
       <ul id="objectivesList"></ul>
     </div>
   </div>
@@ -111,6 +114,8 @@
 <script src="js/market.js"></script>
 <script src="js/mythology.js"></script>
 <script src="js/objectives.js"></script>
+<script src="js/defeat.js"></script>
+<script src="js/festivals.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
