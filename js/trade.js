@@ -1,35 +1,33 @@
-/* ===================== COMMERCE EXTERIEUR ===================== */
-// Le joueur construit un (ou plusieurs) comptoir(s) de commerce, puis active dans le
-// panneau "Commerce extérieur" les marchandises qu'il veut exporter OU importer (un
-// bien ne peut pas être les deux à la fois sur le même comptoir -- activer l'un
-// désactive l'autre, voir toggleExport/toggleImport). Une fois par mois (déclenché par
-// calendar.js sur changement de mois) :
-//   - export : vend jusqu'à EXPORT_QTY_PER_POST unités de chaque bien activé, dans la
-//     limite du stock disponible, crédite le trésor
-//   - import : achète jusqu'à IMPORT_QTY_PER_POST unités de chaque bien activé, dans la
-//     limite de la place de stockage ET du trésor disponible, débite le trésor
-// L'export est traité EN PREMIER : les recettes du mois peuvent donc financer les
-// achats du même mois.
-let tradeExports = {}; // { resource: bool }
-let tradeImports = {}; // { resource: bool }
+/* ===================== COMMERCE EXTERIEUR (par cité) ===================== */
+// Le joueur construit des comptoirs, puis ouvre des routes commerciales avec les cités
+// de la carte du monde (world.js) : pour CHAQUE cité, il choisit quels biens lui exporter
+// (parmi ceux qu'elle achète) et quels biens lui importer (parmi ceux qu'elle vend).
+// Une fois par mois (calendar.js), pour chaque route active :
+//   - export : vend jusqu'à EXPORT_QTY_PER_POST × nb comptoirs unités, limité par le stock,
+//     au prix d'achat de la cité modulé par la relation -> crédite le trésor
+//   - import : achète jusqu'à IMPORT_QTY_PER_POST × nb comptoirs unités, limité par la place
+//     de stockage ET le trésor, au prix de vente de la cité modulé par la relation
+// L'export est traité en premier (ses recettes financent les imports du même mois).
+let tradeRoutes = {};        // { [cityId]: { export:{res:true}, import:{res:true} } }
+let selectedTradeCityId = null; // cité affichée dans l'écran commerce
 
 function initTrade(){
-  tradeExports = {};
-  tradeImports = {};
-  EXPORT_GOODS.forEach(g => { tradeExports[g.resource] = false; });
-  IMPORT_GOODS.forEach(g => { tradeImports[g.resource] = false; });
+  tradeRoutes = {};
+  selectedTradeCityId = (typeof worldCities !== 'undefined' && worldCities.length) ? worldCities[0].id : null;
 }
 
-// Complète l'état après chargement d'une sauvegarde (ou d'une version antérieure).
 function ensureTradeState(){
-  if (!tradeExports || typeof tradeExports !== 'object') tradeExports = {};
-  if (!tradeImports || typeof tradeImports !== 'object') tradeImports = {};
-  EXPORT_GOODS.forEach(g => {
-    if (typeof tradeExports[g.resource] !== 'boolean') tradeExports[g.resource] = false;
-  });
-  IMPORT_GOODS.forEach(g => {
-    if (typeof tradeImports[g.resource] !== 'boolean') tradeImports[g.resource] = false;
-  });
+  if (!tradeRoutes || typeof tradeRoutes !== 'object') tradeRoutes = {};
+  if (selectedTradeCityId == null && typeof worldCities !== 'undefined' && worldCities.length){
+    selectedTradeCityId = worldCities[0].id;
+  }
+}
+
+function routeFor(cityId){
+  if (!tradeRoutes[cityId]) tradeRoutes[cityId] = { export: {}, import: {} };
+  if (!tradeRoutes[cityId].export) tradeRoutes[cityId].export = {};
+  if (!tradeRoutes[cityId].import) tradeRoutes[cityId].import = {};
+  return tradeRoutes[cityId];
 }
 
 function countTradePosts(){
@@ -38,27 +36,22 @@ function countTradePosts(){
   return n;
 }
 
-// Débit/crédit mensuel total par bien = capacité d'un comptoir × nombre de comptoirs.
-function exportCapacity(){
-  return EXPORT_QTY_PER_POST * countTradePosts();
-}
-function importCapacity(){
-  return IMPORT_QTY_PER_POST * countTradePosts();
-}
+function exportCapacity(){ return EXPORT_QTY_PER_POST * countTradePosts(); }
+function importCapacity(){ return IMPORT_QTY_PER_POST * countTradePosts(); }
 
-function toggleExport(resource){
+function toggleCityExport(cityId, resource){
   ensureTradeState();
-  tradeExports[resource] = !tradeExports[resource];
-  if (tradeExports[resource]) tradeImports[resource] = false; // exclusif : pas les deux à la fois
-  renderTradePanel();
+  const r = routeFor(cityId);
+  r.export[resource] = !r.export[resource];
+  if (typeof refreshTradeScreen === 'function') refreshTradeScreen();
   saveGame({ silent: true });
 }
 
-function toggleImport(resource){
+function toggleCityImport(cityId, resource){
   ensureTradeState();
-  tradeImports[resource] = !tradeImports[resource];
-  if (tradeImports[resource]) tradeExports[resource] = false;
-  renderTradePanel();
+  const r = routeFor(cityId);
+  r.import[resource] = !r.import[resource];
+  if (typeof refreshTradeScreen === 'function') refreshTradeScreen();
   saveGame({ silent: true });
 }
 
@@ -67,106 +60,67 @@ function processForeignTrade(){
   ensureTradeState();
   const expCap = exportCapacity();
   const impCap = importCapacity();
-  if (expCap <= 0 && impCap <= 0) return; // aucun comptoir construit
+  if (expCap <= 0 && impCap <= 0) return; // aucun comptoir
+  if (!worldCities || worldCities.length === 0) return;
 
   let income = 0;
-  if (expCap > 0){
-    EXPORT_GOODS.forEach(g => {
-      if (!tradeExports[g.resource]) return;
-      const qty = Math.min(expCap, Math.floor(resources[g.resource] || 0));
+  worldCities.forEach(city => {
+    const route = tradeRoutes[city.id];
+    if (!route || !route.export) return;
+    city.buys.forEach(b => {
+      if (!route.export[b.resource]) return;
+      const qty = Math.min(expCap, Math.floor(resources[b.resource] || 0));
       if (qty <= 0) return;
-      resources[g.resource] -= qty;
-      income += qty * g.price;
+      resources[b.resource] -= qty;
+      income += Math.round(qty * cityExportPrice(city, b.price) * ((typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1));
     });
-    if (income > 0) treasury += income;
-  }
+  });
+  if (income > 0) treasury += income;
 
   let expense = 0;
-  if (impCap > 0){
-    const caps = computeCaps();
-    IMPORT_GOODS.forEach(g => {
-      if (!tradeImports[g.resource]) return;
-      const room = Math.max(0, (caps[g.resource] || 0) - (resources[g.resource] || 0));
-      const affordable = Math.floor(treasury / g.price);
+  const caps = computeCaps();
+  worldCities.forEach(city => {
+    const route = tradeRoutes[city.id];
+    if (!route || !route.import) return;
+    city.sells.forEach(s => {
+      if (!route.import[s.resource]) return;
+      const unit = cityImportPrice(city, s.price);
+      const room = Math.max(0, (caps[s.resource] || 0) - (resources[s.resource] || 0));
+      const affordable = Math.floor(treasury / unit);
       const qty = Math.min(impCap, room, affordable);
       if (qty <= 0) return;
-      resources[g.resource] = (resources[g.resource] || 0) + qty;
-      const cost = qty * g.price;
+      resources[s.resource] = (resources[s.resource] || 0) + qty;
+      const cost = Math.round(qty * unit);
       treasury -= cost;
       expense += cost;
     });
-  }
+  });
 
   if (income > 0 || expense > 0){
     if (income > 0) showNotification(t('trade.income', { gold: income }), 'good');
     if (expense > 0) showNotification(t('trade.expense', { gold: expense }), 'good');
     debugInfo('Commerce extérieur mensuel', { income, expense });
     updateResourceBar();
-    renderTradePanel();
+    if (typeof refreshTradeScreen === 'function') refreshTradeScreen();
   }
 }
 
-/* ===================== PANNEAU ===================== */
-function estimatedExportIncome(){
-  const capacity = exportCapacity();
+// Estimation (cité sélectionnée) pour l'affichage de l'écran commerce.
+function estimatedCityIncome(city){
+  const cap = exportCapacity();
+  const route = tradeRoutes[city.id];
+  if (!route) return 0;
   let income = 0;
-  EXPORT_GOODS.forEach(g => {
-    if (!tradeExports[g.resource]) return;
-    const qty = Math.min(capacity, Math.floor(resources[g.resource] || 0));
-    income += qty * g.price;
+  city.buys.forEach(b => {
+    if (!route.export || !route.export[b.resource]) return;
+    const qty = Math.min(cap, Math.floor(resources[b.resource] || 0));
+    income += Math.round(qty * cityExportPrice(city, b.price) * ((typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1));
   });
   return income;
 }
 
-function estimatedImportExpense(){
-  const capacity = importCapacity();
-  const caps = computeCaps();
-  let expense = 0;
-  IMPORT_GOODS.forEach(g => {
-    if (!tradeImports[g.resource]) return;
-    const room = Math.max(0, (caps[g.resource] || 0) - (resources[g.resource] || 0));
-    const affordable = Math.floor(treasury / g.price);
-    const qty = Math.min(capacity, room, affordable);
-    expense += qty * g.price;
-  });
-  return expense;
-}
-
+// Ancien panneau latéral : absent de la nouvelle interface -> stub défensif.
 function renderTradePanel(){
   const el = document.getElementById('tradeList');
   if (!el) return;
-  ensureTradeState();
-  const posts = countTradePosts();
-
-  if (posts === 0){
-    el.innerHTML = `<p class="placeholder">${t('trade.noPost')}</p>`;
-    return;
-  }
-
-  const exportRows = EXPORT_GOODS.map(g => {
-    const on = tradeExports[g.resource];
-    const stock = Math.floor(resources[g.resource] || 0);
-    return `<button class="tradeRow buildBtn ${on ? 'active' : ''}" onclick="toggleExport('${g.resource}')">
-      <span>${on ? '☑' : '☐'} ${t('resource.' + g.resource)}</span>
-      <small>${g.price} dr./u · ${t('trade.inStock', { n: stock })}</small>
-    </button>`;
-  }).join('');
-
-  const importRows = IMPORT_GOODS.map(g => {
-    const on = tradeImports[g.resource];
-    const stock = Math.floor(resources[g.resource] || 0);
-    return `<button class="tradeRow buildBtn ${on ? 'active' : ''}" onclick="toggleImport('${g.resource}')">
-      <span>${on ? '☑' : '☐'} ${t('resource.' + g.resource)}</span>
-      <small>${g.price} dr./u · ${t('trade.inStock', { n: stock })}</small>
-    </button>`;
-  }).join('');
-
-  el.innerHTML = `
-    <p class="tradeInfo">${t('trade.capacity', { qty: exportCapacity(), posts })}</p>
-    <h3 class="tradeSectionTitle">${t('trade.exportSection')}</h3>
-    ${exportRows}
-    <p class="tradeInfo">${t('trade.nextSale', { gold: estimatedExportIncome() })}</p>
-    <h3 class="tradeSectionTitle">${t('trade.importSection')}</h3>
-    ${importRows}
-    <p class="tradeInfo">${t('trade.nextPurchase', { gold: estimatedImportExpense() })}</p>`;
 }

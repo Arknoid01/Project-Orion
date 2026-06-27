@@ -3,8 +3,8 @@ Pipeline d'automatisation pour générer TOUS les assets visuels du jeu Olympos.
 Supporte deux modes : Illustrious (SDXL) + LoRA chibi, ou Flux + LoRA villa méditerranéenne.
 
 Ce script génère en un seul batch :
-  - les batiments (farm, quarry, granary, workshop, fountain, market,
-    oliveGrove, vineyard, sheepFarm, oilPress, winery, warehouse, temple, clinic)
+  - les batiments (production, stockage, services, commerce, militaire, admin)
+  - les decorations (statue, garden, colonnade)
   - les niveaux de maison (hut, house, decent, villa, residence, palais)
   - les cases de terrain (grass, wheat, marble, water)
 
@@ -43,6 +43,7 @@ IMPORTANT - negative prompt et Flux :
   réinjecte dans le prompt POSITIF pour les bâtiments/maisons en mode Flux.
 """
 
+import argparse
 import io
 import json
 import math
@@ -162,6 +163,12 @@ ISOLATION_CLAUSE = (
     "nothing else in frame"
 )
 
+# Decorations : clause d'isolement plus souple (statue sur petit socle, jardin compact…).
+DECORATION_ISOLATION_CLAUSE = (
+    "single isolated decorative object on pure white background, "
+    "compact footprint, no surrounding scenery, nothing else in frame"
+)
+
 # Réglages par défaut selon la catégorie d'asset.
 #   remove_bg : détoure le fond blanc en transparence (objets isolés)
 #   iso_tile  : applique un masque losange iso et sort une tuile prête à poser
@@ -229,10 +236,12 @@ ASSETS = [
     },
     {
         "category": "buildings",
+        "guide": "guide_fountain.png",
         "output": "fountain.png",
-        "prompt": f"{STYLE_TRIGGER}, single ancient greek public fountain, round marble basin, "
-                  "flowing water spouts, small decorative columns, no base, no terrain, "
-                  "isometric game asset, isolated on plain white background",
+        "denoise": 0.72,
+        "prompt": f"{STYLE_TRIGGER}, small ancient greek courtyard fountain, circular white marble basin, "
+                  "clear blue water, central water jet, no building, no temple, no roof, no columns, "
+                  "no base, no terrain, isometric game asset, isolated on plain white background",
     },
     {
         "category": "buildings",
@@ -290,6 +299,74 @@ ASSETS = [
         "output": "clinic.png",
         "prompt": f"{STYLE_TRIGGER}, single ancient greek healing house asklepieion, small stone infirmary with columns, "
                   "hanging medicinal herbs, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+
+    # ---------- COMMERCE / MILITAIRE / ADMIN (sans texture dans le jeu) ----------
+    {
+        "category": "buildings",
+        "output": "tradingPost.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek trading post comptoir, stone building with wooden scales and balance, "
+                  "stacked amphorae and trade goods, merchant counter, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "heroTemple.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek hero temple, small stone shrine with bronze shields and spears on walls, "
+                  "altar with laurel wreath, heroic monument, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "barracks.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek military barracks, stone building with wooden training yard gate, "
+                  "stacked shields spears and helmets, soldier equipment racks, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "taxOffice.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek tax office, small administrative stone building, "
+                  "wooden desk with clay tablets and coin chest, abacus, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "watchtower.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek fire watch tower, tall stone lookout tower with wooden platform, "
+                  "brazier on top, ladder, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+
+    # ---------- DECORATIONS (cachet / beaute) — flag decoration=True pour prompt adapté ----------
+    {
+        "category": "buildings",
+        "decoration": True,
+        "output": "statue.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek marble statue on small stone pedestal, "
+                  "classical hero figure, decorative monument, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "decoration": True,
+        "output": "garden.png",
+        "prompt": f"{STYLE_TRIGGER}, single small ancient greek ornamental garden, trimmed bushes and flowers in stone planter, "
+                  "small cypress tree, decorative plants, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "decoration": True,
+        "output": "colonnade.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek colonnade, row of white marble columns with lintel, "
+                  "decorative architectural pergola, isometric game asset, isolated on plain white background",
+    },
+
+    {
+        "category": "buildings",
+        "output": "grandTemple.png",
+        "final_size": 256,
+        "prompt": f"{STYLE_TRIGGER}, single massive ancient greek grand temple monument, enormous white marble columns, "
+                  "golden pediment, wide monumental staircase, grand sacred shrine, impressive scale, "
+                  "no base, no terrain, isometric game asset, isolated on plain white background",
     },
 
     # ---------- NIVEAUX DE MAISON ----------
@@ -361,9 +438,33 @@ ASSETS = [
         "prompt": f"{TILE_STYLE}, calm blue mediterranean sea water, gentle ripples and reflections, "
                   "shallow water surface, no objects",
     },
+    {
+        "category": "tiles",
+        "output": "sand.png",
+        "prompt": f"{TILE_STYLE}, mediterranean sandy beach ground, fine golden sand grains, "
+                  "coastal shore terrain, no objects",
+    },
+    {
+        "category": "tiles",
+        "output": "forest.png",
+        "prompt": f"{TILE_STYLE}, mediterranean forest floor, grass with small trees and bushes, "
+                  "olive and pine undergrowth, no objects",
+    },
+    {
+        "category": "tiles",
+        "output": "rock.png",
+        "prompt": f"{TILE_STYLE}, steep rocky cliff ground, grey limestone crags and boulders, "
+                  "mountain slope terrain, no objects",
+    },
+    {
+        "category": "tiles",
+        "output": "hill.png",
+        "prompt": f"{TILE_STYLE}, rolling green hill pasture, gentle slope meadow grass, "
+                  "mediterranean countryside, no objects",
+    },
 ]
 
-OUTPUT_DIR = "sprites_out"
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sprites_out")
 
 # ===================== COMFYUI API =====================
 def upload_image(filepath):
@@ -547,6 +648,7 @@ def queue_prompt(workflow):
 
 def wait_for_result(prompt_id, timeout=900, poll_every=3):
     start = time.time()
+    last_log = -30
     while time.time() - start < timeout:
         resp = requests.get(f"{COMFY_URL}/history/{prompt_id}")
         data = resp.json()
@@ -557,7 +659,9 @@ def wait_for_result(prompt_id, timeout=900, poll_every=3):
                 raise RuntimeError(f"ComfyUI a signalé une erreur d'exécution : {status}")
             return entry
         elapsed = int(time.time() - start)
-        print(f"   ...toujours en attente ({elapsed}s écoulées, timeout à {timeout}s)")
+        if elapsed - last_log >= 30:
+            print(f"   ...toujours en attente ({elapsed}s écoulées, timeout à {timeout}s)")
+            last_log = elapsed
         time.sleep(poll_every)
     raise TimeoutError(f"Génération trop longue (>{timeout}s) pour {prompt_id}")
 
@@ -678,11 +782,61 @@ def texture_water(size, seed):
     return img.filter(ImageFilter.GaussianBlur(1.2))
 
 
+def texture_sand(size, seed):
+    img = _noise_base(size, (210, 190, 140), 22, seed, blur=1.2)
+    rnd = random.Random(seed + 5)
+    d = ImageDraw.Draw(img)
+    for _ in range(size * size // 500):
+        x, y = rnd.randint(0, size), rnd.randint(0, size)
+        d.point((x, y), fill=(rnd.randint(220, 240), rnd.randint(200, 220), rnd.randint(150, 170)))
+    return img.filter(ImageFilter.GaussianBlur(0.8))
+
+
+def texture_forest(size, seed):
+    img = _noise_base(size, (72, 110, 52), 24, seed, blur=1.0)
+    rnd = random.Random(seed + 6)
+    d = ImageDraw.Draw(img)
+    for _ in range(size // 8):
+        x, y = rnd.randint(4, size - 4), rnd.randint(4, size - 4)
+        d.ellipse([x - 3, y - 5, x + 3, y + 1], fill=(45, 75, 38))
+        d.ellipse([x - 5, y - 8, x + 5, y - 2], fill=(55, 95, 42))
+    return img.filter(ImageFilter.GaussianBlur(0.7))
+
+
+def texture_rock(size, seed):
+    img = _noise_base(size, (130, 128, 122), 18, seed, blur=1.5)
+    d = ImageDraw.Draw(img)
+    rnd = random.Random(seed + 7)
+    for _ in range(10):
+        x, y = rnd.randint(0, size), rnd.randint(0, size)
+        pts = [(x, y)]
+        for _ in range(5):
+            x += rnd.randint(-8, 8)
+            y += rnd.randint(-8, 8)
+            pts.append((x, y))
+        d.line(pts, fill=(95, 92, 88), width=2)
+    return img.filter(ImageFilter.GaussianBlur(0.5))
+
+
+def texture_hill(size, seed):
+    img = _noise_base(size, (118, 155, 72), 20, seed, blur=1.3)
+    rnd = random.Random(seed + 8)
+    d = ImageDraw.Draw(img)
+    for _ in range(8):
+        x = rnd.randint(0, size)
+        d.arc([x - 20, size // 3, x + 20, size], 180, 360, fill=(100, 140, 65), width=2)
+    return img.filter(ImageFilter.GaussianBlur(0.9))
+
+
 TILE_TEXTURES = {
     "grass.png": texture_grass,
     "wheat.png": texture_wheat,
     "marble.png": texture_marble,
     "water.png": texture_water,
+    "sand.png": texture_sand,
+    "forest.png": texture_forest,
+    "rock.png": texture_rock,
+    "hill.png": texture_hill,
 }
 
 
@@ -701,6 +855,20 @@ def generate_tile_procedural(entry):
     print(f"-> Tuile finalisée : {output_path}\n")
 
 
+def save_image_safe(img, output_path):
+    """Sauvegarde avec message explicite si Windows bloque l'écriture (fichier ouvert, OneDrive…)."""
+    try:
+        img.save(output_path)
+    except (PermissionError, OSError) as exc:
+        if getattr(exc, "winerror", None) != 5 and not isinstance(exc, PermissionError):
+            raise
+        raise PermissionError(
+            f"Impossible d'écrire {output_path} — fermez l'aperçu Windows / Paint / Photoshop "
+            f"si le fichier est ouvert, ou vérifiez que OneDrive n'est pas en train de synchroniser "
+            f"le dossier sprites_out. Détail : {exc}"
+        ) from exc
+
+
 def finalize_asset(raw_bytes, output_path, remove_bg=True, iso_tile=False, final_size=FINAL_SIZE):
     img = Image.open(io.BytesIO(raw_bytes))
     if iso_tile:
@@ -711,7 +879,7 @@ def finalize_asset(raw_bytes, output_path, remove_bg=True, iso_tile=False, final
     else:
         img = img.convert("RGBA")
         img.thumbnail((final_size, final_size), Image.LANCZOS)
-    img.save(output_path)
+    save_image_safe(img, output_path)
 
 
 # ===================== PIPELINE PRINCIPAL =====================
@@ -727,7 +895,8 @@ def generate_asset(entry):
     # prompt POSITIF, seule chose que Flux respecte vraiment.
     prompt_text = entry["prompt"]
     if mode == "FLUX" and category in ("buildings", "houses"):
-        prompt_text = f"{prompt_text}, {ISOLATION_CLAUSE}"
+        clause = DECORATION_ISOLATION_CLAUSE if entry.get("decoration") else ISOLATION_CLAUSE
+        prompt_text = f"{prompt_text}, {clause}"
 
     guide = entry.get("guide")
     denoise_override = entry.get("denoise")
@@ -785,31 +954,57 @@ def generate_asset(entry):
     out_dir = os.path.join(OUTPUT_DIR, category)
     os.makedirs(out_dir, exist_ok=True)
     output_path = os.path.join(out_dir, entry["output"])
+    final_size = entry.get("final_size", defaults["final_size"])
     finalize_asset(
         raw_bytes,
         output_path,
         remove_bg=defaults["remove_bg"],
         iso_tile=defaults["iso_tile"],
-        final_size=defaults["final_size"],
+        final_size=final_size,
     )
     print(f"-> Asset finalisé : {output_path}\n")
 
 
 if __name__ == "__main__":
-    total = len(ASSETS)
+    parser = argparse.ArgumentParser(
+        description="Génère les sprites Olympos via ComfyUI (batch ou asset unique)."
+    )
+    parser.add_argument(
+        "--only",
+        metavar="FICHIER",
+        help="Ne générer qu'un seul asset (ex: grandTemple.png)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Régénérer même si le fichier existe déjà (ignore SKIP_EXISTING)",
+    )
+    args = parser.parse_args()
+
+    assets = ASSETS
+    if args.only:
+        only_name = args.only if args.only.endswith(".png") else f"{args.only}.png"
+        assets = [a for a in ASSETS if a["output"] == only_name]
+        if not assets:
+            raise SystemExit(f"Asset inconnu : {only_name}")
+        print(f"Mode ciblé : {only_name}\n")
+
+    total = len(assets)
     done = 0
     skipped = 0
     failures = []
+    skip_existing = SKIP_EXISTING and not args.force
 
     print(f"=== Génération batch de {total} assets "
-          f"(batiments/maisons={BUILDINGS_MODE}, terrains={TILES_MODE}) ===\n")
+          f"(batiments/maisons={BUILDINGS_MODE}, terrains={TILES_MODE}) ===")
+    print(f"Dossier de sortie : {OUTPUT_DIR}\n")
 
-    if REFINE_FROM_EXISTING and SKIP_EXISTING:
+    if REFINE_FROM_EXISTING and skip_existing:
         print("ATTENTION : REFINE_FROM_EXISTING=True mais SKIP_EXISTING=True -> tous les")
         print("            assets déjà présents seront ignorés, donc RIEN ne sera raffiné.")
         print("            Mets SKIP_EXISTING = False pour que le raffinement fonctionne.\n")
 
-    for i, entry in enumerate(ASSETS, 1):
+    for i, entry in enumerate(assets, 1):
         category = entry["category"]
         out_path = os.path.join(OUTPUT_DIR, category, entry["output"])
         print(f"[{i}/{total}] {category}/{entry['output']}")
@@ -817,7 +1012,7 @@ if __name__ == "__main__":
         # Les tuiles procédurales sont instantanées : on les régénère toujours
         # (pratique pour itérer sur l'apparence), SKIP_EXISTING ne s'y applique pas.
         is_procedural_tile = category == "tiles" and TILE_MODE == "PROCEDURAL"
-        if SKIP_EXISTING and not is_procedural_tile and os.path.exists(out_path):
+        if skip_existing and not is_procedural_tile and os.path.exists(out_path):
             print("   déjà présent, ignoré (SKIP_EXISTING).\n")
             skipped += 1
             continue

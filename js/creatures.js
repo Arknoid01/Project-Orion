@@ -11,7 +11,7 @@ function resetCreatures(){ monster = null; hero = null; }
 
 /* ===================== PRATICABILITE & PATHFINDING ===================== */
 function isWalkable(col, row){
-  return inBounds(col, row) && grid[row][col].terrain !== 'water';
+  return inBounds(col, row) && isPassableTerrain(grid[row][col].terrain);
 }
 
 function walkableNeighbors(col, row){

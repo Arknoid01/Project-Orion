@@ -1,37 +1,61 @@
 /* ===================== ETAT DE LA CARTE ===================== */
-// hasRoad : pas encore utilisé (arrive avec le système de routes), prévu dès maintenant
-// pour éviter de redécouper la structure de cellule plus tard.
-// houseLevel/population : pertinents uniquement quand building === 'maison' (voir houses.js).
-// patrolBlock : borne posée sur une route pour forcer un demi-tour du walker (voir walkers.js).
-let grid = []; // grid[row][col] = { terrain, building, hasRoad, houseLevel, population, patrolBlock }
-
-/* ===================== GENERATION DE LA CARTE ===================== */
-function terrainAt(col, row){
-  // coin mer en bas à droite
-  if (row >= GRID_ROWS - 3 && col >= GRID_COLS - 6) return 'water';
-  // champs de blé en haut à gauche
-  if (row < 6 && col < 7) return 'wheat';
-  // gisement de marbre en haut à droite
-  if (row < 4 && col >= GRID_COLS - 6) return 'marble';
-  return 'grass';
-}
+let grid = []; // grid[row][col] = { terrain, building, hasRoad, elevation, ... }
 
 function initGrid(){
-  grid = [];
-  for (let row = 0; row < GRID_ROWS; row++){
-    const line = [];
-    for (let col = 0; col < GRID_COLS; col++){
-      line.push({ terrain: terrainAt(col, row), building: null, hasRoad: false, houseLevel: 0, population: 0, patrolBlock: false, beauty: 0 });
+  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof generateProceduralMap === 'function'){
+    generateProceduralMap();
+  } else {
+    grid = [];
+    for (let row = 0; row < GRID_ROWS; row++){
+      const line = [];
+      for (let col = 0; col < GRID_COLS; col++){
+        line.push(makeEmptyCell('grass', 0.4));
+      }
+      grid.push(line);
     }
-    grid.push(line);
   }
+}
+
+function makeEmptyCell(terrain, elevation){
+  return {
+    terrain: terrain || 'grass',
+    building: null,
+    hasRoad: false,
+    houseLevel: 0,
+    population: 0,
+    patrolBlock: false,
+    beauty: 0,
+    elevation: elevation || 0,
+    slope: 0,
+  };
+}
+
+/* ===================== ORDRE DE DESSIN (cache) ===================== */
+let mapDrawOrder = null;
+
+function invalidateMapDrawOrder(){ mapDrawOrder = null; }
+
+function getMapDrawOrder(){
+  if (!mapDrawOrder){
+    mapDrawOrder = [];
+    for (let row = 0; row < GRID_ROWS; row++){
+      for (let col = 0; col < GRID_COLS; col++){
+        mapDrawOrder.push({ col, row, key: tileSortKey(col, row) });
+      }
+    }
+    mapDrawOrder.sort((a, b) => a.key - b.key);
+  }
+  return mapDrawOrder;
 }
 
 /* ===================== MATHS ISOMETRIQUES ===================== */
 function tileCenter(col, row){
+  const elev = inBounds(col, row) ? (grid[row][col].elevation || 0) : 0;
+  const elevOffset = elev * ELEVATION_PIXELS;
   return {
     x: OFFSET_X + (col - row) * (TILE_W / 2),
-    y: OFFSET_Y + (col + row) * (TILE_H / 2)
+    y: OFFSET_Y + (col + row) * (TILE_H / 2) - elevOffset,
   };
 }
 
@@ -45,4 +69,9 @@ function screenToTile(mx, my){
 
 function inBounds(col, row){
   return col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS;
+}
+
+function tileSortKey(col, row){
+  const elev = inBounds(col, row) ? (grid[row][col].elevation || 0) : 0;
+  return col + row + elev * 3.5;
 }

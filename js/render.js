@@ -33,7 +33,10 @@ HOUSE_LEVELS.forEach(lvl => {
 const TERRAIN_SPRITE_IMAGES = {};
 Object.entries(TERRAIN_SPRITES).forEach(([key, path]) => {
   const img = new Image();
-  img.onload = () => { debugInfo(`Sprite de terrain chargé : ${path}`); render(); };
+  img.onload = () => {
+    invalidateTerrainLayerCache();
+    debugInfo(`Sprite de terrain chargé : ${path}`);
+  };
   img.onerror = () => debugWarn(`Sprite de terrain introuvable : ${path}`);
   img.src = path;
   TERRAIN_SPRITE_IMAGES[key] = img;
@@ -46,20 +49,147 @@ ROAD_SPRITE.onerror = () => debugWarn(`Sprite de route introuvable : ${ROAD_SPRI
 ROAD_SPRITE.src = ROAD_SPRITE_PATH;
 
 const WALKER_SPRITE = new Image();
-WALKER_SPRITE.onload = () => debugInfo(`Sprite chargé : ${WALKER_SPRITE_PATH}`);
+WALKER_SPRITE.onload = () => { debugInfo(`Sprite chargé : ${WALKER_SPRITE_PATH}`); render(); };
 WALKER_SPRITE.onerror = () => debugWarn(`Sprite introuvable : ${WALKER_SPRITE_PATH}`);
 WALKER_SPRITE.src = WALKER_SPRITE_PATH;
 
 /* ===================== PRIMITIVES DE DESSIN ===================== */
-// Dessine la case de terrain : sprite losange si disponible, sinon aplat de couleur.
-function drawTerrainTile(cx, cy, terrain){
+// Dessine la case de terrain : sprite si disponible, sinon texture procédurale détaillée.
+function terrainMicroShade(hex, col, row, elevation){
+  const n = mulberry32(hashSeed(col, row))();
+  const elevAdj = Math.round((elevation - 0.4) * 30);
+  const micro = Math.round((n - 0.5) * 18);
+  return shade(hex, elevAdj + micro);
+}
+
+function drawTerrainProceduralDetail(cx, cy, terrain, col, row){
+  const seed = hashSeed(col, row);
+  const rng = mulberry32(seed);
+
+  if (terrain === 'forest'){
+    const trees = 2 + Math.floor(rng() * 2);
+    for (let i = 0; i < trees; i++){
+      const tx = cx + (rng() - 0.5) * 22;
+      const ty = cy + (rng() - 0.5) * 8;
+      ctx.beginPath();
+      ctx.arc(tx, ty - 4, 3 + rng() * 2, 0, Math.PI * 2);
+      ctx.fillStyle = rng() > 0.5 ? '#3d5c2e' : '#527a3c';
+      ctx.fill();
+    }
+  } else if (terrain === 'sand'){
+    for (let i = 0; i < 5; i++){
+      ctx.fillStyle = `rgba(255,255,240,${0.08 + rng() * 0.12})`;
+      ctx.fillRect(cx + (rng() - 0.5) * 20, cy + (rng() - 0.5) * 10, 2, 1);
+    }
+  } else if (terrain === 'rock'){
+    ctx.strokeStyle = 'rgba(60,58,55,0.45)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++){
+      ctx.beginPath();
+      ctx.moveTo(cx + (rng() - 0.5) * 18, cy + (rng() - 0.5) * 8);
+      ctx.lineTo(cx + (rng() - 0.5) * 18, cy + (rng() - 0.5) * 8);
+      ctx.stroke();
+    }
+  } else if (terrain === 'water'){
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    const wave = Math.sin(col * 0.7 + row * 0.5) * 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 14, cy + wave);
+    ctx.quadraticCurveTo(cx, cy + wave - 2, cx + 14, cy + wave);
+    ctx.stroke();
+  } else if (terrain === 'wheat'){
+    ctx.strokeStyle = 'rgba(160,120,40,0.35)';
+    for (let i = 0; i < 4; i++){
+      const sx = cx + (rng() - 0.5) * 18;
+      ctx.beginPath();
+      ctx.moveTo(sx, cy + 4);
+      ctx.lineTo(sx, cy - 6 - rng() * 4);
+      ctx.stroke();
+    }
+  } else if (terrain === 'hill' || (terrain === 'grass' && col + row)){
+    if (rng() > 0.65){
+      ctx.fillStyle = 'rgba(90,120,60,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(cx + (rng() - 0.5) * 12, cy + 2, 4 + rng() * 3, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawReliefShadow(cx, cy, elevation, terrain, slope, targetCtx){
+  const c = targetCtx || ctx;
+  if (terrain === 'water') return;
+  const hillLike = terrain === 'hill' || terrain === 'grass' || terrain === 'forest';
+  if (elevation > MAP_HILL_THRESHOLD && hillLike){
+    c.beginPath();
+    c.moveTo(cx, cy + TILE_H * 0.08);
+    c.lineTo(cx + TILE_W * 0.34, cy + TILE_H * 0.28);
+    c.lineTo(cx, cy + TILE_H * 0.36);
+    c.lineTo(cx - TILE_W * 0.34, cy + TILE_H * 0.28);
+    c.closePath();
+    c.fillStyle = `rgba(0,0,0,${0.03 + (elevation - MAP_HILL_THRESHOLD) * 0.18})`;
+    c.fill();
+  }
+  if (slope > 0.06 && terrain === 'rock'){
+    c.fillStyle = 'rgba(255,255,255,0.05)';
+    c.beginPath();
+    c.moveTo(cx - 8, cy - 4);
+    c.lineTo(cx + 8, cy - 8);
+    c.lineTo(cx + 4, cy);
+    c.closePath();
+    c.fill();
+  }
+}
+
+/* ===================== CACHE COUCHE TERRAIN (statique après génération carte) ===================== */
+let terrainLayerCache = null;
+
+function invalidateTerrainLayerCache(){
+  terrainLayerCache = null;
+}
+
+function ensureTerrainLayerCache(){
+  if (terrainLayerCache) return terrainLayerCache;
+  const allSpritesReady = Object.values(TERRAIN_SPRITE_IMAGES).every(
+    img => img.complete && img.naturalWidth > 0
+  );
+  if (!allSpritesReady) return null;
+
+  const c = document.createElement('canvas');
+  c.width = WORLD_WIDTH;
+  c.height = WORLD_HEIGHT;
+  const tctx = c.getContext('2d');
+  tctx.imageSmoothingEnabled = true;
+  tctx.imageSmoothingQuality = 'high';
+
+  getMapDrawOrder().forEach(({ col, row }) => {
+    const cell = grid[row][col];
+    const { x, y } = tileCenter(col, row);
+    const img = TERRAIN_SPRITE_IMAGES[cell.terrain];
+    if (img && img.complete && img.naturalWidth > 0){
+      tctx.drawImage(img, x - TILE_W / 2, y - TILE_H / 2, TILE_W, TILE_H);
+      drawReliefShadow(x, y, cell.elevation, cell.terrain, cell.slope, tctx);
+    }
+  });
+
+  terrainLayerCache = c;
+  return terrainLayerCache;
+}
+
+function drawTerrainTile(cx, cy, terrain, elevation, col, row, slope){
+  elevation = elevation || 0;
+  slope = slope || 0;
+  const baseColor = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.grass;
   const img = TERRAIN_SPRITE_IMAGES[terrain];
   if (img && img.complete && img.naturalWidth > 0){
-    // léger débord (+1px) pour masquer les coutures entre tuiles voisines
-    ctx.drawImage(img, cx - TILE_W / 2 - 0.5, cy - TILE_H / 2 - 0.5, TILE_W + 1, TILE_H + 1);
+    ctx.drawImage(img, cx - TILE_W / 2, cy - TILE_H / 2, TILE_W, TILE_H);
   } else {
-    drawDiamond(cx, cy, TERRAIN_COLORS[terrain]);
+    const shaded = terrainMicroShade(baseColor, col, row, elevation);
+    drawDiamond(cx, cy, shaded);
+    drawTerrainProceduralDetail(cx, cy, terrain, col, row);
   }
+  drawReliefShadow(cx, cy, elevation, terrain, slope);
 }
 
 function drawDiamond(cx, cy, fillColor, strokeColor){
@@ -119,6 +249,11 @@ function houseSpriteForLevel(level){
 function drawBuilding(cx, cy, type, col, row){
   const def = BUILDING_DEFS[type];
 
+  if (def.isMonument){
+    drawMonument(type, col, row);
+    return;
+  }
+
   if (def.isHouse){
     const cell = grid[row][col];
     const sprite = houseSpriteForLevel(cell.houseLevel);
@@ -133,12 +268,16 @@ function drawBuilding(cx, cy, type, col, row){
     return;
   }
 
+  const sprite = BUILDING_SPRITES[type];
   if (def.isDecoration){
+    if (sprite && sprite.complete && sprite.naturalWidth > 0){
+      drawSpriteOnTile(cx, cy, sprite);
+      return;
+    }
     drawDecoration(cx, cy, type);
     return;
   }
 
-  const sprite = BUILDING_SPRITES[type];
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
     drawSpriteOnTile(cx, cy, sprite);
     return;
@@ -164,6 +303,31 @@ function drawBuilding(cx, cy, type, col, row){
   ctx.font = '16px serif';
   ctx.textAlign = 'center';
   ctx.fillText(def.icon, cx, cy - 6);
+}
+
+// Temple monumental 2×2 : dessiné une seule fois depuis l'ancre, centré sur le footprint,
+// avec un sprite plus large (spriteScale, défaut 200 px vs 92 pour un bâtiment normal).
+function drawMonument(type, anchorCol, anchorRow){
+  const def = BUILDING_DEFS[type];
+  const size = def.footprint || 2;
+  const { x, y } = (typeof monumentScreenCenter === 'function')
+    ? monumentScreenCenter(anchorCol, anchorRow, size)
+    : tileCenter(anchorCol, anchorRow);
+  const targetW = def.spriteScale || 200;
+  const sprite = BUILDING_SPRITES[type];
+  if (sprite && sprite.complete && sprite.naturalWidth > 0){
+    drawSpriteOnTile(x, y, sprite, targetW);
+    return;
+  }
+  // repli procédural : grand temple stylisé
+  ctx.font = '48px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(def.icon, x, y - 20);
+  roundRect(x - 36, y - 50, 72, 52, 6);
+  ctx.fillStyle = def.color || '#d4af37';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.stroke();
 }
 
 /* ---- Rendu procédural des maisons (modules : corps, toit, bande, annexe) ---- */
@@ -260,8 +424,7 @@ function drawHouse(cx, cy, v){
 }
 
 /* ===================== RENDU DECORATIONS ===================== */
-// Rendu procédural simple par type de décoration (pas de sprite réel pour
-// l'instant — repli géométrique, comme les bâtiments sans PNG).
+// Repli procédural si le sprite PNG (assets/buildings/) n'est pas encore chargé.
 function drawDecoration(cx, cy, type){
   const baseY = cy + TILE_H / 2;
   const stroke = 'rgba(0,0,0,0.35)';
@@ -308,7 +471,7 @@ function drawRoad(cx, cy){
   // sprite de dallage iso si disponible (couvre toute la tuile, léger débord pour
   // masquer les coutures), sinon repli losange brun procédural.
   if (ROAD_SPRITE.complete && ROAD_SPRITE.naturalWidth > 0){
-    ctx.drawImage(ROAD_SPRITE, cx - TILE_W / 2 - 0.5, cy - TILE_H / 2 - 0.5, TILE_W + 1, TILE_H + 1);
+    ctx.drawImage(ROAD_SPRITE, cx - TILE_W / 2, cy - TILE_H / 2, TILE_W, TILE_H);
     return;
   }
   // tuile de route légèrement plus petite que la tuile de terrain, pour qu'on voie
@@ -351,7 +514,7 @@ function drawWalkers(now){
   const spriteReady = WALKER_SPRITE.complete && WALKER_SPRITE.naturalWidth > 0;
 
   walkers.forEach(w => {
-    if (w.path.length <= 1) return; // non connecté, rien à animer
+    if (w.path.length <= 1) return;
     const { x, y } = getWalkerScreenPos(w, now);
     const roleColor = SERVICE_COLORS[w.serviceType] || '#e8c468';
 
@@ -365,7 +528,6 @@ function drawWalkers(now){
         sx, sy, WALKER_FRAME_SIZE, WALKER_FRAME_SIZE,
         x - d / 2, y - d + 8, d, d
       );
-      // pastille de rôle au-dessus de la tête
       ctx.beginPath();
       ctx.arc(x, y - d + 6, 4, 0, Math.PI * 2);
       ctx.fillStyle = roleColor;
@@ -374,7 +536,6 @@ function drawWalkers(now){
       ctx.lineWidth = 1;
       ctx.stroke();
     } else {
-      // repli : petit cercle coloré selon le métier, tant que le sprite n'est pas chargé
       ctx.beginPath();
       ctx.arc(x, y - 6, 7, 0, Math.PI * 2);
       ctx.fillStyle = roleColor;
@@ -418,6 +579,24 @@ function drawCreatures(now){
   if (typeof hero !== 'undefined' && hero){
     const { x, y } = getCreatureScreenPos(hero, now);
     drawAgentToken(x, y, '🦸', 'rgba(60,110,200,0.92)');
+  }
+  if (typeof godAgents !== 'undefined'){
+    godAgents.forEach(agent => {
+      const { x, y } = getCreatureScreenPos(agent, now);
+      drawAgentToken(x, y, agent.icon, 'rgba(214,175,70,0.95)');
+    });
+  }
+  if (typeof migrants !== 'undefined'){
+    migrants.forEach(m => {
+      const { x, y } = getMigrantsScreenPos(m, now);
+      const color = m.type === 'in' ? 'rgba(80,160,90,0.92)' : 'rgba(180,120,60,0.92)';
+      drawAgentToken(x, y, m.type === 'in' ? '🧳' : '🚶', color);
+    });
+  }
+  if (typeof invasion !== 'undefined' && invasion){
+    const { x, y } = getCreatureScreenPos(invasion, now);
+    drawAgentToken(x, y, invasion.icon, 'rgba(120,40,40,0.95)');
+    drawHpBar(x, y, invasion.power / 100);
   }
 }
 
@@ -463,16 +642,20 @@ function render(now){
   const dpr = window.devicePixelRatio || 1;
   ctx.setTransform(zoomLevel * dpr, 0, 0, zoomLevel * dpr, 0, 0);
 
-  // tuiles + routes + bâtiments, triés en diagonale pour la profondeur
-  for (let sum = 0; sum <= (GRID_COLS - 1) + (GRID_ROWS - 1); sum++){
-    for (let col = 0; col < GRID_COLS; col++){
-      const row = sum - col;
-      if (row < 0 || row >= GRID_ROWS) continue;
+  // tuiles (cache statique) + routes + bâtiments, triées par profondeur iso
+  const drawOrder = getMapDrawOrder();
+  const terrainCache = ensureTerrainLayerCache();
+  if (terrainCache){
+    ctx.drawImage(terrainCache, 0, 0);
+  }
+
+  drawOrder.forEach(({ col, row }) => {
       const cell = grid[row][col];
       const { x, y } = tileCenter(col, row);
-      drawTerrainTile(x, y, cell.terrain);
+      if (!terrainCache){
+        drawTerrainTile(x, y, cell.terrain, cell.elevation, col, row, cell.slope);
+      }
       if (cell.beauty){
-        // voile doré : opacité proportionnelle au cachet, pour visualiser les zones embellies
         const alpha = Math.min(0.4, (cell.beauty / BEAUTY_THRESHOLD) * 0.4);
         drawDiamond(x, y, `rgba(214,175,70,${alpha})`, 'rgba(0,0,0,0)');
       }
@@ -483,8 +666,7 @@ function render(now){
       if (cell.building){
         drawBuilding(x, y, cell.building, col, row);
       }
-    }
-  }
+  });
 
   // icônes de statut des maisons : passe séparée, après tous les bâtiments, pour
   // qu'une icône ne se retrouve jamais cachée derrière un bâtiment dessiné après elle.
@@ -501,9 +683,13 @@ function render(now){
   drawWalkers(now);
   drawCreatures(now);
 
-  // surbrillance de la case survolée
+  // surbrillance de la/les case(s) survolée(s) — 2×2 pour les monuments
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){
-    const { x, y } = tileCenter(hoverTile.col, hoverTile.row);
+    const def = selectedBuilding ? BUILDING_DEFS[selectedBuilding] : null;
+    const fp = (def && def.footprint) || 1;
+    const tiles = (fp > 1 && typeof monumentFootprintTiles === 'function')
+      ? monumentFootprintTiles(hoverTile.col, hoverTile.row, fp)
+      : [{ col: hoverTile.col, row: hoverTile.row }];
     let color = 'rgba(255,255,255,0.35)';
     if (selectedBuilding){
       color = canPlace(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
@@ -513,8 +699,13 @@ function render(now){
       color = canToggleBlock(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (demolishMode){
       const c = grid[hoverTile.row][hoverTile.col];
-      color = (c.building || c.hasRoad) ? 'rgba(255,60,60,0.45)' : 'rgba(255,255,255,0.2)';
+      const anchor = (typeof monumentAnchorAt === 'function') ? monumentAnchorAt(hoverTile.col, hoverTile.row) : null;
+      color = (c.building || c.hasRoad || anchor) ? 'rgba(255,60,60,0.45)' : 'rgba(255,255,255,0.2)';
     }
-    drawDiamond(x, y, color, 'rgba(0,0,0,0.4)');
+    tiles.forEach(t => {
+      if (!inBounds(t.col, t.row)) return;
+      const { x, y } = tileCenter(t.col, t.row);
+      drawDiamond(x, y, color, 'rgba(0,0,0,0.4)');
+    });
   }
 }

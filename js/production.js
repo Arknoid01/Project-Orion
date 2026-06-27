@@ -24,10 +24,16 @@ function forEachBuilding(callback){
   }
 }
 
+function industryFactor(resource){
+  const godMult = (typeof prodGodMultiplier === 'function') ? prodGodMultiplier(resource) : 1;
+  return productionMultiplier * employment.ratio * taxEfficiencyMultiplier() * godMult;
+}
+
 function tick(){
   DEBUG.tickCount++;
   lastTickTimestamp = performance.now();
   tickMythology();
+  if (typeof tickMonumentBenefits === 'function') tickMonumentBenefits();
 
   // Économie : taxes encaissées, entretien payé, puis main-d'œuvre recalculée
   // (l'industrie produit ensuite au prorata du ratio d'emploi).
@@ -37,12 +43,13 @@ function tick(){
 
   const caps = computeCaps();
 
-  // production simple (ferme, carrière)
+  // production simple (ferme, carrière, verger…)
   forEachBuilding((type) => {
     const def = BUILDING_DEFS[type];
     if (def.produces && !def.consumes){
+      const factor = industryFactor(def.produces);
       const before = resources[def.produces];
-      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier());
+      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * factor);
       const added = resources[def.produces] - before;
       if (def.produces === 'wheat') totalWheatProduced += added;
       if (before < caps[def.produces] && resources[def.produces] >= caps[def.produces]){
@@ -51,14 +58,17 @@ function tick(){
     }
   });
 
-  // production avec consommation (atelier)
+  // ateliers de transformation : consommation et production au même prorata (emploi, impôts, dieux)
   forEachBuilding((type) => {
     const def = BUILDING_DEFS[type];
     if (def.consumes){
       const [resName, amount] = Object.entries(def.consumes)[0];
-      if (resources[resName] >= amount){
-        resources[resName] -= amount;
-        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier());
+      const factor = industryFactor(def.produces);
+      if (factor <= 0) return;
+      const consumeAmt = amount * factor;
+      if (resources[resName] >= consumeAmt){
+        resources[resName] -= consumeAmt;
+        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * factor);
       }
     }
   });
@@ -75,12 +85,15 @@ function tick(){
   checkMonthChange();
   tickDiplomacy();
   tickCreatures();
+  if (typeof tickMigrants === 'function') tickMigrants();
+  if (typeof tickInvasion === 'function') tickInvasion();
+  if (typeof tickGodAgents === 'function') tickGodAgents();
   renderCalendarPanel();
   renderCreaturePanel();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
   updateResourceBar(caps);
   if (typeof renderHud === 'function') renderHud();
-  render();
+  // Affichage : boucle requestAnimationFrame (loop.js), pas de render() ici.
 }
 
 // Défensif : écrit dans chaque pastille seulement si elle existe dans l'interface
@@ -96,7 +109,9 @@ function updateResourceBar(caps){
   setText('resWheat', `${Math.floor(resources.wheat)}/${caps.wheat}`);
   setText('resMarble', `${Math.floor(resources.marble)}/${caps.marble}`);
   setText('resSculpture', `${Math.floor(resources.sculpture)}/${caps.sculpture}`);
+  setText('resOlives', `${Math.floor(resources.olives)}/${caps.olives}`);
   setText('resOil', `${Math.floor(resources.oil)}/${caps.oil}`);
+  setText('resGrapes', `${Math.floor(resources.grapes)}/${caps.grapes}`);
   setText('resWine', `${Math.floor(resources.wine)}/${caps.wine}`);
   setText('resWool', `${Math.floor(resources.wool)}/${caps.wool}`);
   setText('resPopulation', computeTotalPopulation());
@@ -104,5 +119,7 @@ function updateResourceBar(caps){
   setText('resTreasury', Math.floor(treasury));
   // emploi : main-d'œuvre disponible (population) / postes à pourvoir (industrie)
   setText('resEmployment', `${employment.supply}/${employment.demand}`);
+  if (typeof renderManageResourceList === 'function') renderManageResourceList();
+  if (typeof renderEconomyBalance === 'function') renderEconomyBalance();
   refreshAffordability();
 }

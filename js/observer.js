@@ -51,7 +51,11 @@ function buildBuildingObserverData(type, col, row){
   const def = BUILDING_DEFS[type];
   const tiles = [];
 
-  const identRows = [[t('inspector.terrain'), t('terrainName.' + def.validTerrain)], [t('inspector.cost'), `${def.cost} dr.`]];
+  const patron = grid[row][col].godPatron;
+  const costLabel = (def.isMonument && patron && typeof godTempleCostLabel === 'function')
+    ? godTempleCostLabel(patron)
+    : (def.isMonument ? '—' : `${def.cost} dr.`);
+  const identRows = [[t('inspector.terrain'), t('terrainName.' + def.validTerrain)], [t('inspector.cost'), costLabel]];
   if (def.upkeep) identRows.push([t('inspector.upkeep'), `${def.upkeep}${t('inspector.perTick')}`]);
   tiles.push({ icon: def.icon, title: t(def.name), status: '', rows: identRows });
 
@@ -93,10 +97,29 @@ function buildBuildingObserverData(type, col, row){
     tiles.push({ icon: '🎨', title: t('inspector.decoration'), status: `+${def.beauty}`, rows: [[t('inspector.charm'), def.beauty], [t('inspector.range'), def.range]] });
   }
 
+  if (def.isMonument){
+    const patron = grid[row][col].godPatron;
+    if (patron){
+      const g = GODS.find(x => x.key === patron);
+      tiles.push({ icon: g ? g.icon : '🏛️', title: t('monument.patron'), status: '',
+        rows: [[t('god.' + patron), t('god.benefit.' + patron)]] });
+    }
+    tiles.push({ icon: '📐', title: t('monument.footprint'), status: '2×2',
+      rows: [[t('monument.size'), t('monument.fourTiles')]] });
+  }
+
   if (def.isTradePost){
-    const exp = EXPORT_GOODS.filter(g => tradeExports[g.resource]).map(g => resLabel(g.resource)).join(', ') || '—';
-    const imp = IMPORT_GOODS.filter(g => tradeImports[g.resource]).map(g => resLabel(g.resource)).join(', ') || '—';
-    tiles.push({ icon: '🚢', title: t('inspector.exports'), status: '', rows: [[t('trade.exportSection'), exp], [t('trade.importSection'), imp]] });
+    let exp = 0, imp = 0;
+    (worldCities || []).forEach(c => {
+      const r = tradeRoutes[c.id];
+      if (!r) return;
+      exp += Object.values(r.export || {}).filter(Boolean).length;
+      imp += Object.values(r.import || {}).filter(Boolean).length;
+    });
+    tiles.push({ icon: '🚢', title: t('inspector.exports'), status: '', rows: [
+      [t('trade.exportSection'), `${exp} ${t('world.routes')}`],
+      [t('trade.importSection'), `${imp} ${t('world.routes')}`],
+    ] });
   }
 
   return { title: t(def.name), tiles: tiles.slice(0, 4), actions: true };
@@ -137,7 +160,11 @@ function buildCityObserverData(){
           [resLabel('wheat'), Math.floor(resources.wheat)],
           [resLabel('marble'), Math.floor(resources.marble)],
           [resLabel('sculpture'), Math.floor(resources.sculpture)],
+          [resLabel('olives'), Math.floor(resources.olives)],
           [resLabel('oil'), Math.floor(resources.oil)],
+          [resLabel('grapes'), Math.floor(resources.grapes)],
+          [resLabel('wine'), Math.floor(resources.wine)],
+          [resLabel('wool'), Math.floor(resources.wool)],
         ],
       },
       {
@@ -146,7 +173,29 @@ function buildCityObserverData(){
       },
     ],
     actions: false,
+    // Actions non constructibles (déplacées hors du catalogue) : offrande, festival,
+    // commerce extérieur, invocation de héros. Affichées dans la tuile d'actions.
+    actionsTitle: t('cityActions.title'),
+    actionsHtml: `<div class="actionGrid">
+      <button class="actionBtn" onclick="cityManagementAction('makeOffering')">🏺 ${t('action.offeringShort')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('holdFestival')">🎉 ${t('action.festivalShort')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('openTradePanel')">🚢 ${t('panel.trade')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('summonHero')">🦸 ${t('cityActions.hero')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('openArmyPanel')">⚔️ ${t('panel.army')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('launchAttack')">🔥 ${t('army.attack')}</button>
+    </div>`,
   };
+}
+
+// Exécute une action de cité depuis l'écran "Gestion de la ville". Le commerce ouvre
+// son propre écran ; les autres rafraîchissent la gestion de la ville pour refléter
+// l'effet (faveur, ressources...) immédiatement.
+function cityManagementAction(action){
+  if (typeof window[action] === 'function') window[action]();
+  // Ces actions ouvrent leur propre écran/modale : ne pas réafficher la gestion de ville
+  // par-dessus (sinon on referme l'écran qu'on vient d'ouvrir).
+  const ownScreen = ['openTradePanel', 'openArmyPanel', 'launchAttack'];
+  if (!ownScreen.includes(action) && typeof openCityManagement === 'function') openCityManagement();
 }
 
 // Vue dédiée à un marcheur (porteur d'eau, marchand, collecteur...) -- avant, il
@@ -204,7 +253,7 @@ function openWalkerObserver(walker){
 // Renvoie le marcheur dont la position écran actuelle (interpolée) est la plus
 // proche du point cliqué, dans un rayon raisonnable -- sinon null.
 function findWalkerNear(screenX, screenY, now){
-  const threshold = WALKER_DISPLAY_SIZE; // rayon de détection généreux (taille d'affichage du marcheur)
+  const threshold = WALKER_DISPLAY_SIZE;
   let closest = null;
   let closestDist = threshold;
   walkers.forEach(w => {
@@ -218,9 +267,96 @@ function findWalkerNear(screenX, screenY, now){
   });
   return closest;
 }
+/* ===================== ECRAN COMMERCE EXTERIEUR (par cité) ===================== */
+// Branche le bouton "🚢 Commerce" sur un écran observateur : un menu déroulant choisit
+// la cité partenaire, puis on coche les biens à lui exporter (ce qu'elle achète) et à
+// lui importer (ce qu'elle vend). Chaque toggle réutilise toggleCityExport/Import
+// (trade.js) puis rouvre l'écran -- même schéma que adjustTaxRate.
+let tradeScreenOpen = false;
+
+function tradeCityToggleButton(kind, cityId, resource, on){
+  const fn = kind === 'export' ? 'toggleCityExport' : 'toggleCityImport';
+  return `<button class="miniBtn" onclick="${fn}(${cityId},'${resource}')">${on ? '☑' : '☐'}</button>`;
+}
+
+function tradeCityGoodRow(kind, cityId, resource, basePrice, effPrice, on){
+  const stock = Math.floor(resources[resource] || 0);
+  const label = `${resLabel(resource)} · ${Math.round(effPrice)} dr./u · ${t('trade.inStock', { n: stock })}`;
+  return [label, tradeCityToggleButton(kind, cityId, resource, on), on ? 'ok' : ''];
+}
+
+function selectTradeCity(id){
+  selectedTradeCityId = Number(id);
+  if (typeof openTradePanel === 'function') openTradePanel();
+}
+
+function buildTradeObserverData(){
+  const posts = countTradePosts();
+  if (posts === 0){
+    return { title: t('panel.trade'), tiles: [{ icon: '🚢', title: t('panel.trade'), status: '', rows: [[t('trade.noPost'), '']] }], actions: false };
+  }
+  ensureWorldState();
+  let city = cityById(selectedTradeCityId) || worldCities[0];
+  if (city) selectedTradeCityId = city.id;
+  const route = routeFor(city.id);
+  const st = (typeof relationStatusKey === 'function') ? relationStatusKey(city.relation) : 'neutral';
+
+  const options = worldCities.map(c => `<option value="${c.id}"${c.id === city.id ? ' selected' : ''}>${c.name}</option>`).join('');
+  const selectHtml = `<select class="tradeCitySelect" onchange="selectTradeCity(this.value)">${options}</select>`;
+
+  const exportRows = city.buys.length
+    ? city.buys.map(b => tradeCityGoodRow('export', city.id, b.resource, b.price, cityExportPrice(city, b.price), !!route.export[b.resource]))
+    : [[t('world.nothingBought'), '']];
+  const importRows = city.sells.length
+    ? city.sells.map(s => tradeCityGoodRow('import', city.id, s.resource, s.price, cityImportPrice(city, s.price), !!route.import[s.resource]))
+    : [[t('world.nothingSold'), '']];
+
+  const perMonth = t('inspector.perMonth').replace('/', '');
+  return {
+    title: t('panel.trade'),
+    tiles: [
+      { icon: '🏛️', title: t('world.partner'), status: `${Math.round(city.relation)}/100`,
+        rows: [
+          [t('world.choose'), selectHtml],
+          [t('diplomacy.status.' + st), '', st === 'hostile' ? 'bad' : (st === 'ally' ? 'ok' : '')],
+          [t('trade.posts'), `${posts} · ${exportCapacity()}/${importCapacity()} u./${perMonth}`],
+        ] },
+      { icon: '🚢', title: t('trade.exportSection'), status: `+${estimatedCityIncome(city)} dr.`, rows: exportRows },
+      { icon: '📥', title: t('trade.importSection'), status: '', rows: importRows },
+    ],
+    actions: false,
+  };
+}
+
+function openTradePanel(){
+  const panel = document.getElementById('observerPanel');
+  if (!panel) return; // ancienne interface : pas d'observateur
+  const data = buildTradeObserverData();
+  if (typeof closePanels === 'function') closePanels();
+  const titleEl = document.getElementById('observerTitle');
+  if (titleEl) titleEl.textContent = 'Observateur · ' + data.title;
+  if (typeof setObserverTiles === 'function') setObserverTiles(data);
+  panel.classList.add('open');
+  const backdrop = document.getElementById('backdrop');
+  if (backdrop) backdrop.classList.add('show');
+  tradeScreenOpen = true;
+}
+
+// Rappelée par toggleCityExport/toggleCityImport (trade.js) pour rafraîchir l'écran s'il est ouvert.
+function refreshTradeScreen(){
+  if (tradeScreenOpen && document.getElementById('observerPanel') && document.getElementById('observerPanel').classList.contains('open')){
+    openTradePanel();
+  }
+}
+
 function openTileObserver(col, row){
   if (!inBounds(col, row)) return;
-  const cell = grid[row][col];
+  let cell = grid[row][col];
+  if (cell.monumentPart){
+    col = cell.monumentPart.col;
+    row = cell.monumentPart.row;
+    cell = grid[row][col];
+  }
 
   let data;
   if (cell.building === 'maison') data = buildHouseObserverData(cell, col, row);

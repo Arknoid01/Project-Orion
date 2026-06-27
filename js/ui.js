@@ -47,23 +47,32 @@ let inspectedTile = null; // { col, row } de la dernière case cliquée, pour ra
 // "emplacement invalide" de "trop cher" pour la notification au clic.
 function canPlaceTerrain(col, row){
   if (!inBounds(col, row)) return false;
-  const cell = grid[row][col];
-  if (cell.building || cell.hasRoad) return false;
   const def = BUILDING_DEFS[selectedBuilding];
-  return cell.terrain === def.validTerrain;
+  if (!def) return false;
+  if (def.footprint && def.footprint > 1){
+    return typeof canPlaceMonumentTerrain === 'function' && canPlaceMonumentTerrain(col, row, selectedBuilding);
+  }
+  const cell = grid[row][col];
+  if (cell.building || cell.monumentPart || cell.hasRoad) return false;
+  return cell.terrain === def.validTerrain || terrainMatchesBuilding(cell.terrain, def.validTerrain);
 }
 
 // Version complète (terrain + budget) utilisée pour la surbrillance de survol.
 function canPlace(col, row){
   if (!canPlaceTerrain(col, row)) return false;
-  return canAfford(BUILDING_DEFS[selectedBuilding].cost);
+  const def = BUILDING_DEFS[selectedBuilding];
+  if (def.isMonument) return true;
+  if (def.costResources || (def.footprint && def.footprint > 1)){
+    return typeof canAffordBuilding === 'function' && canAffordBuilding(selectedBuilding);
+  }
+  return canAfford(def.cost);
 }
 
 function canPlaceRoadTerrain(col, row){
   if (!inBounds(col, row)) return false;
   const cell = grid[row][col];
-  if (cell.building || cell.hasRoad) return false;
-  return cell.terrain !== 'water';
+  if (cell.building || cell.monumentPart || cell.hasRoad) return false;
+  return isRoadTerrain(cell.terrain);
 }
 
 function canPlaceRoad(col, row){
@@ -92,6 +101,49 @@ function selectBuilding(key){
   render();
   closeDrawerIfMobile();
   updateSelectedBuildPill();
+  updateBuildInfoPanel(selectedBuilding);
+}
+
+// Affiche nom, description et coût dans les panneaux de construction (#buildInfo et #catalogBuildInfo).
+function updateBuildInfoPanel(key){
+  const targets = [
+    { title: 'buildInfoTitle', text: 'buildInfoText', cost: 'buildInfoCost' },
+    { title: 'catalogBuildInfoTitle', text: 'catalogBuildInfoText', cost: 'catalogBuildInfoCost' },
+  ];
+  targets.forEach(ids => {
+    const tEl = document.getElementById(ids.title);
+    const dEl = document.getElementById(ids.text);
+    const cEl = document.getElementById(ids.cost);
+    if (!tEl && !dEl && !cEl) return;
+    if (!key){
+      if (tEl) tEl.textContent = t('build.selectTitle');
+      if (dEl) dEl.textContent = t('build.selectHint');
+      if (cEl) cEl.textContent = '';
+      return;
+    }
+    const def = BUILDING_DEFS[key];
+    if (!def) return;
+    if (tEl) tEl.textContent = t(def.name);
+    const descKey = 'building.desc.' + key;
+    if (dEl) dEl.textContent = t(descKey) !== descKey ? t(descKey) : '';
+    if (cEl){
+      if (def.isMonument){
+        cEl.textContent = '';
+      } else if (def.costResources){
+        cEl.textContent = t('build.cost') + ' : ' + (typeof monumentCostLabel === 'function' ? monumentCostLabel(key) : `${def.cost} dr.`);
+      } else {
+        cEl.textContent = t('build.cost') + ' : 🪙 ' + def.cost + ' dr.';
+      }
+    }
+  });
+}
+
+function buildingCostSummary(key){
+  const def = BUILDING_DEFS[key];
+  if (!def) return '';
+  if (def.isMonument) return '';
+  if (def.costResources) return t('build.cost') + ' : ' + monumentCostLabel(key);
+  return t('build.cost') + ' : 🪙 ' + def.cost + ' dr.';
 }
 
 function selectRoadMode(){
@@ -161,6 +213,7 @@ function cancelSelection(){
   refreshButtonStates();
   render();
   updateSelectedBuildPill();
+  updateBuildInfoPanel(null);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -185,9 +238,9 @@ function buildPalette(){
     btn.className = 'buildBtn';
     btn.dataset.key = key;
     const reqLabel = t('terrainReq.' + def.validTerrain);
-    const costLabel = t('economy.cost', { n: def.cost });
+    const costLabel = def.isMonument ? '' : t('economy.cost', { n: def.cost });
     btn.innerHTML = `<span class="swatch" style="background:${def.color}"></span>
-      <span>${def.icon} ${t(def.name)}<small>${reqLabel} · ${costLabel}</small></span>`;
+      <span>${def.icon} ${t(def.name)}<small>${reqLabel}${costLabel ? ' · ' + costLabel : ''}</small></span>`;
     btn.addEventListener('click', () => selectBuilding(key));
     container.appendChild(btn);
   });
@@ -209,7 +262,11 @@ function refreshButtonStates(){
 function refreshAffordability(){
   document.querySelectorAll('.buildBtn[data-key]').forEach(btn => {
     const def = BUILDING_DEFS[btn.dataset.key];
-    btn.classList.toggle('unaffordable', !canAfford(def.cost));
+    const unaffordable = def.isMonument ? false
+      : (typeof canAffordBuilding === 'function' && def.costResources)
+        ? !canAffordBuilding(btn.dataset.key)
+        : !canAfford(def.cost);
+    btn.classList.toggle('unaffordable', unaffordable);
   });
   const roadBtn = document.getElementById('roadBtn');
   if (roadBtn) roadBtn.classList.toggle('unaffordable', !canAfford(ROAD_COST));
@@ -304,13 +361,18 @@ function buildingInspectorHtml(type, col, row){
     html += `<p>🎨 ${t('inspector.decoration')} — ${t('inspector.charm')} : ${def.beauty} · ${t('inspector.range')} : ${def.range}</p>`;
   }
 
-  // comptoir de commerce (exporte/importe mensuellement)
+  // comptoir de commerce (routes commerciales par cité, voir trade.js / world.js)
   if (def.isTradePost){
-    const exp = EXPORT_GOODS.filter(g => tradeExports[g.resource]).map(g => resLabel(g.resource)).join(', ');
-    const imp = IMPORT_GOODS.filter(g => tradeImports[g.resource]).map(g => resLabel(g.resource)).join(', ');
-    html += `<p>🚢 ${t('inspector.exports')} : ${exp || '—'}</p>`;
+    let exp = 0, imp = 0;
+    (worldCities || []).forEach(c => {
+      const r = (typeof tradeRoutes !== 'undefined' && tradeRoutes[c.id]) ? tradeRoutes[c.id] : null;
+      if (!r) return;
+      exp += Object.values(r.export || {}).filter(Boolean).length;
+      imp += Object.values(r.import || {}).filter(Boolean).length;
+    });
+    html += `<p>🚢 ${t('trade.exportSection')} : ${exp} ${t('world.routes')}</p>`;
     html += `<p>📦 ${t('inspector.exportRate')} : ${EXPORT_QTY_PER_POST}${t('inspector.perMonth')}</p>`;
-    html += `<p>🛬 ${t('trade.importSection')} : ${imp || '—'}</p>`;
+    html += `<p>🛬 ${t('trade.importSection')} : ${imp} ${t('world.routes')}</p>`;
   }
 
   return html;
@@ -415,7 +477,7 @@ canvas.addEventListener('mousemove', (e) => {
       info.textContent = t('info.hover');
     }
   }
-  render();
+  // Le rendu est géré par requestAnimationFrame (loop.js) — pas de render() ici.
 });
 
 canvas.addEventListener('click', (e) => {
@@ -428,7 +490,11 @@ canvas.addEventListener('click', (e) => {
   const cell = grid[row][col];
 
   if (demolishMode){
-    if (cell.building){
+    const anchor = (typeof monumentAnchorAt === 'function') ? monumentAnchorAt(col, row) : null;
+    if (anchor && grid[anchor.row][anchor.col].building){
+      debugInfo('Démolition : temple monumental', anchor);
+      demolishMonument(anchor.col, anchor.row);
+    } else if (cell.building){
       debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
       cell.building = null;
     } else if (cell.hasRoad){
@@ -455,7 +521,9 @@ canvas.addEventListener('click', (e) => {
     }
   } else if (selectedBuilding && canPlaceTerrain(col, row)){
     const def = BUILDING_DEFS[selectedBuilding];
-    if (!spend(def.cost)){
+    if (def.isMonument){
+      openMonumentGodDialog(col, row, selectedBuilding);
+    } else if (!spend(def.cost)){
       showNotification(t('economy.cantAfford'), 'bad');
     } else {
       debugInfo(`Construction : ${t(def.name)}`, { col, row });

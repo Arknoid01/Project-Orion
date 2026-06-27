@@ -630,11 +630,38 @@ h2{
   line-height:1.35;
 }
 
-#buildInfoCost{
+#buildInfoCost,
+#catalogBuildInfoCost{
   margin-top:8px;
   font-size:12px;
   color:var(--marble);
   opacity:.9;
+  font-weight:700;
+}
+
+#catalogBuildInfo{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid rgba(243,204,116,.45);
+  border-radius:14px;
+  background:
+    linear-gradient(135deg,rgba(244,232,204,.08),transparent 55%),
+    rgba(7,26,42,.55);
+  min-height:72px;
+}
+
+#catalogBuildInfoTitle{
+  font-family:"Cinzel",Georgia,serif;
+  color:var(--gold2);
+  letter-spacing:.8px;
+  margin-bottom:6px;
+  font-size:15px;
+}
+
+#catalogBuildInfoText{
+  font-size:13px;
+  color:var(--marble2);
+  line-height:1.35;
 }
 
 @media (max-height:480px){
@@ -1440,6 +1467,349 @@ h2{
   padding:0;
 }
 .miniBtn:active{ background:var(--terracotta); }
+#cityManagementBtn{
+  display:block;
+  width:100%;
+  margin:10px 0 4px;
+  padding:14px;
+  border:1px solid var(--gold2,#caa44a);
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(202,164,74,.22), rgba(202,164,74,.10));
+  color:var(--gold2,#e8c468);
+  font-family:inherit;
+  font-weight:800;
+  font-size:15px;
+  letter-spacing:.3px;
+  cursor:pointer;
+}
+#cityManagementBtn:active{ filter:brightness(1.15); }
+
+#worldMapBtn{
+  display:block;
+  width:100%;
+  margin:4px 0 8px;
+  padding:14px;
+  border:1px solid var(--gold2,#caa44a);
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(74,140,202,.22), rgba(74,140,202,.10));
+  color:var(--gold2,#e8c468);
+  font-family:inherit;
+  font-weight:800;
+  font-size:15px;
+  letter-spacing:.3px;
+  cursor:pointer;
+}
+#worldMapBtn:active{ filter:brightness(1.15); }
+
+/* Panneau carte du monde : même tiroir droit que l'observateur */
+#worldMapPanel{
+  top:calc(var(--safeTop) + 64px);
+  right:var(--safeRight);
+  bottom:calc(var(--safeBottom) + 10px);
+  width:min(92vw,440px);
+  border-right:0;
+  border-radius:18px 0 0 18px;
+  padding:20px;
+  transform:translateX(110%);
+}
+#worldMapPanel.open{ transform:translateX(0); }
+
+/* Carte du monde : zone "mer" avec cités positionnées en absolu */
+#worldMapArea{
+  position:relative;
+  width:100%;
+  height:300px;
+  margin:6px 0 12px;
+  border-radius:14px;
+  border:1px solid rgba(202,164,74,.35);
+  background:
+    radial-gradient(120% 90% at 30% 20%, rgba(74,140,202,.30), transparent 60%),
+    radial-gradient(140% 120% at 80% 90%, rgba(36,80,130,.45), transparent 55%),
+    linear-gradient(180deg, #16314e, #0e2238);
+  overflow:hidden;
+}
+.worldCityDot{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  background:transparent;
+  border:none;
+  color:#f3e7c9;
+  cursor:pointer;
+  font-family:inherit;
+}
+.worldCityDot .worldCityPin{
+  font-size:20px;
+  line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));
+}
+.worldCityDot .worldCityName{
+  font-size:11px;
+  font-weight:700;
+  white-space:nowrap;
+  padding:1px 6px;
+  border-radius:8px;
+  background:rgba(0,0,0,.45);
+  border:1px solid transparent;
+}
+.worldCityDot.selected .worldCityName{ border-color:var(--gold2,#e8c468); color:#ffe9a8; }
+.worldCityDot.diplo-ally .worldCityName{ box-shadow:0 0 0 1px rgba(108,200,120,.7) inset; }
+.worldCityDot.diplo-hostile .worldCityName{ box-shadow:0 0 0 1px rgba(214,96,96,.8) inset; }
+#worldCityDetail h3{ margin:6px 0 8px; font-size:16px; }
+#worldCityDetail p{ margin:6px 0; font-size:13px; opacity:.92; }
+#worldCityDetail small{ opacity:.7; }
+.tradeCitySelect{
+  background:#1a2740;
+  color:#f3e7c9;
+  border:1px solid rgba(202,164,74,.5);
+  border-radius:8px;
+  padding:3px 6px;
+  font-family:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* Bouton "Gestion" : flottant, sous le bouton catalogue (coin haut-droit) */
+#manageBtn{
+  position:absolute;
+  top:calc(var(--safeTop) + 64px);
+  right:calc(var(--safeRight) + 8px);
+  z-index:22;
+  pointer-events:auto;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  height:40px;
+  padding:0 14px;
+  border-radius:999px;
+  border:1px solid rgba(243,204,116,.85);
+  background:
+    linear-gradient(135deg,rgba(244,232,204,.08),transparent 35%),
+    linear-gradient(#123653,#071a2a);
+  color:var(--marble);
+  font-family:inherit;
+  font-weight:800;
+  font-size:14px;
+  letter-spacing:.3px;
+  cursor:pointer;
+  box-shadow:0 4px 16px #0009, inset 0 1px rgba(255,255,255,.12);
+}
+#manageBtn:active{ filter:brightness(1.15); }
+
+/* Panneau "Gestion" : tiroir droit (ressources + raccourcis) */
+#managePanel{
+  top:calc(var(--safeTop) + 64px);
+  right:var(--safeRight);
+  bottom:calc(var(--safeBottom) + 10px);
+  width:min(92vw,380px);
+  border-right:0;
+  border-radius:18px 0 0 18px;
+  padding:20px;
+  transform:translateX(110%);
+}
+#managePanel.open{ transform:translateX(0); }
+#managePanel h3{
+  margin:6px 0 8px;
+  color:var(--gold2);
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+}
+.manageList{ margin-bottom:16px; }
+.manageHint{ font-size:12px; color:var(--muted, #9a9588); margin:-8px 0 10px; line-height:1.4; }
+.manageList .row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:7px 10px;
+  border-radius:10px;
+  margin-bottom:4px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(243,204,116,.18);
+  font-size:14px;
+}
+.manageList .row b{ color:var(--gold2); }
+.manageList .row.eco-warn b{ color:#e08080; }
+
+/* Modale de choix (showChoice / showConfirm) -- absente de la nouvelle UI, réintégrée ici */
+#dialogOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(4,12,20,.66);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+  padding:20px;
+}
+#dialogOverlay.open{ display:flex; }
+#dialogBox{
+  background:linear-gradient(#123653,#071a2a);
+  color:var(--marble,#f3e7c9);
+  border:1px solid rgba(243,204,116,.9);
+  border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.1);
+  max-width:440px;
+  width:100%;
+  max-height:80vh;
+  overflow:auto;
+  padding:22px 24px;
+  animation:dialogPop .18s ease-out;
+}
+@keyframes dialogPop{ from{ transform:scale(.92); opacity:0; } to{ transform:scale(1); opacity:1; } }
+.dialogTitle{
+  margin:0 0 12px;
+  font-size:19px;
+  color:var(--gold2,#e8c468);
+  border-bottom:1px solid rgba(243,204,116,.3);
+  padding-bottom:10px;
+  font-family:inherit;
+}
+.dialogBody{ margin:0 0 18px; font-size:14px; line-height:1.55; white-space:pre-line; }
+.dialogActions{ display:flex; flex-direction:column; gap:8px; }
+.dialogBtn{
+  font-family:inherit;
+  font-weight:700;
+  font-size:14px;
+  padding:11px 14px;
+  border:1px solid rgba(243,204,116,.6);
+  border-radius:10px;
+  cursor:pointer;
+  background:rgba(255,255,255,.06);
+  color:var(--marble,#f3e7c9);
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+  transition:filter .15s ease;
+}
+.dialogBtn:hover{ filter:brightness(1.12); }
+.dialogBtn:disabled{ opacity:.45; cursor:not-allowed; }
+.dialogBtnHint{ font-size:11px; opacity:.8; font-weight:400; }
+.dialog-primary{ background:linear-gradient(180deg, rgba(202,164,74,.30), rgba(202,164,74,.12)); }
+.dialog-good{ background:linear-gradient(180deg, rgba(108,200,120,.28), rgba(108,200,120,.12)); border-color:rgba(108,200,120,.7); }
+.dialog-danger{ background:linear-gradient(180deg, rgba(214,96,96,.30), rgba(214,96,96,.12)); border-color:rgba(214,96,96,.8); }
+.dialog-neutral{ background:rgba(255,255,255,.06); }
+
+/* Menu principal / scénarios */
+#mainMenuOverlay{
+ position:fixed;
+ inset:0;
+ z-index:200;
+ display:none;
+ align-items:center;
+ justify-content:center;
+ background:linear-gradient(160deg,rgba(7,26,42,.96),rgba(14,45,71,.94));
+ backdrop-filter:blur(8px);
+}
+#mainMenuOverlay.open{ display:flex; }
+.mainMenuBox{
+ width:min(720px,92vw);
+ max-height:90vh;
+ overflow:auto;
+ padding:28px 24px 32px;
+ border:1px solid rgba(210,162,74,.45);
+ border-radius:16px;
+ background:rgba(7,26,42,.92);
+ box-shadow:0 24px 60px rgba(0,0,0,.55);
+ text-align:center;
+}
+.mainMenuBox h1{
+ font-family:Cinzel,serif;
+ font-size:clamp(1.6rem,4vw,2.2rem);
+ color:var(--gold2,#f3cc74);
+ margin:0 0 8px;
+}
+.mainMenuBox p{
+ color:var(--marble2,#d7c292);
+ margin:0 0 20px;
+ font-size:14px;
+}
+#scenarioList{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+ gap:12px;
+ text-align:left;
+}
+.scenarioCard{
+ display:flex;
+ flex-direction:column;
+ gap:6px;
+ padding:14px;
+ border:1px solid rgba(210,162,74,.35);
+ border-radius:12px;
+ background:rgba(255,255,255,.04);
+ color:var(--marble,#f4e8cc);
+ cursor:pointer;
+ transition:background .15s,border-color .15s;
+}
+.scenarioCard:hover,.scenarioCard.scenario-active{
+ background:rgba(210,162,74,.12);
+ border-color:rgba(243,204,116,.65);
+}
+.scenarioIcon{ font-size:28px; }
+.scenarioName{ font-weight:600; font-size:15px; }
+ .scenarioDesc{ font-size:12px; opacity:.85; line-height:1.35; }
+
+/* Écrans du menu d'accueil */
+.menu-screen-hidden{ display:none !important; }
+.homeActions{
+ display:flex;
+ flex-direction:column;
+ gap:12px;
+ max-width:320px;
+ margin:24px auto 0;
+}
+.homeBtn{
+ padding:14px 20px;
+ font-size:16px;
+ font-weight:600;
+ font-family:Cinzel,serif;
+ border:1px solid rgba(210,162,74,.5);
+ border-radius:10px;
+ background:linear-gradient(180deg,rgba(210,162,74,.22),rgba(210,162,74,.08));
+ color:var(--gold2,#f3cc74);
+ cursor:pointer;
+ transition:filter .15s,transform .1s;
+}
+.homeBtn:hover{ filter:brightness(1.15); transform:translateY(-1px); }
+.homeBtn.secondary{
+ background:rgba(255,255,255,.05);
+ color:var(--marble,#f4e8cc);
+ font-family:Inter,sans-serif;
+ font-weight:500;
+}
+.menuBack{
+ align-self:flex-start;
+ background:none;
+ border:none;
+ color:var(--marble2,#d7c292);
+ cursor:pointer;
+ font-size:14px;
+ margin-bottom:12px;
+ padding:4px 0;
+}
+.menuBack:hover{ color:var(--gold2,#f3cc74); }
+.mainMenuBox h2{
+ font-family:Cinzel,serif;
+ color:var(--gold2,#f3cc74);
+ margin:0 0 8px;
+ font-size:1.4rem;
+}
+#newGameScreen,#creditsScreen{ text-align:left; }
+.creditsBody p{
+ color:var(--marble2,#d7c292);
+ font-size:14px;
+ line-height:1.6;
+ margin:0 0 12px;
+}
+.homeTagline{
+ font-style:italic;
+ opacity:.9;
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1453,16 +1823,42 @@ h2{
 
  <div id="notification"></div>
 
+ <div id="mainMenuOverlay">
+   <div class="mainMenuBox">
+     <div id="homeScreen">
+       <h1>Olympos</h1>
+       <p id="homeTagline" class="homeTagline">Bâtissez votre cité grecque au pied de l'Olympe</p>
+       <div class="homeActions">
+         <button class="homeBtn" id="homeNewGame" onclick="showNewGameScreen()">Nouvelle partie</button>
+         <button class="homeBtn secondary" id="homeLoad" onclick="loadGameFromMenu()">Charger sauvegarde</button>
+         <button class="homeBtn secondary" id="homeCredits" onclick="showCreditsScreen()">Crédits</button>
+       </div>
+     </div>
+     <div id="newGameScreen" class="menu-screen-hidden">
+       <button class="menuBack" onclick="showHomeScreen()">← Retour</button>
+       <h2 id="newGameTitle">Nouvelle partie</h2>
+       <p id="scenarioMenuSubtitle">Choisir un scénario</p>
+       <div id="scenarioList"></div>
+     </div>
+     <div id="creditsScreen" class="menu-screen-hidden">
+       <button class="menuBack" onclick="showHomeScreen()">← Retour</button>
+       <h2 id="creditsTitle">Crédits</h2>
+       <div id="creditsBody" class="creditsBody"></div>
+     </div>
+   </div>
+ </div>
+
  <div class="hud">
    <button class="iconBtn" onclick="togglePanel('gameMenuPanel')" title="Menu">☰</button>
    <div class="hud-pill">🪙 <b id="hudTreasury">0</b></div>
    <div class="hud-pill">👥 <b id="hudPopulation">0</b></div>
-   <div class="hud-pill">🌾 <b id="hudWheat">0</b></div>
    <div id="selectedBuildPill" class="hud-pill" onclick="cancelSelection()" title="Annuler — revenir au mode observation">🔨 <b id="selectedBuildName">Aucun</b> <span class="pillClose">✕</span></div>
    <div class="hud-spacer"></div>
    <div class="hud-pill" id="hudCalendar">📅 …</div>
    <button class="iconBtn" onclick="togglePanel('quickBuild')" title="Catalogue">🔨</button>
  </div>
+
+ <button id="manageBtn" onclick="openManagePanel()" title="Gestion">📊 Gestion</button>
 
  <div class="floatingTools">
    <div class="zoomGroup">
@@ -1481,15 +1877,34 @@ h2{
  <div id="hookStatus">Clique sur la maison au centre pour ouvrir l'observateur</div>
  <div id="backdrop" class="backdrop" onclick="closePanels()"></div>
 
+ <!-- Modale de choix (diplomatie, commerce, attaque, confirmations) -->
+ <div id="dialogOverlay" onclick="onDialogBackdrop(event)">
+   <div id="dialogBox"></div>
+ </div>
+
  <aside id="gameMenuPanel" class="panel">
    
    <div class="menuList">
      <button class="actionBtn" onclick="callGameAction('saveGame')">💾 Sauvegarder</button>
-     <button class="actionBtn" onclick="callGameAction('loadGame')">📂 Charger</button>
+     <button class="actionBtn" onclick="loadGameFromMenu()">📂 Charger</button>
      <button class="actionBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
      <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
      <button class="actionBtn" onclick="callGameAction('returnToMainMenu')">🚪 Retour au menu principal</button>
+   </div>
+ </aside>
+
+ <aside id="managePanel" class="panel">
+   <button class="close" onclick="closePanels()">×</button>
+   <h2>Gestion</h2>
+   <h3 data-i18n="panel.resources">Ressources</h3>
+   <div id="manageResourceList" class="manageList"></div>
+   <h3 data-i18n="economy.balanceTitle">Bilan journalier</h3>
+   <p class="manageHint" data-i18n="economy.balanceHint">Production vs consommation par jour de jeu (+ prod / − besoin).</p>
+   <div id="economyBalanceList" class="manageList"></div>
+   <div class="menuList">
+     <button class="actionBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
+     <button class="actionBtn" onclick="openWorldMap()">🗺️ Carte du monde</button>
    </div>
  </aside>
 
@@ -1575,6 +1990,13 @@ h2{
    </section>
  </aside>
 
+ <aside id="worldMapPanel" class="panel">
+   <button class="close" onclick="closePanels()">×</button>
+   <h2 id="worldMapTitle">🗺️ Carte du monde</h2>
+   <div id="worldMapArea"></div>
+   <div id="worldCityDetail"></div>
+ </aside>
+
  <aside id="buildPanel" class="panel">
    <button class="close" onclick="closePanels()">×</button>
    <h2>Construction</h2>
@@ -1637,13 +2059,12 @@ h2{
 
     <section class="catalogCategory">
       <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>📦 Stockage & commerce</span><b>4</b>
+        <span>📦 Stockage & commerce</span><b>3</b>
       </button>
       <div class="catalogBody">
         <button class="card" onclick="callGameAction('selectBuilding', 'granary')">🏺<span>Grenier</span></button>
         <button class="card" onclick="callGameAction('selectBuilding', 'warehouse')">📦<span>Entrepôt</span></button>
         <button class="card" onclick="callGameAction('selectBuilding', 'tradingPost')">⚖️<span>Comptoir</span></button>
-        <button class="card" onclick="callGameAction('openTradePanel')">🚢<span>Commerce</span></button>
       </div>
     </section>
 
@@ -1674,26 +2095,29 @@ h2{
 
     <section class="catalogCategory">
       <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>⚡ Mythologie</span><b>4</b>
+        <span>⚡ Mythologie</span><b>2</b>
       </button>
       <div class="catalogBody">
+        <button class="card" onclick="callGameAction('selectBuilding', 'grandTemple')">🏛️<span>Temple monumental</span></button>
         <button class="card" onclick="callGameAction('selectBuilding', 'heroTemple')">⚔️<span>Temple héros</span></button>
-        <button class="card" onclick="callGameAction('makeOffering')">🏺<span>Offrande</span></button>
-        <button class="card" onclick="callGameAction('holdFestival')">🎉<span>Festival</span></button>
-        <button class="card" onclick="callGameAction('summonHero')">🦸<span>Héros</span></button>
       </div>
     </section>
 
     <section class="catalogCategory">
       <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>⚔️ Militaire</span><b>3</b>
+        <span>⚔️ Militaire</span><b>1</b>
       </button>
       <div class="catalogBody">
         <button class="card" onclick="callGameAction('selectBuilding', 'barracks')">🛡️<span>Caserne</span></button>
-        <button class="card" onclick="callGameAction('openArmyPanel')">⚔️<span>Armée</span></button>
-        <button class="card" onclick="callGameAction('launchAttack')">🔥<span>Attaque</span></button>
       </div>
     </section>
+
+    <div id="catalogBuildInfo">
+      <div id="catalogBuildInfoTitle">Sélectionnez un bâtiment</div>
+      <div id="catalogBuildInfoText">Les détails et le coût s'affichent ici lorsque vous choisissez une construction.</div>
+      <div id="catalogBuildInfoCost"></div>
+    </div>
+
   </div>
 </nav>
 </div>
@@ -1704,7 +2128,11 @@ h2{
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/config.js"></script>
+<script src="js/world.js"></script>
+<script src="js/monuments.js"></script>
 <script src="js/procgen.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/mapgen.js"></script>
 <script src="js/grid.js"></script>
 <script src="js/houses.js"></script>
 <script src="js/walkers.js"></script>
@@ -1720,16 +2148,22 @@ h2{
 <script src="js/diplomacy.js"></script>
 <script src="js/trade.js"></script>
 <script src="js/creatures.js"></script>
+<script src="js/military.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
 <script src="js/render.js"></script>
 <script src="js/zoom.js"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
+<script src="js/migrationAgents.js"></script>
+<script src="js/invasions.js"></script>
+<script src="js/scenarios.js"></script>
+<script src="js/home.js"></script>
 <script src="js/economy.js"></script>
 <script src="js/labor.js"></script>
 <script src="js/production.js"></script>
 <script src="js/hud.js"></script>
+<script src="js/economyBalance.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/observer.js"></script>
 <script src="js/main.js"></script>
@@ -1918,7 +2352,35 @@ function setObserverTiles(data){
   });
 
   const actions = document.getElementById('actionsTile');
-  if(actions) actions.style.display = data.actions ? 'block' : 'none';
+  if(actions){
+    // Mémorise le contenu d'origine de la tuile d'actions une seule fois, pour pouvoir
+    // le restaurer après l'avoir détourné pour les actions de la cité.
+    if(!window._actionsTilePristine){
+      window._actionsTilePristine = {
+        icon: (actions.querySelector('.icon')||{}).textContent || '🚶',
+        title: (actions.querySelector('.title')||{}).textContent || 'Actions',
+        status: (actions.querySelector('.status')||{}).textContent || '',
+        body: actions.querySelector('.obsTileBody').innerHTML,
+      };
+    }
+    // Bloc d'actions personnalisé (ex : actions de la cité -- offrande, festival,
+    // commerce, héros). Sinon, on restaure le contenu d'origine.
+    if(data.actionsHtml){
+      actions.style.display = 'block';
+      actions.classList.add('open');
+      const ic = actions.querySelector('.icon'); if(ic) ic.textContent = '⚙️';
+      const ti = actions.querySelector('.title'); if(ti) ti.textContent = data.actionsTitle || 'Actions';
+      const st = actions.querySelector('.status'); if(st) st.textContent = '';
+      actions.querySelector('.obsTileBody').innerHTML = data.actionsHtml;
+    }else{
+      const p = window._actionsTilePristine;
+      const ic = actions.querySelector('.icon'); if(ic) ic.textContent = p.icon;
+      const ti = actions.querySelector('.title'); if(ti) ti.textContent = p.title;
+      const st = actions.querySelector('.status'); if(st) st.textContent = p.status;
+      actions.querySelector('.obsTileBody').innerHTML = p.body;
+      actions.style.display = data.actions ? 'block' : 'none';
+    }
+  }
 }
 
 

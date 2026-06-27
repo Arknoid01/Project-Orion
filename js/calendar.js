@@ -28,6 +28,9 @@ function checkMonthChange(){
     showNotification(t('calendar.monthChange', { icon, month: t('calendar.month.' + state.month) }), 'good');
     debugInfo('Changement de mois', { month: state.month, year: state.year });
     if (typeof processForeignTrade === 'function') processForeignTrade(); // ventes mensuelles à l'export
+    if (typeof processArmyUpkeep === 'function') processArmyUpkeep();     // solde + moral de l'armée
+    if (typeof processTributes === 'function') processTributes();         // tributs des cités conquises
+    if (typeof processMonumentMonthly === 'function') processMonumentMonthly(); // avantages divins mensuels
   }
 }
 

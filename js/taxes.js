@@ -43,7 +43,7 @@ function renderTaxPanel(){
   effectsEl.innerHTML = `
     <p>💰 ${t('government.collection')} : ${taxCollectionRate().toFixed(2)} dr. ${t('inspector.perTick')} ${t('government.perServedPop')}</p>
     <p class="${efficiencyPct >= 100 ? 'need-ok' : 'need-missing'}">⚙️ ${t('government.efficiency')} : ${efficiencyPct}%</p>
-    <p class="${growthPct >= 50 ? 'need-ok' : 'need-missing'}">🏠 ${t('government.growth')} : ${growthPct}%</p>
+    <p class="${growthPct >= 20 ? 'need-ok' : 'need-missing'}">🏠 ${t('government.growth')} : ${growthPct}% ${t('economy.perDay')}</p>
     <p class="${attractivenessPct >= 50 ? 'need-ok' : 'need-missing'}">🌍 ${t('government.attractiveness')} : ${attractivenessPct}%</p>
   `;
 }

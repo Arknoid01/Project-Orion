@@ -17,7 +17,8 @@ function checkMaintenanceRisks(){
       return; // un seul sinistre par maison et par tick
     }
 
-    const diseaseChance = isHouseServedBy('health', col, row) ? DISEASE_CHANCE_COVERED : DISEASE_CHANCE_UNCOVERED;
+    const diseaseBase = isHouseServedBy('health', col, row) ? DISEASE_CHANCE_COVERED : DISEASE_CHANCE_UNCOVERED;
+    const diseaseChance = diseaseBase * ((typeof godDiseaseMultiplier === 'function') ? godDiseaseMultiplier() : 1);
     if (Math.random() < diseaseChance){
       triggerDisaster(col, row, 'disease');
     }

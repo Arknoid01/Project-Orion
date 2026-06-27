@@ -29,10 +29,29 @@ function needsMet(requires, col, row){
   return requires.every(need => NEED_CHECKERS[need] && NEED_CHECKERS[need](col, row));
 }
 
+// Besoins alimentaires distribués par le marché pour une maison (palier actuel + suivant).
+function houseMarketNeeds(col, row){
+  const cell = grid[row][col];
+  if (!cell || cell.building !== 'maison') return new Set();
+  const needs = new Set();
+  for (const level of [HOUSE_LEVELS[cell.houseLevel], HOUSE_LEVELS[cell.houseLevel + 1]]){
+    if (!level) continue;
+    for (const need of level.requires){
+      if (need === 'food' || need === 'oil' || need === 'wine' || need === 'wool') needs.add(need);
+    }
+  }
+  return needs;
+}
+
 /* ===================== EVOLUTION ===================== */
+function isHouseEvolutionDay(){
+  return DEBUG.tickCount > 0 && DEBUG.tickCount % DAY_DURATION_TICKS === 0;
+}
+
 function evaluateHouses(){
   checkEmigrationWarning();
-  renderTaxPanel(); // la faveur évolue seule (mythology.js) : le panneau doit suivre chaque tick
+  renderTaxPanel();
+  const evolutionDay = isHouseEvolutionDay();
 
   forEachBuilding((type, col, row) => {
     if (type !== 'maison') return;
@@ -40,24 +59,33 @@ function evaluateHouses(){
     const currentDef = HOUSE_LEVELS[cell.houseLevel];
     const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
 
-    // La croissance est probabiliste (pas instantanée) : taux d'imposition haut et/ou
-    // faveur basse la ralentissent (voir growthChance dans migration.js).
-    // La dégradation par besoin manquant reste immédiate (perdre un service n'est
-    // pas une question de politique, c'est un échec direct du joueur à le couvrir).
-    if (nextDef && needsMet(nextDef.requires, col, row) && Math.random() < growthChance()){
-      cell.houseLevel++;
-      cell.population = HOUSE_LEVELS[cell.houseLevel].population;
-      debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
-    } else if (cell.houseLevel > 0 && !needsMet(currentDef.requires, col, row)){
+    // Dégradation immédiate si un besoin du palier actuel manque.
+    if (cell.houseLevel > 0 && !needsMet(currentDef.requires, col, row)){
       cell.houseLevel--;
       cell.population = HOUSE_LEVELS[cell.houseLevel].population;
       debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+      return;
+    }
+
+    if (!evolutionDay) return;
+
+    // Croissance et émigration : une fois par jour de jeu.
+    if (nextDef && needsMet(nextDef.requires, col, row) && Math.random() < growthChance()){
+      if (typeof queueImmigration === 'function' && queueImmigration(col, row)){
+        // colon en route
+      } else {
+        cell.houseLevel++;
+        cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+        debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+      }
     } else if (cell.houseLevel > 0 && Math.random() < emigrationChance()){
-      // Émigration : la ville est si peu attractive (faveur basse / taxe haute) que des
-      // habitants partent, même si les besoins de ce niveau sont pourtant remplis.
-      cell.houseLevel--;
-      cell.population = HOUSE_LEVELS[cell.houseLevel].population;
-      debugWarn(`Émigration : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+      if (typeof queueEmigration === 'function' && queueEmigration(col, row)){
+        // habitant en route
+      } else {
+        cell.houseLevel--;
+        cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+        debugWarn(`Émigration : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+      }
     }
   });
 }

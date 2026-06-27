@@ -1,11 +1,7 @@
 /* ===================== IMMIGRATION / EMIGRATION ===================== */
 // Combine la politique fiscale (taxes.js) et la faveur divine (mythology.js) en une
 // seule "attractivité" de la cité (0 = catastrophique, 1 = idéale), qui influence :
-//   - growthChance() : vitesse de croissance des maisons -> reprend taxGrowthChance()
-//     (taxes.js) et y ajoute un bonus/malus selon la faveur
-//   - emigrationChance() : risque qu'une maison PERDE un niveau même si ses besoins
-//     sont remplis, dès que l'attractivité tombe sous un seuil -- contrairement à la
-//     dégradation classique (houses.js), qui ne se déclenche que si un besoin manque
+// growthChance() / emigrationChance() : tirages une fois par jour de jeu (houses.js).
 
 function cityAttractiveness(){
   const favorComponent = favor / FAVOR_MAX;  // 0 (dieux mécontents) .. 1 (combles)

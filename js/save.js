@@ -3,7 +3,7 @@
 // github.io, pas seulement ce projet — un nom générique risquerait une collision
 // avec un autre des projets hébergés sur arknoid01.github.io.
 const SAVE_KEY = 'olympos_save_v1';
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 4;
 
 function saveGame(opts){
   opts = opts || {};
@@ -23,10 +23,18 @@ function saveGame(opts){
     defeatReason,
     festivalTicksLeft,
     diplomacy,
-    tradeExports,
-    tradeImports,
+    worldCities,
+    selectedWorldCityId,
+    tradeRoutes,
+    selectedTradeCityId,
+    army,
+    godAgents,
     monster,
     hero,
+    migrants,
+    invasion,
+    scenarioId: currentScenarioId,
+    mapSeed: (typeof mapSeed !== 'undefined') ? mapSeed : 0,
     tickCount: DEBUG.tickCount,
     lang: currentLang,
   };
@@ -56,6 +64,10 @@ function sanitizeGrid(loadedGrid){
         population: cell.population || 0,
         patrolBlock: !!cell.patrolBlock,
         beauty: typeof cell.beauty === 'number' ? cell.beauty : 0,
+        elevation: typeof cell.elevation === 'number' ? cell.elevation : 0.4,
+        slope: typeof cell.slope === 'number' ? cell.slope : 0,
+        monumentPart: cell.monumentPart || null,
+        godPatron: cell.godPatron || null,
       };
     }
   }
@@ -80,7 +92,11 @@ function loadGame(){
     return false;
   }
 
-  if (!payload || payload.version !== SAVE_VERSION || !Array.isArray(payload.grid)){
+  if (!payload || !Array.isArray(payload.grid)){
+    debugWarn('Sauvegarde dans un format inattendu, ignorée');
+    return false;
+  }
+  if (payload.version !== SAVE_VERSION && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
@@ -90,6 +106,7 @@ function loadGame(){
   }
 
   grid = sanitizeGrid(payload.grid);
+  if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   // Fusion avec des valeurs par défaut complètes : une sauvegarde plus ancienne
   // n'a pas les nouvelles ressources (huile, vin...) — sans ça elles seraient
   // undefined et casseraient les additions de production (NaN).
@@ -108,13 +125,29 @@ function loadGame(){
   defeatAnnounced = !!payload.defeatAnnounced;
   defeatReason = payload.defeatReason || null;
   festivalTicksLeft = payload.festivalTicksLeft || 0;
+  // Cités du monde d'abord (la diplomatie et le commerce s'appuient dessus).
+  if (Array.isArray(payload.worldCities)) worldCities = payload.worldCities;
+  if (typeof payload.selectedWorldCityId === 'number') selectedWorldCityId = payload.selectedWorldCityId;
+  ensureWorldState(); // génère des cités si la sauvegarde est antérieure à la carte du monde
   if (payload.diplomacy) diplomacy = payload.diplomacy;
-  ensureDiplomacyState(); // complète une sauvegarde antérieure à la diplomatie
-  if (payload.tradeExports) tradeExports = payload.tradeExports;
-  if (payload.tradeImports) tradeImports = payload.tradeImports;
-  ensureTradeState(); // complète une sauvegarde antérieure au commerce extérieur
-  monster = payload.monster || null; // créatures transitoires : null par défaut
+  ensureDiplomacyState();
+  if (payload.tradeRoutes) tradeRoutes = payload.tradeRoutes;
+  if (typeof payload.selectedTradeCityId === 'number') selectedTradeCityId = payload.selectedTradeCityId;
+  ensureTradeState(); // complète une sauvegarde antérieure au commerce par cité
+  if (payload.army) army = payload.army;
+  ensureArmyState();
+  if (Array.isArray(payload.godAgents)) godAgents = payload.godAgents;
+  else if (typeof initGodAgentsFromMonuments === 'function') initGodAgentsFromMonuments();
+  monster = payload.monster || null;
   hero = payload.hero || null;
+  if (Array.isArray(payload.migrants)) migrants = payload.migrants;
+  else if (typeof resetMigrants === 'function') resetMigrants();
+  invasion = payload.invasion || null;
+  if (payload.scenarioId && typeof applyScenarioObjectives === 'function'){
+    currentScenarioId = payload.scenarioId;
+    applyScenarioObjectives(getScenario(currentScenarioId));
+  }
+  if (typeof payload.mapSeed === 'number') mapSeed = payload.mapSeed;
   DEBUG.tickCount = payload.tickCount || 0;
   if (payload.lang) currentLang = payload.lang;
 

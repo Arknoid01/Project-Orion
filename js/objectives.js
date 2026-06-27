@@ -7,6 +7,8 @@ const OBJECTIVE_METRICS = {
   wheatProduced:() => totalWheatProduced,
   villa:        () => hasVillaSomewhere() ? 1 : 0,
   favor:        () => favor,
+  citiesConquered: () => (worldCities || []).filter(c => c.conquered).length,
+  barracks:     () => (typeof countBarracks === 'function') ? countBarracks() : 0,
 };
 
 // Index du niveau "villa" repéré par sa clé (et non "dernier niveau"), pour rester
@@ -24,8 +26,9 @@ function hasVillaSomewhere(){
 
 /* ===================== VERIFICATION ===================== */
 function checkObjectives(){
+  const objectives = (typeof activeObjectives !== 'undefined') ? activeObjectives : OBJECTIVES;
   let allDone = true;
-  OBJECTIVES.forEach(obj => {
+  objectives.forEach(obj => {
     obj.current = OBJECTIVE_METRICS[obj.metric]();
     obj.done = obj.current >= obj.target;
     if (!obj.done) allDone = false;
@@ -45,9 +48,10 @@ function renderObjectivesPanel(){
   const list = document.getElementById('objectivesList');
   const victoryBanner = document.getElementById('victoryBanner');
   const defeatBanner = document.getElementById('defeatBanner');
+  const objectives = (typeof activeObjectives !== 'undefined') ? activeObjectives : OBJECTIVES;
   if (!list) return;
 
-  list.innerHTML = OBJECTIVES.map(obj => {
+  list.innerHTML = objectives.map(obj => {
     const icon = obj.done ? '✅' : '⏳';
     const current = Math.floor(obj.current || 0);
     return `<li class="${obj.done ? 'objective-done' : ''}">${icon} ${t(obj.nameKey)} (${current}/${obj.target})</li>`;
