@@ -138,7 +138,7 @@ header span{
   border-radius: 6px;
   background: #2c4a63;
   overflow: auto;
-  max-height: 70vh; /* limite fixe : le canvas zoomé défile DEDANS, ne pousse plus la page */
+  height: 70vh; /* fixe (pas max-height) : le cadre ne change jamais de taille selon le zoom */
 }
 canvas{ display:block; cursor: pointer; touch-action: pan-x pan-y; } /* le pincement est intercepté en JS (zoom.js) via preventDefault, le reste (glisser) reste natif */
 #zoomControls{
