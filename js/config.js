@@ -211,3 +211,28 @@ const OBJECTIVES = [
   { key:'villa',          nameKey:'objective.villa',          metric:'villa',          target:1 },
   { key:'favor',          nameKey:'objective.favor',          metric:'favor',          target:80 },
 ];
+
+/* ===================== CALENDRIER (mois attiques) ===================== */
+// Dérivé uniquement de DEBUG.tickCount (voir calendar.js) -- aucun état séparé à
+// sauvegarder, donc aucun risque de désynchronisation avec une sauvegarde existante.
+const DAY_DURATION_TICKS = 10;  // 1 jour = 10 ticks = 10 secondes
+const DAYS_PER_MONTH = 7;       // 1 mois = 7 jours (~1 min 10s) -> 1 an = 84 jours (~14 min)
+
+// Les 12 mois du calendrier attique (athénien), dans leur ordre traditionnel
+// (l'année commence après le solstice d'été). Regroupés par saison pour l'icône.
+const MONTHS = [
+  { key:'hecatombaion',  season:'summer' },
+  { key:'metageitnion',  season:'summer' },
+  { key:'boedromion',    season:'summer' },
+  { key:'pyanepsion',    season:'autumn' },
+  { key:'maimakterion',  season:'autumn' },
+  { key:'poseideon',     season:'autumn' },
+  { key:'gamelion',      season:'winter' },
+  { key:'anthesterion',  season:'winter' },
+  { key:'elaphebolion',  season:'winter' },
+  { key:'mounichion',    season:'spring' },
+  { key:'thargelion',    season:'spring' },
+  { key:'skirophorion',  season:'spring' },
+];
+
+const SEASON_ICONS = { summer:'☀️', autumn:'🍂', winter:'❄️', spring:'🌸' };

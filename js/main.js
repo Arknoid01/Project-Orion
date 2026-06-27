@@ -14,6 +14,7 @@ function resetGame(){
   productionEffectTicksLeft = 0;
   totalWheatProduced = 0;
   victoryAnnounced = false;
+  lastMonthIndex = null;
   recomputeAllWalkers();
   recomputeLabor();
   debugInfo('Partie réinitialisée');
@@ -28,6 +29,7 @@ function refreshUI(){
   renderMythologyPanel();
   renderObjectivesPanel();
   renderTaxPanel();
+  renderCalendarPanel();
 }
 
 /* ===================== INIT ===================== */
