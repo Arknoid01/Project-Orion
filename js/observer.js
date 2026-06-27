@@ -149,8 +149,75 @@ function buildCityObserverData(){
   };
 }
 
-// Ouvre l'observateur sur une case précise de la grille (maison / bâtiment / case vide).
-// Branché depuis le clic sur le canvas (voir ui.js) quand aucun mode n'est actif.
+// Vue dédiée à un marcheur (porteur d'eau, marchand, collecteur...) -- avant, il
+// n'existait aucune vue réelle pour ça (seulement maisons/bâtiments/cases), donc un
+// clic sur un marcheur retombait sur la case en dessous, qui ne bouge jamais.
+function buildWalkerObserverData(walker){
+  const def = BUILDING_DEFS[walker.type];
+  const current = walker.path[walker.pathIndex];
+  const connected = walker.path.length > 1;
+
+  return {
+    title: `${def.icon} ${t('inspector.service')} : ${t('service.' + walker.serviceType)}`,
+    tiles: [
+      {
+        icon: '🚶', title: t('inspector.service'), status: connected ? t('inspector.connected') : t('inspector.notConnected'),
+        rows: [
+          [t('inspector.service'), t('service.' + walker.serviceType)],
+          ['Départ', `${t(def.name)} (${walker.col},${walker.row})`],
+          [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
+        ],
+      },
+      {
+        icon: '🏠', title: t('inspector.served'), status: `${walker.servedHouses.length}/${def.capacity}`,
+        rows: walker.servedHouses.length
+          ? walker.servedHouses.slice(0, 6).map(h => [`Maison (${h.col},${h.row})`, '✔', 'ok'])
+          : [[t('inspector.served'), '0', 'bad']],
+      },
+      {
+        icon: '🧭', title: 'Trajet', status: current ? `(${current.col},${current.row})` : '—',
+        rows: [
+          ['Position actuelle', current ? `${current.col},${current.row}` : '—'],
+          ['Direction', walker.facing],
+          ['Longueur du trajet', walker.path.length],
+        ],
+      },
+    ],
+    actions: false,
+  };
+}
+
+function openWalkerObserver(walker){
+  const titleEl = document.getElementById('observerTitle');
+  const panel = document.getElementById('observerPanel');
+  const backdrop = document.getElementById('backdrop');
+  if (!panel) return;
+
+  const data = buildWalkerObserverData(walker);
+  if (typeof closePanels === 'function') closePanels();
+  if (titleEl) titleEl.textContent = 'Observateur · ' + data.title;
+  if (typeof setObserverTiles === 'function') setObserverTiles(data);
+  panel.classList.add('open');
+  if (backdrop) backdrop.classList.add('show');
+}
+
+// Renvoie le marcheur dont la position écran actuelle (interpolée) est la plus
+// proche du point cliqué, dans un rayon raisonnable -- sinon null.
+function findWalkerNear(screenX, screenY, now){
+  const threshold = WALKER_DISPLAY_SIZE; // rayon de détection généreux (taille d'affichage du marcheur)
+  let closest = null;
+  let closestDist = threshold;
+  walkers.forEach(w => {
+    if (w.path.length <= 1) return; // immobile, pas affiché -> pas cliquable
+    const pos = getWalkerScreenPos(w, now);
+    const dist = Math.hypot(pos.x - screenX, pos.y - screenY);
+    if (dist <= closestDist){
+      closest = w;
+      closestDist = dist;
+    }
+  });
+  return closest;
+}
 function openTileObserver(col, row){
   if (!inBounds(col, row)) return;
   const cell = grid[row][col];

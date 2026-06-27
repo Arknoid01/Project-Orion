@@ -460,8 +460,15 @@ canvas.addEventListener('click', (e) => {
       recomputeAllWalkers();
     }
   } else if (!demolishMode && !roadMode && !blockMode && !selectedBuilding){
-    // Aucun mode actif : on inspecte la case (ouvre l'observateur dans la nouvelle UI).
-    if (typeof openTileObserver === 'function') openTileObserver(col, row);
+    // Aucun mode actif : on inspecte ce qui a été tapé -- un marcheur en mouvement
+    // s'il est sous le doigt, sinon la case (ouvre l'observateur, nouvelle UI).
+    const now = performance.now();
+    const hitWalker = (typeof findWalkerNear === 'function') ? findWalkerNear(mx, my, now) : null;
+    if (hitWalker && typeof openWalkerObserver === 'function'){
+      openWalkerObserver(hitWalker);
+    } else if (typeof openTileObserver === 'function'){
+      openTileObserver(col, row);
+    }
   }
   recomputeBeauty(); // retour visuel immédiat du cachet (le tick le recalcule aussi)
   renderInspector(col, row);
