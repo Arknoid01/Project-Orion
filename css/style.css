@@ -302,6 +302,23 @@ canvas{ display:block; cursor: pointer; touch-action: pan-x pan-y; } /* le pince
   text-align: center;
   font-size: 13px;
 }
+#defeatBanner{
+  background: linear-gradient(90deg, #7a1f1f, #b53030);
+  color: var(--marble);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font-weight: bold;
+  text-align: center;
+  font-size: 13px;
+}
+#festivalStatus{
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 4px;
+  opacity: 0.85;
+}
 
 /* ===================== DEBUG ===================== */
 #debugToggle{
