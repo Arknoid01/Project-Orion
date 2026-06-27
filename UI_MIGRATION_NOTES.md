@@ -124,6 +124,30 @@ proche, ou un futur `buildTradeObserverData()` dédié).
   traduire toute ton interface, pas juste brancher un bouton. À part si tu veux
   vraiment l'anglais un jour.
 
+## Petits ajouts UX après la migration
+
+- **Annuler la sélection / revenir en mode observation** : la pastille
+  `#selectedBuildPill` (🔨 nom du bâtiment) est maintenant cliquable -- taper dessus
+  annule le mode en cours (bâtiment/route/borne/démolir) via la nouvelle fonction
+  `cancelSelection()` (`ui.js`), et la touche **Échap** fait la même chose. Sans
+  mode actif, un clic sur la carte ouvre l'observateur au lieu de construire.
+
+- **Catalogue (`#quickBuild`) qui ramait à l'ouverture** : la vraie cause n'était pas
+  l'animation elle-même, mais l'accumulation -- `toggleCatalog()` permettait d'ouvrir
+  plusieurs catégories à la fois, et cet état était sauvegardé entre les sessions. Plus
+  le catalogue est exploré au fil du temps, plus de catégories restaient "ouvertes" en
+  mémoire, donc plus de cartes à peindre à chaque ouverture du panneau. Passage en
+  **accordéon** (une seule catégorie ouverte à la fois) + assainissement automatique
+  d'un état déjà accumulé avant ce correctif (`restoreCatalogState()` ne garde
+  désormais que la première catégorie ouverte trouvée). Le voile d'arrière-plan
+  (`#backdrop`) a aussi été simplifié (plus de bascule `display:none/block` en même
+  temps que le fondu, qui pouvait perturber l'animation) et le flou (`backdrop-filter`)
+  retiré des panneaux et pastilles HUD (fonds déjà quasi opaques, flou invisible mais
+  coûteux).
+- **Plein écran** : nouveau bouton "⛶ Plein écran" dans le menu (☰), utilise l'API
+  Fullscreen du navigateur. Le libellé change automatiquement ("Quitter le plein
+  écran") une fois actif.
+
 ## Etat global après ces 4 phases
 
 Le moteur de jeu réel (grille, bâtiments, walkers, créatures, mythologie, impôts,

@@ -23,7 +23,10 @@
  --safeLeft:env(safe-area-inset-left);
  --safeRight:env(safe-area-inset-right);
 }
-*{box-sizing:border-box}
+*{
+ box-sizing:border-box;
+ -webkit-tap-highlight-color:transparent; /* le voile bleu au toucher, sur Android/Chrome */
+}
 html,body{
  margin:0;
  width:100%;
@@ -340,13 +343,16 @@ html,body{
 
 /* Overlay */
 .backdrop{
- display:none;
  position:absolute;
  inset:0;
  z-index:25;
  background:rgba(0,0,0,.45);
+ opacity:0;
+ pointer-events:none;
+ transition:opacity .22s ease;
+ will-change:opacity;
 }
-.backdrop.show{display:block}
+.backdrop.show{ opacity:1; pointer-events:auto; }
 
 .floatingTools{
  position:absolute;
@@ -687,15 +693,8 @@ h2{
   will-change:transform;
 }
 
-/* Léger fade de l'overlay */
-.backdrop{
-  opacity:0;
-  transition:opacity .22s ease;
-}
-
-.backdrop.show{
-  opacity:1;
-}
+/* Léger fade de l'overlay : fusionné dans la règle .backdrop principale plus haut
+   (display:none/block retiré -- ça interférait avec le fondu en opacité). */
 
 /* Entrée progressive du contenu quand un panneau s'ouvre */
 .panel.open .card,
@@ -1460,6 +1459,7 @@ h2{
      <button class="actionBtn" onclick="callGameAction('loadGame')">📂 Charger</button>
      <button class="actionBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
+     <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
      <button class="actionBtn" onclick="callGameAction('returnToMainMenu')">🚪 Retour au menu principal</button>
    </div>
  </aside>
@@ -1579,7 +1579,7 @@ h2{
       </div>
     </section>
 
-    <section class="catalogCategory open">
+    <section class="catalogCategory">
       <button class="catalogHeader" onclick="toggleCatalog(this)">
         <span>🛣️ Outils</span><b>3</b>
       </button>
@@ -1723,11 +1723,20 @@ function restoreCatalogState(){
       const cat = document.querySelectorAll('.catalogCategory')[item.index];
       if(cat) cat.classList.toggle('open', !!item.open);
     });
+    // Assainit une sauvegarde antérieure à la règle accordéon (qui pouvait avoir
+    // plusieurs catégories ouvertes en même temps) -- n'en garde qu'une.
+    const openCats = [...document.querySelectorAll('#quickBuild .catalogCategory.open')];
+    openCats.slice(1).forEach(c => c.classList.remove('open'));
   }catch(e){}
 }
 
 function toggleCatalog(btn){
-  btn.closest('.catalogCategory').classList.toggle('open');
+  const cat = btn.closest('.catalogCategory');
+  const wasOpen = cat.classList.contains('open');
+  // Accordéon : une seule catégorie ouverte à la fois -- moins de cartes visibles
+  // simultanément = glissement du panneau plus léger à animer.
+  document.querySelectorAll('#quickBuild .catalogCategory').forEach(c => c.classList.remove('open'));
+  if (!wasOpen) cat.classList.add('open');
   saveCatalogState();
 }
 
@@ -1776,6 +1785,21 @@ function callGameAction(fnName, arg){
     closePanels(); // retour direct à la ville pour placer l'objet
   }
 }
+
+function toggleFullscreen(){
+  if (!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(() => {
+      if (typeof showNotification === 'function') showNotification('Plein écran indisponible sur ce navigateur', 'bad');
+      else mock('toggleFullscreen() — indisponible');
+    });
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  const label = document.getElementById('fullscreenBtnLabel');
+  if (label) label.textContent = document.fullscreenElement ? 'Quitter le plein écran' : 'Plein écran';
+});
 
 document.addEventListener('DOMContentLoaded', restoreCatalogState);
 
