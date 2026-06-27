@@ -70,6 +70,8 @@ function tick(){
   checkMaintenanceRisks();
   advanceWalkers();
   checkObjectives();
+  checkDefeat();
+  tickFestival();
   checkMonthChange();
   renderCalendarPanel();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);

@@ -16,13 +16,14 @@ function cityAttractiveness(){
 function growthChance(){
   const base = taxGrowthChance(); // courbe pure liée au taux (voir taxes.js)
   const favorBonus = (favor / FAVOR_MAX - 0.5) * GROWTH_FAVOR_INFLUENCE;
-  return Math.max(0.02, Math.min(0.98, base + favorBonus));
+  return Math.max(0.02, Math.min(0.98, base + favorBonus + festivalHappinessBonus()));
 }
 
 function emigrationChance(){
   const attractiveness = cityAttractiveness();
   if (attractiveness >= EMIGRATION_THRESHOLD) return 0;
-  return (EMIGRATION_THRESHOLD - attractiveness) * EMIGRATION_STRENGTH;
+  const base = (EMIGRATION_THRESHOLD - attractiveness) * EMIGRATION_STRENGTH;
+  return Math.max(0, base - festivalHappinessBonus()); // un festival apaise aussi le risque d'émigration
 }
 
 // Notification unique (pas une par maison) au passage sous le seuil, avec un debounce

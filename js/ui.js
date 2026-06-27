@@ -278,6 +278,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 document.getElementById('saveBtn').addEventListener('click', () => saveGame());
 
 document.getElementById('offeringBtn').addEventListener('click', () => makeOffering());
+document.getElementById('festivalBtn').addEventListener('click', () => holdFestival());
 
 document.getElementById('taxRateSlider').addEventListener('input', (e) => {
   setTaxRate(e.target.value / 100);

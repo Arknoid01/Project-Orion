@@ -212,6 +212,22 @@ const OBJECTIVES = [
   { key:'favor',          nameKey:'objective.favor',          metric:'favor',          target:80 },
 ];
 
+/* ===================== DEFAITE ===================== */
+// Deux conditions, vérifiées chaque tick (voir defeat.js) -- un sinistre temporaire
+// (un creux de population pendant un incendie, ou un trésor brièvement négatif) ne
+// déclenche pas la défaite : il faut que ça dure plusieurs ticks de suite.
+const DEFEAT_POPULATION_TICKS = 10;  // population à 0 pendant 10 ticks d'affilée
+const DEFEAT_BANKRUPTCY_TICKS = 30;  // trésor négatif pendant 30 ticks d'affilée
+
+/* ===================== FESTIVALS ===================== */
+// Même principe que l'offrande (mythology.js) : action joueur, coûte des ressources,
+// effet temporaire -- ici un bonus de croissance/réduction d'émigration (voir
+// migration.js) plutôt qu'un nouveau stat "bonheur" séparé.
+const FESTIVAL_COST = { wine: 10, sculpture: 5 };
+const FESTIVAL_FAVOR_GAIN = 20;
+const FESTIVAL_DURATION_TICKS = 30;  // ~30 secondes
+const FESTIVAL_GROWTH_BONUS = 0.15;  // s'ajoute à growthChance() et retranche d'emigrationChance()
+
 /* ===================== CALENDRIER (mois attiques) ===================== */
 // Dérivé uniquement de DEBUG.tickCount (voir calendar.js) -- aucun état séparé à
 // sauvegarder, donc aucun risque de désynchronisation avec une sauvegarde existante.

@@ -15,6 +15,12 @@ function resetGame(){
   totalWheatProduced = 0;
   victoryAnnounced = false;
   lastMonthIndex = null;
+  everHadPopulation = false;
+  zeroPopulationStreak = 0;
+  bankruptStreak = 0;
+  defeatAnnounced = false;
+  defeatReason = null;
+  festivalTicksLeft = 0;
   recomputeAllWalkers();
   recomputeLabor();
   debugInfo('Partie réinitialisée');
@@ -30,6 +36,7 @@ function refreshUI(){
   renderObjectivesPanel();
   renderTaxPanel();
   renderCalendarPanel();
+  renderFestivalPanel();
 }
 
 /* ===================== INIT ===================== */

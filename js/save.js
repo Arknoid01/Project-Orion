@@ -18,6 +18,10 @@ function saveGame(opts){
     productionEffectTicksLeft,
     totalWheatProduced,
     victoryAnnounced,
+    everHadPopulation,
+    defeatAnnounced,
+    defeatReason,
+    festivalTicksLeft,
     tickCount: DEBUG.tickCount,
     lang: currentLang,
   };
@@ -95,6 +99,10 @@ function loadGame(){
   productionEffectTicksLeft = payload.productionEffectTicksLeft || 0;
   totalWheatProduced = payload.totalWheatProduced || 0;
   victoryAnnounced = !!payload.victoryAnnounced;
+  everHadPopulation = !!payload.everHadPopulation;
+  defeatAnnounced = !!payload.defeatAnnounced;
+  defeatReason = payload.defeatReason || null;
+  festivalTicksLeft = payload.festivalTicksLeft || 0;
   DEBUG.tickCount = payload.tickCount || 0;
   if (payload.lang) currentLang = payload.lang;
 

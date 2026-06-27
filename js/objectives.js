@@ -43,7 +43,8 @@ function checkObjectives(){
 /* ===================== AFFICHAGE PANNEAU ===================== */
 function renderObjectivesPanel(){
   const list = document.getElementById('objectivesList');
-  const banner = document.getElementById('victoryBanner');
+  const victoryBanner = document.getElementById('victoryBanner');
+  const defeatBanner = document.getElementById('defeatBanner');
   if (!list) return;
 
   list.innerHTML = OBJECTIVES.map(obj => {
@@ -52,5 +53,9 @@ function renderObjectivesPanel(){
     return `<li class="${obj.done ? 'objective-done' : ''}">${icon} ${t(obj.nameKey)} (${current}/${obj.target})</li>`;
   }).join('');
 
-  if (banner) banner.style.display = victoryAnnounced ? '' : 'none';
+  if (victoryBanner) victoryBanner.style.display = victoryAnnounced ? '' : 'none';
+  if (defeatBanner){
+    defeatBanner.style.display = defeatAnnounced ? '' : 'none';
+    if (defeatAnnounced) defeatBanner.textContent = t('defeat.' + defeatReason);
+  }
 }
