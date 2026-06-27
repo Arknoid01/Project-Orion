@@ -66,6 +66,16 @@
       <button id="offeringBtn" class="buildBtn" data-i18n="action.offering">🏺 Faire une offrande (-5 sculptures)</button>
     </div>
 
+    <div id="governmentPanel">
+      <h2 data-i18n="panel.government">Gouvernement</h2>
+      <label for="taxRateSlider" data-i18n="government.taxRate">Taux d'imposition</label>
+      <div class="sliderRow">
+        <input type="range" id="taxRateSlider" min="0" max="100" value="50">
+        <span id="taxRateLabel">50%</span>
+      </div>
+      <div id="taxEffects"></div>
+    </div>
+
     <div id="objectivesPanel">
       <h2 data-i18n="panel.objectives">Objectifs</h2>
       <div id="victoryBanner" data-i18n="objective.victory" style="display:none;"></div>
@@ -98,6 +108,7 @@
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
 <script src="js/render.js"></script>
+<script src="js/taxes.js"></script>
 <script src="js/economy.js"></script>
 <script src="js/labor.js"></script>
 <script src="js/production.js"></script>
