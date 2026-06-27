@@ -127,6 +127,10 @@ function houseInspectorHtml(cell, col, row){
     <p><strong>${t(levelDef.nameKey)}</strong> — ${t('inspector.level')} ${cell.houseLevel}</p>
     <p>👥 ${t('inspector.population')} : ${cell.population}</p>
     <p>🎨 ${t('inspector.beauty')} : ${Math.round(cell.beauty || 0)} / ${BEAUTY_THRESHOLD}</p>
+    <p class="${isHouseServedBy('fire', col, row) ? 'need-ok' : 'need-missing'}">
+      ${isHouseServedBy('fire', col, row) ? '✅' : '❌'} ${t('inspector.fireRisk')}</p>
+    <p class="${isHouseServedBy('health', col, row) ? 'need-ok' : 'need-missing'}">
+      ${isHouseServedBy('health', col, row) ? '✅' : '❌'} ${t('inspector.diseaseRisk')}</p>
     ${emigrationChance() > 0 ? `<p class="need-missing">⚠️ ${t('migration.emigrationRisk')} : ${Math.round(emigrationChance() * 100)}%/tick</p>` : ''}
     <p class="needsTitle">${t('inspector.nextNeeds')}</p>
     <ul class="needsList">${needsHtml}</ul>`;

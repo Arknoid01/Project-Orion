@@ -39,6 +39,7 @@ const BUILDING_DEFS = {
   temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:20, capacity:8, sprite:'assets/buildings/temple.png', cost:150, upkeep:2 },
   clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:20, capacity:8, sprite:'assets/buildings/clinic.png', cost:150, upkeep:2 },
   taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:20, capacity:8, cost:150, upkeep:2 },
+  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:20, capacity:8, cost:150, upkeep:2 },
   // ---- Habitation ----
   maison:    { name:'building.maison',    icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true, cost:40 },
   // ---- Décorations : diffusent du "cachet" (beauty) autour d'elles (voir beauty.js) ----
@@ -89,8 +90,8 @@ const BASE_CAP = { wheat:50, marble:60, sculpture:30, olives:40, oil:40, grapes:
 //   villa     -> +nourriture
 //   domaine   -> +huile, +beauté
 //   residence -> +vin, +religion
-//   palais    -> +laine, +santé   (donc TOUT : route, eau, nourriture, huile, vin, laine,
-//                                   religion, santé, beauté)
+//   palais    -> +laine, +santé, +protection incendie (donc TOUT : route, eau,
+//                 nourriture, huile, vin, laine, religion, santé, beauté, feu)
 const HOUSE_LEVELS = [
   { key:'hut',       nameKey:'houseLevel.hut',       population:2,  requires:[], sprite:'assets/houses/hut.png' },
   { key:'house',     nameKey:'houseLevel.house',     population:5,  requires:['route'], sprite:'assets/houses/house.png' },
@@ -98,13 +99,28 @@ const HOUSE_LEVELS = [
   { key:'villa',     nameKey:'houseLevel.villa',     population:15, requires:['route','water','food'], sprite:'assets/houses/villa.png' },
   { key:'domaine',   nameKey:'houseLevel.domaine',   population:24, requires:['route','water','food','oil','beauty'] },
   { key:'residence', nameKey:'houseLevel.residence', population:34, requires:['route','water','food','oil','wine','religion','beauty'], sprite:'assets/houses/residence.png' },
-  { key:'palais',    nameKey:'houseLevel.palais',    population:48, requires:['route','water','food','oil','wine','wool','religion','health','beauty'], sprite:'assets/houses/palais.png' },
+  { key:'palais',    nameKey:'houseLevel.palais',    population:48, requires:['route','water','food','oil','wine','wool','religion','health','fire','beauty'], sprite:'assets/houses/palais.png' },
 ];
 
 /* ===================== EMBELLISSEMENT (CACHET) ===================== */
 // Cachet minimal accumulé sur la case d'une maison pour satisfaire le besoin 'beauty'
 // (voir beauty.js pour la diffusion, houses.js pour la vérification du besoin).
 const BEAUTY_THRESHOLD = 6;
+
+/* ===================== ICONES DE STATUT (au-dessus des maisons) ===================== */
+// Voir houses.js (getHouseStatusIcons) et render.js (drawHouseStatusIcons).
+const NEED_ICONS = {
+  route:    '🛣️',
+  water:    '⛲',
+  food:     '🍴',
+  oil:      '🛢️',
+  wine:     '🍷',
+  wool:     '🐑',
+  religion: '🛕',
+  health:   '🤢',
+  fire:     '🔥',
+  beauty:   '🌲',
+};
 
 /* ===================== ECONOMIE ===================== */
 // Tout est en drachmes. Modèle léger : taxes et entretien passifs (par tick),
@@ -134,6 +150,16 @@ const TAX_GROWTH_CHANCE_AT_MAX  = 0.15;  // probabilité d'évolution d'une mais
 const GROWTH_FAVOR_INFLUENCE = 0.3;   // amplitude du bonus/malus de faveur sur la croissance
 const EMIGRATION_THRESHOLD = 0.35;    // attractivité en-dessous de laquelle l'émigration démarre
 const EMIGRATION_STRENGTH = 0.3;      // intensité du risque une fois sous le seuil
+
+/* ===================== MAINTENANCE (INCENDIES / MALADIES) ===================== */
+// Voir maintenance.js. Premiers chiffres, pas encore équilibrés en conditions réelles
+// de jeu -- à ajuster une fois que tu auras une vraie ville qui tourne longtemps.
+// Une maison NON desservie (fire/health) risque un sinistre à chaque tick ; une maison
+// desservie garde un risque résiduel très faible, jamais totalement nul.
+const FIRE_CHANCE_UNCOVERED = 0.001;     // ~0.1%/tick, sans tour de guet à portée
+const FIRE_CHANCE_COVERED = 0.00005;     // ~0.005%/tick, même protégée (risque résiduel)
+const DISEASE_CHANCE_UNCOVERED = 0.001;  // ~0.1%/tick, sans infirmerie à portée
+const DISEASE_CHANCE_COVERED = 0.00005;  // ~0.005%/tick, même protégée
 
 /* ===================== PALETTES MAISONS PROCEDURALES ===================== */
 const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];

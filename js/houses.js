@@ -10,6 +10,7 @@ function hasAdjacentRoad(col, row){
 //   food/oil/wine/wool -> biens distribués par un marché (consomme le stock)
 //   religion -> couverture d'un temple (walker)
 //   health   -> couverture d'une infirmerie (walker)
+//   fire     -> couverture d'une tour de guet (walker) -- voir maintenance.js
 //   beauty   -> cachet accumulé sur la case (voir beauty.js)
 const NEED_CHECKERS = {
   route:    hasAdjacentRoad,
@@ -20,6 +21,7 @@ const NEED_CHECKERS = {
   wool:     (col, row) => isHouseSupplied('wool', col, row),
   religion: (col, row) => isHouseServedBy('religion', col, row),
   health:   (col, row) => isHouseServedBy('health', col, row),
+  fire:     (col, row) => isHouseServedBy('fire', col, row),
   beauty:   (col, row) => isTileBeautiful(col, row),
 };
 
@@ -66,4 +68,26 @@ function computeTotalPopulation(){
     if (type === 'maison') total += grid[row][col].population;
   });
   return total;
+}
+
+/* ===================== ICONES DE STATUT ===================== */
+// Risques actifs (incendie/maladie) en premier -- ils s'appliquent à TOUTE maison,
+// peu importe son niveau (une cabane peut brûler tout comme un palais). Ensuite,
+// les besoins manquants pour le palier suivant. Pas de cap artificiel arbitraire,
+// mais en pratique une maison bien gérée n'a presque jamais plus de 1-2 icônes.
+function getHouseStatusIcons(col, row, cell){
+  const icons = [];
+
+  if (!isHouseServedBy('fire', col, row)) icons.push(NEED_ICONS.fire);
+  if (!isHouseServedBy('health', col, row)) icons.push(NEED_ICONS.health);
+
+  const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
+  if (nextDef){
+    for (const need of nextDef.requires){
+      if (need === 'fire' || need === 'health') continue; // déjà couverts ci-dessus
+      if (!NEED_CHECKERS[need](col, row)) icons.push(NEED_ICONS[need]);
+    }
+  }
+
+  return icons;
 }

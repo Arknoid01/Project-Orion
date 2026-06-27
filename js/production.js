@@ -67,6 +67,7 @@ function tick(){
   processMarkets();
   recomputeBeauty();
   evaluateHouses();
+  checkMaintenanceRisks();
   advanceWalkers();
   checkObjectives();
   if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
