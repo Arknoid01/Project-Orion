@@ -1419,6 +1419,27 @@ h2{
    "fermé" qui reste visible à l'écran. ===== */
 .panel:not(.open){ visibility:hidden !important; }
 .panel.open{ visibility:visible !important; }
+
+/* ===== Petits boutons +/- intégrés dans une ligne de l'observateur (taux d'impôt) ===== */
+.miniBtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  border:1px solid var(--gold);
+  background:rgba(244,232,204,.08);
+  color:var(--marble);
+  font-size:14px;
+  font-weight:700;
+  line-height:1;
+  cursor:pointer;
+  vertical-align:middle;
+  margin:0 4px;
+  padding:0;
+}
+.miniBtn:active{ background:var(--terracotta); }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
