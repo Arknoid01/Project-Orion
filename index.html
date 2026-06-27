@@ -1411,6 +1411,14 @@ h2{
 #selectedBuildPill{ cursor:pointer; }
 #selectedBuildPill:active{ background:linear-gradient(#9a512e,#6d341f); }
 #selectedBuildPill .pillClose{ opacity:.65; font-size:11px; margin-left:2px; }
+
+/* ===== Filet de sécurité : un panneau fermé doit être VRAIMENT invisible et non
+   cliquable, peu importe ce qu'un calcul de mise en page fait par ailleurs (ex. en
+   plein écran). Léger compromis : la toute fin du glissement de fermeture n'est
+   plus visible (snap un peu avant la fin), mais plus aucun risque de panneau
+   "fermé" qui reste visible à l'écran. ===== */
+.panel:not(.open){ visibility:hidden !important; }
+.panel.open{ visibility:visible !important; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
