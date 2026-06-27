@@ -148,7 +148,6 @@ html,body{
  padding:0 13px;
  border-radius:999px;
  white-space:nowrap;
- backdrop-filter:blur(8px);
 }
 .hud-pill b{color:var(--gold2)}
 .hud-spacer{flex:1}
@@ -174,9 +173,9 @@ html,body{
  color:var(--marble);
  box-shadow:0 0 28px #000c, inset 0 1px rgba(255,255,255,.12);
  transition:transform .25s ease;
+ will-change:transform;
  overflow:auto;
  -webkit-overflow-scrolling:touch;
- backdrop-filter:blur(10px);
 }
 .panel::before{content:none;}
 .panel h2{
