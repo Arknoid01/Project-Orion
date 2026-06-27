@@ -20,9 +20,33 @@ function applyCanvasResolution(){
   canvas.style.height = `${cssH}px`;
 }
 
-function setZoom(value){
-  zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, value));
+// anchorScreenX/Y (optionnels) : coordonnées écran (clientX/clientY) du point qui doit
+// rester immobile pendant le zoom -- le milieu du pincement, ou le curseur pour la
+// molette. Sans eux, on ancre sur le centre du cadre visible (#canvasWrap), pour éviter
+// que la vue ne dérive vers le coin haut-gauche comme avant.
+function setZoom(value, anchorScreenX, anchorScreenY){
+  const oldZoom = zoomLevel;
+  const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, value));
+  if (newZoom === oldZoom) return;
+
+  const wrap = document.getElementById('canvasWrap');
+  const wrapRect = wrap.getBoundingClientRect();
+  if (anchorScreenX === undefined) anchorScreenX = wrapRect.left + wrapRect.width / 2;
+  if (anchorScreenY === undefined) anchorScreenY = wrapRect.top + wrapRect.height / 2;
+
+  // Position du point d'ancrage dans le contenu défilable, AVANT le changement de zoom.
+  const contentX = wrap.scrollLeft + (anchorScreenX - wrapRect.left);
+  const contentY = wrap.scrollTop + (anchorScreenY - wrapRect.top);
+
+  zoomLevel = newZoom;
   applyCanvasResolution();
+
+  // Le contenu a été redimensionné par ce ratio -- on replace le défilement pour que
+  // le même point reste exactement sous l'ancrage (doigts / curseur).
+  const ratio = newZoom / oldZoom;
+  wrap.scrollLeft = contentX * ratio - (anchorScreenX - wrapRect.left);
+  wrap.scrollTop = contentY * ratio - (anchorScreenY - wrapRect.top);
+
   render();
 }
 
@@ -32,7 +56,7 @@ function zoomOut(){ setZoom(zoomLevel - ZOOM_STEP); }
 /* ---- Molette (desktop) ---- */
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+  setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), e.clientX, e.clientY);
 }, { passive: false });
 
 /* ---- Pincement à deux doigts (mobile) ---- */
@@ -58,7 +82,9 @@ canvas.addEventListener('touchmove', (e) => {
   if (e.touches.length === 2 && pinchStartDistance){
     e.preventDefault();
     const ratio = touchDistance(e.touches) / pinchStartDistance;
-    setZoom(pinchStartZoom * ratio);
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    setZoom(pinchStartZoom * ratio, midX, midY);
   }
 }, { passive: false });
 
