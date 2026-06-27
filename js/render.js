@@ -384,6 +384,32 @@ function drawWalkers(now){
   });
 }
 
+/* ===================== ICONES DE STATUT DES MAISONS ===================== */
+function drawHouseStatusIcons(cx, cy, col, row, cell){
+  const icons = getHouseStatusIcons(col, row, cell);
+  if (icons.length === 0) return;
+
+  const iconSize = 11;
+  const spacing = iconSize + 1;
+  const startX = cx - ((icons.length - 1) * spacing) / 2;
+  const y = cy - TILE_H / 2 - 38; // au-dessus du toit -- peut demander un ajustement fin selon le sprite
+
+  ctx.font = `${iconSize}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  icons.forEach((icon, i) => {
+    const x = startX + i * spacing;
+    ctx.beginPath();
+    ctx.arc(x, y, iconSize / 2 + 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillText(icon, x, y + 1);
+  });
+}
+
 /* ===================== RENDU PRINCIPAL ===================== */
 function render(now){
   now = now || performance.now();
@@ -408,6 +434,18 @@ function render(now){
       }
       if (cell.building){
         drawBuilding(x, y, cell.building, col, row);
+      }
+    }
+  }
+
+  // icônes de statut des maisons : passe séparée, après tous les bâtiments, pour
+  // qu'une icône ne se retrouve jamais cachée derrière un bâtiment dessiné après elle.
+  for (let row = 0; row < GRID_ROWS; row++){
+    for (let col = 0; col < GRID_COLS; col++){
+      const cell = grid[row][col];
+      if (cell.building === 'maison'){
+        const { x, y } = tileCenter(col, row);
+        drawHouseStatusIcons(x, y, col, row, cell);
       }
     }
   }
