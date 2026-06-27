@@ -150,6 +150,23 @@ function updateSelectedBuildPill(){
   }
 }
 
+// Annule le mode en cours (bâtiment/route/borne/démolir) et repasse en mode
+// observation (clic sur une case = inspection, voir openTileObserver dans
+// observer.js). Branché sur la pastille #selectedBuildPill (cliquable) et sur Échap.
+function cancelSelection(){
+  selectedBuilding = null;
+  roadMode = false;
+  blockMode = false;
+  demolishMode = false;
+  refreshButtonStates();
+  render();
+  updateSelectedBuildPill();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') cancelSelection();
+});
+
 /* ===================== PALETTE DE BATIMENTS ===================== */
 // Défensif : sur une interface qui n'a pas encore de #buildingButtons (migration UI
 // en cours), on ne construit juste pas la palette -- pas de crash.
