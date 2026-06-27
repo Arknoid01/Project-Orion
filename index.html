@@ -1408,6 +1408,11 @@ h2{
 .debugLine{ padding:1px 0; border-bottom:1px solid rgba(255,255,255,.06); word-break:break-word; }
 .debug-warn{ color:#ffd479; }
 .debug-error{ color:var(--bad); }
+
+/* ===== Pastille de sélection cliquable (annule et repasse en observation) ===== */
+#selectedBuildPill{ cursor:pointer; }
+#selectedBuildPill:active{ background:linear-gradient(#9a512e,#6d341f); }
+#selectedBuildPill .pillClose{ opacity:.65; font-size:11px; margin-left:2px; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1426,7 +1431,7 @@ h2{
    <div class="hud-pill">🪙 <b id="hudTreasury">0</b></div>
    <div class="hud-pill">👥 <b id="hudPopulation">0</b></div>
    <div class="hud-pill">🌾 <b id="hudWheat">0</b></div>
-   <div id="selectedBuildPill" class="hud-pill">🔨 <b id="selectedBuildName">Aucun</b></div>
+   <div id="selectedBuildPill" class="hud-pill" onclick="cancelSelection()" title="Annuler — revenir au mode observation">🔨 <b id="selectedBuildName">Aucun</b> <span class="pillClose">✕</span></div>
    <div class="hud-spacer"></div>
    <div class="hud-pill" id="hudCalendar">📅 …</div>
    <button class="iconBtn" onclick="togglePanel('quickBuild')" title="Catalogue">🔨</button>
