@@ -8,6 +8,19 @@ const TILE_H = 32;
 const OFFSET_X = 660; // centre horizontal du canvas (grille 20x20)
 const OFFSET_Y = 50;  // marge haute
 
+// Résolution de référence ("espace monde", zoom = 1) : c'est la taille CSS du canvas
+// affichée par défaut au zoom de base. Voir zoom.js -- la résolution RÉELLE du buffer
+// (canvas.width/height) est recalculée à chaque changement de zoom ou de devicePixelRatio,
+// pour ne jamais agrandir une image déjà figée (ce qui donnerait du flou).
+const WORLD_WIDTH = 1320;
+const WORLD_HEIGHT = 720;
+
+/* ===================== ZOOM ===================== */
+const ZOOM_DEFAULT = 1.3;  // vue de base légèrement zoomée, comme demandé
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 2.5;
+const ZOOM_STEP = 0.15;
+
 /* ===================== DEFINITIONS BATIMENTS ===================== */
 // validTerrain: terrain requis sous le bâtiment
 // produces / consumes : ressource produite/consommée par tick

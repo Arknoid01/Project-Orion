@@ -283,10 +283,13 @@ document.getElementById('taxRateSlider').addEventListener('input', (e) => {
   setTaxRate(e.target.value / 100);
 });
 
+document.getElementById('zoomInBtn').addEventListener('click', () => zoomIn());
+document.getElementById('zoomOutBtn').addEventListener('click', () => zoomOut());
+
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
+  const mx = (e.clientX - rect.left) / zoomLevel;
+  const my = (e.clientY - rect.top) / zoomLevel;
   const { col, row } = screenToTile(mx, my);
   hoverTile = { col, row };
 
@@ -306,8 +309,8 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
+  const mx = (e.clientX - rect.left) / zoomLevel;
+  const my = (e.clientY - rect.top) / zoomLevel;
   const { col, row } = screenToTile(mx, my);
   if (!inBounds(col, row)) return;
 

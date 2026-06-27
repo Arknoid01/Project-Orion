@@ -32,6 +32,7 @@ function refreshUI(){
 
 /* ===================== INIT ===================== */
 applyStaticTranslations();
+applyCanvasResolution();
 buildPalette();
 
 if (loadGame()){

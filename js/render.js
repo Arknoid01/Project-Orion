@@ -1,6 +1,8 @@
 /* ===================== CANVAS ===================== */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = 'high'; // meilleur rendu des sprites PNG mis à l'échelle (zoom)
 
 /* ===================== CHARGEMENT DES SPRITES REELS ===================== */
 // Charge les PNG générés via le pipeline ComfyUI (dossier assets/buildings/).
@@ -413,7 +415,18 @@ function drawHouseStatusIcons(cx, cy, col, row, cell){
 /* ===================== RENDU PRINCIPAL ===================== */
 function render(now){
   now = now || performance.now();
+
+  // Réinitialise la transformation avant de nettoyer (sinon clearRect serait lui-même
+  // affecté par le zoom et ne viderait pas tout le buffer réel).
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Applique le zoom (+ devicePixelRatio pour la netteté sur écran haute densité) :
+  // tout ce qui suit se dessine dans les coordonnées "monde" habituelles (TILE_W,
+  // OFFSET_X...), redimensionnées par cette transformation -- jamais d'étirement
+  // d'une image déjà dessinée.
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(zoomLevel * dpr, 0, 0, zoomLevel * dpr, 0, 0);
 
   // tuiles + routes + bâtiments, triés en diagonale pour la profondeur
   for (let sum = 0; sum <= (GRID_COLS - 1) + (GRID_ROWS - 1); sum++){
