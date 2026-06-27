@@ -29,17 +29,20 @@ function needsMet(requires, col, row){
 
 /* ===================== EVOLUTION ===================== */
 function evaluateHouses(){
+  checkEmigrationWarning();
+  renderTaxPanel(); // la faveur évolue seule (mythology.js) : le panneau doit suivre chaque tick
+
   forEachBuilding((type, col, row) => {
     if (type !== 'maison') return;
     const cell = grid[row][col];
     const currentDef = HOUSE_LEVELS[cell.houseLevel];
     const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
 
-    // L'évolution est désormais probabiliste (pas instantanée) : un taux d'imposition
-    // élevé ralentit la croissance de la ville (voir taxGrowthChance dans taxes.js).
-    // La dégradation, elle, reste immédiate : perdre un besoin n'est pas une question
-    // de politique fiscale.
-    if (nextDef && needsMet(nextDef.requires, col, row) && Math.random() < taxGrowthChance()){
+    // La croissance est probabiliste (pas instantanée) : taux d'imposition haut et/ou
+    // faveur basse la ralentissent (voir growthChance dans migration.js).
+    // La dégradation par besoin manquant reste immédiate (perdre un service n'est
+    // pas une question de politique, c'est un échec direct du joueur à le couvrir).
+    if (nextDef && needsMet(nextDef.requires, col, row) && Math.random() < growthChance()){
       cell.houseLevel++;
       cell.population = HOUSE_LEVELS[cell.houseLevel].population;
       debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
@@ -47,6 +50,12 @@ function evaluateHouses(){
       cell.houseLevel--;
       cell.population = HOUSE_LEVELS[cell.houseLevel].population;
       debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+    } else if (cell.houseLevel > 0 && Math.random() < emigrationChance()){
+      // Émigration : la ville est si peu attractive (faveur basse / taxe haute) que des
+      // habitants partent, même si les besoins de ce niveau sont pourtant remplis.
+      cell.houseLevel--;
+      cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+      debugWarn(`Émigration : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
     }
   });
 }

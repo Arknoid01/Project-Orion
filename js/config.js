@@ -129,6 +129,12 @@ const TAX_EFFICIENCY_AT_MAX  = 0.7;  // multiplicateur de production à taux 1 (
 const TAX_GROWTH_CHANCE_AT_ZERO = 0.9;   // probabilité d'évolution d'une maison par tick, taux 0
 const TAX_GROWTH_CHANCE_AT_MAX  = 0.15;  // probabilité d'évolution d'une maison par tick, taux 1
 
+/* ===================== IMMIGRATION / EMIGRATION ===================== */
+// Voir migration.js pour la logique (cityAttractiveness, growthChance, emigrationChance).
+const GROWTH_FAVOR_INFLUENCE = 0.3;   // amplitude du bonus/malus de faveur sur la croissance
+const EMIGRATION_THRESHOLD = 0.35;    // attractivité en-dessous de laquelle l'émigration démarre
+const EMIGRATION_STRENGTH = 0.3;      // intensité du risque une fois sous le seuil
+
 /* ===================== PALETTES MAISONS PROCEDURALES ===================== */
 const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];
 const HOUSE_ROOF_COLORS  = ['#a8512f', '#8c3f24', '#9c6b3f', '#6f5a4a'];

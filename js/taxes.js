@@ -38,10 +38,12 @@ function renderTaxPanel(){
   rateLabel.textContent = `${Math.round(taxRate * 100)}%`;
 
   const efficiencyPct = Math.round(taxEfficiencyMultiplier() * 100);
-  const growthPct = Math.round(taxGrowthChance() * 100);
+  const growthPct = Math.round(growthChance() * 100);
+  const attractivenessPct = Math.round(cityAttractiveness() * 100);
   effectsEl.innerHTML = `
     <p>💰 ${t('government.collection')} : ${taxCollectionRate().toFixed(2)} dr. ${t('inspector.perTick')} ${t('government.perServedPop')}</p>
     <p class="${efficiencyPct >= 100 ? 'need-ok' : 'need-missing'}">⚙️ ${t('government.efficiency')} : ${efficiencyPct}%</p>
     <p class="${growthPct >= 50 ? 'need-ok' : 'need-missing'}">🏠 ${t('government.growth')} : ${growthPct}%</p>
+    <p class="${attractivenessPct >= 50 ? 'need-ok' : 'need-missing'}">🌍 ${t('government.attractiveness')} : ${attractivenessPct}%</p>
   `;
 }
