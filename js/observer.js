@@ -126,7 +126,7 @@ function buildCityObserverData(){
       {
         icon: '💰', title: t('panel.government'), status: `${Math.round(taxRate * 100)}%`,
         rows: [
-          [t('government.taxRate'), `${Math.round(taxRate * 100)}%`],
+          [t('government.taxRate'), `<button class="miniBtn" onclick="adjustTaxRate(-5)">−</button> ${Math.round(taxRate * 100)}% <button class="miniBtn" onclick="adjustTaxRate(5)">+</button>`],
           [t('government.efficiency'), `${Math.round(taxEfficiencyMultiplier() * 100)}%`],
           [t('government.growth'), `${Math.round(growthChance() * 100)}%`],
         ],

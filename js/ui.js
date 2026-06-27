@@ -167,6 +167,13 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') cancelSelection();
 });
 
+// Ajuste le taux d'imposition depuis la fiche "Gestion de la ville" de
+// l'observateur (boutons +/- intégrés directement dans la ligne, voir observer.js).
+function adjustTaxRate(deltaPercent){
+  setTaxRate(taxRate + deltaPercent / 100);
+  if (typeof openCityManagement === 'function') openCityManagement(); // réaffiche avec la nouvelle valeur
+}
+
 /* ===================== PALETTE DE BATIMENTS ===================== */
 // Défensif : sur une interface qui n'a pas encore de #buildingButtons (migration UI
 // en cours), on ne construit juste pas la palette -- pas de crash.
