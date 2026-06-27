@@ -133,12 +133,35 @@ header span{
   background: var(--marble);
 }
 #canvasWrap{
+  position: relative;
   border: 3px solid var(--ink);
   border-radius: 6px;
   background: #2c4a63;
   overflow:auto;
 }
-canvas{ display:block; cursor: pointer; }
+canvas{ display:block; cursor: pointer; touch-action: none; } /* none : le pincement est géré nous-mêmes (zoom.js) */
+#zoomControls{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+#zoomControls button{
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: rgba(236, 223, 193, 0.92);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+}
+#zoomControls button:active{ background: var(--terracotta); color: var(--marble); }
 #infoBar{
   margin-top:10px;
   font-size:13px;
@@ -197,6 +220,40 @@ canvas{ display:block; cursor: pointer; }
   margin-bottom: 8px;
   opacity: 0.8;
 }
+
+/* ===================== GOUVERNEMENT (IMPOTS) ===================== */
+#governmentPanel{
+  background: var(--parchment-dark);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 12px;
+}
+#governmentPanel label{
+  font-size: 13px;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 4px;
+}
+.sliderRow{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sliderRow input[type="range"]{
+  flex: 1;
+  accent-color: var(--terracotta);
+}
+.sliderRow span{
+  font-size: 13px;
+  font-weight: bold;
+  min-width: 36px;
+  text-align: right;
+}
+#taxEffects{ font-size: 12px; }
+#taxEffects p{ margin: 3px 0; }
+#taxEffects .need-ok{ color:#4a7a2e; }
+#taxEffects .need-missing{ color:#a33; }
 
 /* ===================== NOTIFICATION ===================== */
 #notification{
