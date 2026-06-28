@@ -15,6 +15,8 @@ const ZOOM_DEFAULT = 0.55;  // carte 60×60 : vue reculée par défaut
 const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.15;
+// Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
+const RENDER_DPR_CAP = 1.5;
 
 /* ===================== DEFINITIONS BATIMENTS ===================== */
 // validTerrain: terrain requis sous le bâtiment
@@ -245,6 +247,7 @@ const NEED_ICONS = {
 const STARTING_TREASURY = 1500;
 const TAX_PER_POP = 0.25;        // conservé pour compatibilité (non utilisé : voir TAX_BASE_PER_POP)
 const ROAD_COST = 5;             // coût de pose d'une case de route (pas un BUILDING_DEFS)
+const DEMOLISH_REFUND_RATE = 0.5; // fraction du coût de construction remboursée à la démolition
 
 /* ===================== IMPOTS (BUREAU DES IMPOTS) ===================== */
 // Contrairement à l'ancien système (taxe globale fixe sur toute la population),
@@ -267,6 +270,13 @@ const GROWTH_FAVOR_INFLUENCE = 0.12;
 const EMIGRATION_THRESHOLD = 0.38;
 const EMIGRATION_STRENGTH = 0.22;
 const MIGRANT_MOVE_EVERY_TICKS = 1;   // vitesse des colons sur la route (voir migrationAgents.js)
+// Point d'entrée/sortie fixe au bord sud de la carte (colons qui arrivent et repartent).
+const MIGRANT_ENTRY_COL = Math.floor(GRID_COLS / 2);
+const MIGRANT_ENTRY_ROW = GRID_ROWS - 1;
+
+/* ===================== TROUPES VISUELLES (CARTE) ===================== */
+const TROOPS_NPCS_PER_POWER = 6;      // 1 soldat visible par tranche de 6 pts de puissance
+const TROOPS_MOVE_EVERY_TICKS = 1;
 
 /* ===================== INVASIONS ===================== */
 const INVASION_MOVE_EVERY_TICKS = 2;
@@ -310,13 +320,29 @@ const HOUSE_ROOF_COLORS  = ['#a8512f', '#8c3f24', '#9c6b3f', '#6f5a4a'];
 const HOUSE_TRIM_COLORS  = ['#a8472f', '#5d6b3a', '#7d6b4a'];
 const HOUSE_ROOF_SHAPES  = ['pyramid', 'dome', 'flat'];
 
-/* ===================== SPRITE DE PERSONNAGE (WALKER) ===================== */
-const WALKER_SPRITE_PATH = 'assets/characters/walk.png';
-const WALKER_FRAME_SIZE = 64;
-const WALKER_FRAMES_PER_CYCLE = 9;
-const WALKER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
-const WALKER_ANIM_FRAME_MS = 110; // ~9 frames -> un cycle complet toutes les ~990ms
-const WALKER_DISPLAY_SIZE = 40;   // taille d'affichage sur la grille (mise à l'échelle depuis 64px)
+/* ===================== SPRITES PERSONNAGES (atlas 3×4, cf. tools/slice_walker_sheets.py) ===================== */
+const CHARACTER_FRAME_SIZE = 96;
+const CHARACTER_FRAMES = 3;
+const CHARACTER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
+const CHARACTER_DISPLAY_SIZE = 44;
+const CHARACTER_ANIM_FRAME_MS = 120;
+
+const SERVICE_WALKER_SPRITES = {
+  water:    'assets/characters/walkers/water.png',
+  market:   'assets/characters/walkers/market.png',
+  religion: 'assets/characters/walkers/religion.png',
+  health:   'assets/characters/walkers/health.png',
+  tax:      'assets/characters/walkers/tax.png',
+  fire:     'assets/characters/walkers/fire.png',
+};
+
+// Repli générique si un atlas métier n'est pas encore découpé.
+const WALKER_SPRITE_PATH = 'assets/characters/walkers/water.png';
+const WALKER_FRAME_SIZE = CHARACTER_FRAME_SIZE;
+const WALKER_FRAMES_PER_CYCLE = CHARACTER_FRAMES;
+const WALKER_DIRECTION_ROWS = CHARACTER_DIRECTION_ROWS;
+const WALKER_ANIM_FRAME_MS = CHARACTER_ANIM_FRAME_MS;
+const WALKER_DISPLAY_SIZE = CHARACTER_DISPLAY_SIZE;
 
 /* ===================== MYTHOLOGIE ===================== */
 const FAVOR_MAX = 100;
@@ -472,24 +498,35 @@ const DIPLO_EVENTS = [
 ];
 
 /* ===================== MONSTRES & HEROS ===================== */
-// Un monstre apparaît aléatoirement, erre dans la cité et peut détruire un bâtiment
-// ou mettre le feu à une maison. Le joueur construit un temple des héros puis, en
-// payant les ressources requises, invoque un héros qui rejoint le monstre (vrai
-// déplacement point-à-point avec recalcul de chemin) et le tue. Voir creatures.js.
+// Sprites : comfy_batch_generate_characters.py → tools/slice_walker_sheets.py
+//   python tools/slice_walker_sheets.py --from sprites_out/characters/monsters --to assets/characters/monsters --background green
+//   python tools/slice_walker_sheets.py --from sprites_out/characters/heroes --to assets/characters/heroes --background green
 const MONSTER_TYPES = [
-  { key: 'medusa',   icon: '🐍' },
-  { key: 'hydra',    icon: '🐉' },
-  { key: 'minotaur', icon: '🐂' },
-  { key: 'cyclops',  icon: '👁️' },
-  { key: 'cerberus', icon: '🐺' },
+  { key: 'medusa',   icon: '🐍', sprite: 'assets/characters/monsters/medusa.png',   heroKey: 'perseus',  hp: 5, moveEvery: 2, attackChance: 0.16 },
+  { key: 'hydra',    icon: '🐉', sprite: 'assets/characters/monsters/hydra.png',    heroKey: 'heracles', hp: 10, moveEvery: 3, attackChance: 0.20 },
+  { key: 'minotaur', icon: '🐂', sprite: 'assets/characters/monsters/minotaur.png', heroKey: 'theseus',  hp: 8, moveEvery: 2, attackChance: 0.22 },
+  { key: 'cyclops',  icon: '👁️', sprite: 'assets/characters/monsters/cyclops.png',  heroKey: 'ulysses',  hp: 7, moveEvery: 2, attackChance: 0.18 },
+  { key: 'cerberus', icon: '🐺', sprite: 'assets/characters/monsters/cerberus.png', heroKey: 'orpheus',  hp: 9, moveEvery: 2, attackChance: 0.20 },
 ];
 
-const MONSTER_HP = 6;                 // dégâts du héros nécessaires pour le tuer
-const MONSTER_MOVE_EVERY_TICKS = 2;   // se déplace d'une case tous les 2 ticks (lent)
-const MONSTER_ATTACK_CHANCE = 0.18;   // probabilité de méfait à chaque déplacement
-const MONSTER_SPAWN_CHANCE = 0.004;   // ~1 apparition toutes les ~4 min tant qu'aucun monstre
-const MONSTER_MIN_DAY = 6;            // pas d'apparition avant ce jour de jeu
+// Un héros par monstre — seul le héros désigné est invoqué et peut le vaincre efficacement.
+const HERO_TYPES = [
+  { key: 'perseus',  icon: '🛡️', sprite: 'assets/characters/heroes/perseus.png',  damage: 2, moveEvery: 1 },
+  { key: 'heracles', icon: '💪', sprite: 'assets/characters/heroes/heracles.png', damage: 3, moveEvery: 1 },
+  { key: 'theseus',  icon: '⚔️', sprite: 'assets/characters/heroes/theseus.png',  damage: 2, moveEvery: 1 },
+  { key: 'ulysses',  icon: '🏹', sprite: 'assets/characters/heroes/ulysses.png',  damage: 2, moveEvery: 1 },
+  { key: 'orpheus',  icon: '🎵', sprite: 'assets/characters/heroes/orpheus.png',  damage: 2, moveEvery: 1 },
+];
 
-const HERO_MOVE_EVERY_TICKS = 1;      // plus rapide que le monstre, pour le rattraper
-const HERO_DAMAGE = 2;                // dégâts infligés par tick au contact
+const HERO_VS_MONSTER_DAMAGE_MULT = 2;   // repli si combat non désigné (debug)
+const HERO_WRONG_MATCH_DAMAGE_MULT = 0.4;
+
+const MONSTER_HP = 6;                 // repli si type sans hp explicite
+const MONSTER_MOVE_EVERY_TICKS = 2;
+const MONSTER_ATTACK_CHANCE = 0.18;
+const MONSTER_SPAWN_CHANCE = 0.004;
+const MONSTER_MIN_DAY = 6;
+
+const HERO_MOVE_EVERY_TICKS = 1;
+const HERO_DAMAGE = 2;
 const HERO_SUMMON_COST = { sculpture: 6, oil: 8, wine: 8 };

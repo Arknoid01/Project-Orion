@@ -83,10 +83,13 @@ function tick(){
   checkDefeat();
   tickFestival();
   checkMonthChange();
-  tickDiplomacy();
+  if (!(typeof isColonyPhase === 'function' && isColonyPhase())){
+    tickDiplomacy();
+    if (typeof tickInvasion === 'function') tickInvasion();
+  }
   tickCreatures();
   if (typeof tickMigrants === 'function') tickMigrants();
-  if (typeof tickInvasion === 'function') tickInvasion();
+  if (typeof tickMilitaryAgents === 'function') tickMilitaryAgents();
   if (typeof tickGodAgents === 'function') tickGodAgents();
   renderCalendarPanel();
   renderCreaturePanel();

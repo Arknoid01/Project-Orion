@@ -1,10 +1,8 @@
 /* ===================== INVASIONS MILITAIRES (VISUEL) ===================== */
-// Armée ennemie qui marche sur la grille jusqu'à la cité, puis résout un combat
-// abstrait (military.js) à l'arrivée.
+// Les troupes ennemies (et nos défenseurs) marchent sur la carte ; le combat abstrait
+// ne se résout qu'au retour du dernier soldat (voir militaryAgents.js).
 
-let invasion = null; // { cityName, icon, power, col, row, prevCol, prevRow, path, pathIndex, moveCooldown }
-
-function resetInvasion(){ invasion = null; }
+function resetInvasion(){ resetMilitaryAgents(); }
 
 function findInvasionTarget(){
   let barracks = null;
@@ -22,32 +20,16 @@ function findInvasionTarget(){
 }
 
 function spawnInvasion(city){
-  if (invasion) return;
-  const target = findInvasionTarget();
-  const entry = nearestEdgeTile(target.col, target.row);
-  const path = findPath(entry, target);
-  if (path.length === 0) return;
-
-  invasion = {
-    cityName: city.name,
-    icon: '⚔️',
-    power: cityPower(city),
-    col: entry.col, row: entry.row,
-    prevCol: entry.col, prevRow: entry.row,
-    path, pathIndex: 0,
-    moveCooldown: INVASION_MOVE_EVERY_TICKS,
-    cityId: city.id,
-  };
-  showNotification(t('invasion.approaching', { city: city.name }), 'bad');
-  debugInfo('Invasion lancée', { city: city.name, power: invasion.power });
+  if (isMilitaryBusy()) return;
+  if (!beginInvasionCampaign(city)){
+    resolveInvasionBattle(city.name, cityPower(city), getMilitaryPoints());
+  }
 }
 
-function resolveInvasionArrival(){
-  if (!invasion) return;
+function resolveInvasionBattle(cityName, enemyPower, defense){
   ensureArmyState();
-  const defense = getMilitaryPoints();
-  const enemy = invasion.power;
-  const cityName = invasion.cityName;
+  defense = defense ?? getMilitaryPoints();
+  const enemy = enemyPower;
 
   if (defense > enemy){
     showNotification(t('invasion.repelled', { city: cityName }), 'good');
@@ -72,35 +54,17 @@ function resolveInvasionArrival(){
     debugInfo('Invasion réussie (ennemi)', { city: cityName, defense, enemy, paid });
   }
 
-  invasion = null;
   updateResourceBar();
   saveGame({ silent: true });
 }
 
 function tickInvasion(){
-  if (!invasion){
-    if (typeof getCalendarState !== 'function') return;
-    const day = getCalendarState().day;
-    if (day < INVASION_MIN_DAY || !worldCities || worldCities.length === 0) return;
-    if (Math.random() >= INVASION_SPAWN_CHANCE) return;
-    const hostile = worldCities.filter(c => !c.conquered && c.relation <= DIPLO_HOSTILE_THRESHOLD);
-    if (hostile.length === 0) return;
-    spawnInvasion(hostile[Math.floor(Math.random() * hostile.length)]);
-    return;
-  }
-
-  invasion.prevCol = invasion.col; invasion.prevRow = invasion.row;
-  invasion.moveCooldown--;
-  if (invasion.moveCooldown > 0) return;
-
-  if (invasion.pathIndex >= invasion.path.length){
-    resolveInvasionArrival();
-    return;
-  }
-
-  const next = invasion.path[invasion.pathIndex];
-  invasion.col = next.col;
-  invasion.row = next.row;
-  invasion.pathIndex++;
-  invasion.moveCooldown = INVASION_MOVE_EVERY_TICKS;
+  if (isMilitaryBusy()) return;
+  if (typeof getCalendarState !== 'function') return;
+  const day = getCalendarState().day;
+  if (day < INVASION_MIN_DAY || !worldCities || worldCities.length === 0) return;
+  if (Math.random() >= INVASION_SPAWN_CHANCE) return;
+  const hostile = worldCities.filter(c => !c.conquered && c.relation <= DIPLO_HOSTILE_THRESHOLD);
+  if (hostile.length === 0) return;
+  spawnInvasion(hostile[Math.floor(Math.random() * hostile.length)]);
 }

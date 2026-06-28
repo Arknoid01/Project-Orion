@@ -183,6 +183,7 @@ function buildCityObserverData(){
       <button class="actionBtn" onclick="cityManagementAction('summonHero')">🦸 ${t('cityActions.hero')}</button>
       <button class="actionBtn" onclick="cityManagementAction('openArmyPanel')">⚔️ ${t('panel.army')}</button>
       <button class="actionBtn" onclick="cityManagementAction('launchAttack')">🔥 ${t('army.attack')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('openColoniesPanel')">🏝️ ${t('panel.colonies')}</button>
     </div>`,
   };
 }
@@ -194,7 +195,7 @@ function cityManagementAction(action){
   if (typeof window[action] === 'function') window[action]();
   // Ces actions ouvrent leur propre écran/modale : ne pas réafficher la gestion de ville
   // par-dessus (sinon on referme l'écran qu'on vient d'ouvrir).
-  const ownScreen = ['openTradePanel', 'openArmyPanel', 'launchAttack'];
+  const ownScreen = ['openTradePanel', 'openArmyPanel', 'launchAttack', 'openColoniesPanel'];
   if (!ownScreen.includes(action) && typeof openCityManagement === 'function') openCityManagement();
 }
 
@@ -244,7 +245,7 @@ function openWalkerObserver(walker){
 
   const data = buildWalkerObserverData(walker);
   if (typeof closePanels === 'function') closePanels();
-  if (titleEl) titleEl.textContent = 'Observateur · ' + data.title;
+  if (titleEl) titleEl.textContent = t('observer.prefix') + data.title;
   if (typeof setObserverTiles === 'function') setObserverTiles(data);
   panel.classList.add('open');
   if (backdrop) backdrop.classList.add('show');
@@ -334,7 +335,7 @@ function openTradePanel(){
   const data = buildTradeObserverData();
   if (typeof closePanels === 'function') closePanels();
   const titleEl = document.getElementById('observerTitle');
-  if (titleEl) titleEl.textContent = 'Observateur · ' + data.title;
+  if (titleEl) titleEl.textContent = t('observer.prefix') + data.title;
   if (typeof setObserverTiles === 'function') setObserverTiles(data);
   panel.classList.add('open');
   const backdrop = document.getElementById('backdrop');
@@ -369,7 +370,7 @@ function openTileObserver(col, row){
   if (!panel) return; // ancienne interface : pas d'observateur, rien à faire
 
   if (typeof closePanels === 'function') closePanels();
-  if (titleEl) titleEl.textContent = 'Observateur · ' + data.title;
+  if (titleEl) titleEl.textContent = t('observer.prefix') + data.title;
   if (typeof setObserverTiles === 'function') setObserverTiles(data);
   panel.classList.add('open');
   if (backdrop) backdrop.classList.add('show');

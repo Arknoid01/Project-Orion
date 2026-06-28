@@ -69,6 +69,13 @@ const STRINGS = {
     'build.selectTitle': 'Sélectionnez un bâtiment',
     'build.selectHint': 'Choisissez une construction dans le catalogue pour voir son rôle et son coût.',
     'build.cost': 'Coût',
+    'build.zoneFirstClick': '1er clic : coin de la zone à construire',
+    'build.zoneSecondClick': '2e clic : coin opposé pour confirmer',
+    'build.zoneCost': 'Coût : 🪙 {cost} dr. · {tiles} cases',
+    'build.zoneBuiltRoads': '🛣️ {n} cases de route construites ({cost} dr.)',
+    'build.zoneBuiltBuildings': '{icon} {n} bâtiments posés ({cost} dr.)',
+    'build.zoneNone': 'Aucune case valide dans cette zone',
+    'build.zonePerTile': 'case',
     'building.temple': 'Temple',
     'building.clinic': 'Infirmerie',
     'building.taxOffice': 'Bureau des impôts',
@@ -153,6 +160,7 @@ const STRINGS = {
     'migration.emigrationWarning': '⚠️ La cité est si peu attractive que des habitants commencent à émigrer',
     'migration.emigrationRisk': "Risque d'émigration",
     'migration.arrival': '🧳 Un colon arrive par la route',
+    'migration.newHouse': '🧳 Un colon arrive s\'installer dans la nouvelle maison',
     'migration.departure': '🚶 Des habitants quittent la cité par la route',
     'panel.mythology': 'Mythologie',
     'action.offering': '🏺 Faire une offrande (-5 sculptures)',
@@ -172,6 +180,7 @@ const STRINGS = {
     'objective.villa': 'Faire monter une maison en Villa',
     'objective.favor': 'Atteindre un bon niveau de faveur divine',
     'objective.victory': '🏆 Victoire ! Tous les objectifs sont atteints.',
+    'objective.colony': 'Fonder une colonie et la mener à bien',
     'calendar.year': 'An',
     'calendar.day': 'Jour',
     'calendar.month.hecatombaion': 'Hécatombéon',
@@ -247,6 +256,9 @@ const STRINGS = {
     'world.military': 'Puissance',
     'world.conquered': 'Cité conquise (vassale)',
     'army.attack': 'Attaque',
+    'army.departing': '⚔️ {n} soldats partent attaquer {city}',
+    'army.returning': '⚔️ L\'armée revient de {city}…',
+    'army.campaignBusy': 'Une campagne militaire est déjà en cours',
     'army.attackTitle': 'Choisir une cité à attaquer',
     'army.yourPoints': 'Vos points de troupe : {n}',
     'army.confirmAttack': 'Attaquer {city} ? Vos points : {mine} · Sa puissance : {enemy}',
@@ -284,13 +296,39 @@ const STRINGS = {
     'scenario.sandbox': 'Bac à sable',
     'scenario.sandboxDesc': 'Construis une cité prospère sans contrainte particulière.',
     'scenario.colonization': 'Colonisation',
-    'scenario.colonizationDesc': 'Peuple la cité et fais évoluer une maison en villa.',
+    'scenario.colonizationDesc': 'Fonde une colonie lointaine, puis développe ta cité mère.',
     'scenario.defense': 'Défense',
     'scenario.defenseDesc': 'Défends la cité et atteins 40 habitants.',
     'scenario.conquest': 'Conquête',
     'scenario.conquestDesc': 'Lève une armée et conquiert deux cités voisines.',
     'scenario.objective.barracks': 'Construire une caserne',
     'scenario.objective.conquer': 'Conquérir des cités voisines',
+    'panel.colonies': 'Colonies',
+    'colony.howTo': 'Expédition',
+    'colony.howToText': 'Deux clics pour poser des routes et bâtiments. Termine les objectifs pour revenir avec des récompenses.',
+    'colony.selectHint': 'Choisissez une colonie ci-dessous',
+    'colony.launchCost': 'Coût d\'expédition : 🪙 {cost} dr.',
+    'colony.launch': 'Fonder',
+    'colony.launchTitle': 'Expédition vers {name}',
+    'colony.launchBody': 'Coût : 🪙 {cost} dr. · Récompenses à la victoire : {rewards}',
+    'colony.launchConfirm': 'Partir en expédition',
+    'colony.cantLaunch': 'Impossible de lancer cette colonie (coût, déjà terminée ou expédition en cours)',
+    'colony.started': '🏝️ Expédition vers {name} — accomplissez les objectifs coloniaux',
+    'colony.completed': 'Colonie établie',
+    'colony.completedNotify': 'Colonie {name} réussie ! Récompenses : {rewards}',
+    'colony.inProgress': 'En cours',
+    'colony.abandon': 'Abandonner la colonie',
+    'colony.abandoned': 'Expédition {name} abandonnée — retour à la cité mère sans récompense',
+    'colony.defeat': 'La colonie a échoué — retour à la cité mère sans récompense',
+    'colony.objective.marble': 'Stocker assez de marbre',
+    'colony.objective.wine': 'Stocker assez de vin',
+    'colony.nemea.name': 'Némée',
+    'colony.nemea.desc': 'Plaines fertiles — blé et population',
+    'colony.thasos.name': 'Thasos',
+    'colony.thasos.desc': 'Île aurifère — marbre et pierre',
+    'colony.ionia.name': 'Ionie',
+    'colony.ionia.desc': 'Côte vineuse — vignobles et commerce',
+    'dialog.cancel': 'Annuler',
     'home.tagline': 'Bâtissez votre cité grecque au pied de l\'Olympe',
     'home.newGame': 'Nouvelle partie',
     'home.load': 'Charger sauvegarde',
@@ -303,6 +341,49 @@ const STRINGS = {
     'home.credits.engine': 'Moteur de jeu JavaScript — simulation économique, diplomatie, migration et invasions.',
     'home.credits.art': 'Sprites générés via pipeline ComfyUI / procédural.',
     'home.credits.license': 'Projet éducatif — Project Orion.',
+    'home.back': '← Retour',
+    'settings.language': 'Langue',
+    'menu.save': '💾 Sauvegarder',
+    'menu.load': '📂 Charger',
+    'menu.pause': '⏸ Pause',
+    'menu.cityManagement': '🏛️ Gestion de la ville',
+    'menu.fullscreen': 'Plein écran',
+    'menu.fullscreenExit': 'Quitter le plein écran',
+    'menu.fullscreenUnavailable': 'Plein écran indisponible sur ce navigateur',
+    'menu.returnMain': '🚪 Retour au menu principal',
+    'hud.menu': 'Menu',
+    'hud.catalog': 'Catalogue',
+    'hud.management': 'Gestion',
+    'hud.cancelSelection': 'Annuler — revenir au mode observation',
+    'hud.none': 'Aucun',
+    'manage.title': 'Gestion',
+    'manage.cityManagement': '🏛️ Gestion de la ville',
+    'manage.worldMap': '🗺️ Carte du monde',
+    'catalog.title': 'Catalogue',
+    'catalog.housing': '🏠 Habitations',
+    'catalog.tools': '🛣️ Outils',
+    'catalog.production': '🌾 Production',
+    'catalog.storage': '📦 Stockage & commerce',
+    'catalog.services': '🏛️ Services',
+    'catalog.decor': '✨ Décor & beauté',
+    'catalog.mythology': '⚡ Mythologie',
+    'catalog.military': '⚔️ Militaire',
+    'catalog.block': 'Borne',
+    'catalog.roadShort': 'Route',
+    'catalog.demolishShort': 'Démolir',
+    'catalog.wineryShort': 'Cave',
+    'catalog.clinicShort': 'Clinique',
+    'catalog.taxShort': 'Impôts',
+    'catalog.towerShort': 'Tour',
+    'catalog.heroTempleShort': 'Temple héros',
+    'catalog.grandTempleShort': 'Temple monumental',
+    'observer.prefix': 'Observateur · ',
+    'worldMap.title': '🗺️ Carte du monde',
+    'rotate.prompt': 'Tournez votre téléphone en mode paysage.',
+    'hook.tutorial': 'Clique sur une case pour ouvrir l\'observateur',
+    'action.demolishShort': 'Démolition',
+    'demolish.refund': '♻️ Remboursement : {details}',
+    'demolish.hint': 'Remboursement partiel du coût de construction ({rate} %)',
     'god.demeter': 'Déméter',
     'god.zeus': 'Zeus',
     'god.athena': 'Athéna',
@@ -334,6 +415,8 @@ const STRINGS = {
     'panel.creatures': 'Héros & Monstres',
     'creature.noMonster': '🕊️ Aucune menace : la cité est paisible.',
     'monster.appeared': '👹 Un monstre, {monster}, est apparu dans la cité !',
+    'monster.appearedWithHero': '👹 {monster} terrorise la cité — seul {hero} peut la sauver',
+    'monster.heroNeeded': 'Seul {hero} peut vaincre cette créature.',
     'monster.threat': '{monster} sème la terreur dans la cité !',
     'monster.destroyed': '💥 {building} a été détruit(e) par le monstre',
     'monster.fire': '🔥 Le monstre a mis le feu : {building} se dégrade',
@@ -345,8 +428,18 @@ const STRINGS = {
     'monster.name.cerberus': 'Cerbère',
     'hero.noTemple': 'Construis un Temple des héros pour pouvoir invoquer un héros.',
     'hero.summon': '🦸 Invoquer un héros',
+    'hero.summonNamed': '🦸 Invoquer {hero}',
     'hero.cost': 'Coût',
     'hero.summoned': '🦸 Un héros a été invoqué ! Il part traquer le monstre',
+    'hero.summonedNamed': '🦸 {hero} a été invoqué et part traquer le monstre',
+    'hero.name.perseus': 'Persée',
+    'hero.name.heracles': 'Héraclès',
+    'hero.name.theseus': 'Thésée',
+    'hero.name.ulysses': 'Ulysse',
+    'hero.name.bellerophon': 'Bellérophon',
+    'hero.name.jason': 'Jason',
+    'hero.name.achilles': 'Achille',
+    'hero.name.orpheus': 'Orphée',
     'hero.cantSummon': '🦸 Impossible d\'invoquer un héros (temple, monstre ou ressources manquants)',
     'hero.active': 'Un héros traque le monstre…',
     'hero.victory': '🏆 Le héros a vaincu {monster} !',
@@ -416,6 +509,13 @@ const STRINGS = {
     'build.selectTitle': 'Select a building',
     'build.selectHint': 'Pick a construction from the catalog to see its role and cost.',
     'build.cost': 'Cost',
+    'build.zoneFirstClick': '1st click: corner of the build zone',
+    'build.zoneSecondClick': '2nd click: opposite corner to confirm',
+    'build.zoneCost': 'Cost: 🪙 {cost} dr. · {tiles} tiles',
+    'build.zoneBuiltRoads': '🛣️ {n} road tiles built ({cost} dr.)',
+    'build.zoneBuiltBuildings': '{icon} {n} buildings placed ({cost} dr.)',
+    'build.zoneNone': 'No valid tiles in this zone',
+    'build.zonePerTile': 'tile',
     'building.temple': 'Temple',
     'building.clinic': 'Infirmary',
     'building.taxOffice': 'Tax Office',
@@ -500,6 +600,7 @@ const STRINGS = {
     'migration.emigrationWarning': '⚠️ The city is so unattractive that residents are starting to leave',
     'migration.emigrationRisk': 'Emigration risk',
     'migration.arrival': '🧳 A settler arrives by road',
+    'migration.newHouse': '🧳 A settler is heading to the new house',
     'migration.departure': '🚶 Residents are leaving the city by road',
     'panel.mythology': 'Mythology',
     'action.offering': '🏺 Make an offering (-5 sculptures)',
@@ -519,6 +620,7 @@ const STRINGS = {
     'objective.villa': 'Grow a house into a Villa',
     'objective.favor': 'Reach a good level of divine favor',
     'objective.victory': '🏆 Victory! All objectives reached.',
+    'objective.colony': 'Found a colony and complete its goals',
     'calendar.year': 'Year',
     'calendar.day': 'Day',
     'calendar.month.hecatombaion': 'Hecatombaion',
@@ -594,6 +696,9 @@ const STRINGS = {
     'world.military': 'Power',
     'world.conquered': 'Conquered city (vassal)',
     'army.attack': 'Attack',
+    'army.departing': '⚔️ {n} soldiers march to attack {city}',
+    'army.returning': '⚔️ The army is returning from {city}…',
+    'army.campaignBusy': 'A military campaign is already in progress',
     'army.attackTitle': 'Choose a city to attack',
     'army.yourPoints': 'Your troop points: {n}',
     'army.confirmAttack': 'Attack {city}? Your points: {mine} · Its power: {enemy}',
@@ -631,13 +736,39 @@ const STRINGS = {
     'scenario.sandbox': 'Sandbox',
     'scenario.sandboxDesc': 'Build a prosperous city with no particular constraints.',
     'scenario.colonization': 'Colonization',
-    'scenario.colonizationDesc': 'Grow the city and upgrade a house to a villa.',
+    'scenario.colonizationDesc': 'Found a distant colony, then grow your mother city.',
     'scenario.defense': 'Defense',
     'scenario.defenseDesc': 'Defend the city and reach 40 population.',
     'scenario.conquest': 'Conquest',
     'scenario.conquestDesc': 'Raise an army and conquer two neighboring cities.',
     'scenario.objective.barracks': 'Build a barracks',
     'scenario.objective.conquer': 'Conquer neighboring cities',
+    'panel.colonies': 'Colonies',
+    'colony.howTo': 'Expedition',
+    'colony.howToText': 'Use two-click placement for roads and buildings. Complete objectives to return with rewards.',
+    'colony.selectHint': 'Choose a colony below',
+    'colony.launchCost': 'Expedition cost: 🪙 {cost} dr.',
+    'colony.launch': 'Found',
+    'colony.launchTitle': 'Expedition to {name}',
+    'colony.launchBody': 'Cost: 🪙 {cost} dr. · Victory rewards: {rewards}',
+    'colony.launchConfirm': 'Launch expedition',
+    'colony.cantLaunch': 'Cannot launch this colony (cost, already done, or expedition in progress)',
+    'colony.started': '🏝️ Expedition to {name} — complete the colonial objectives',
+    'colony.completed': 'Colony established',
+    'colony.completedNotify': 'Colony {name} succeeded! Rewards: {rewards}',
+    'colony.inProgress': 'In progress',
+    'colony.abandon': 'Abandon colony',
+    'colony.abandoned': 'Expedition {name} abandoned — return to mother city without rewards',
+    'colony.defeat': 'The colony failed — return to mother city without rewards',
+    'colony.objective.marble': 'Store enough marble',
+    'colony.objective.wine': 'Store enough wine',
+    'colony.nemea.name': 'Nemea',
+    'colony.nemea.desc': 'Fertile plains — wheat and population',
+    'colony.thasos.name': 'Thasos',
+    'colony.thasos.desc': 'Marble island — stone and quarries',
+    'colony.ionia.name': 'Ionia',
+    'colony.ionia.desc': 'Wine coast — vineyards and trade',
+    'dialog.cancel': 'Cancel',
     'home.tagline': 'Build your Greek city at the foot of Olympus',
     'home.newGame': 'New game',
     'home.load': 'Load save',
@@ -650,6 +781,49 @@ const STRINGS = {
     'home.credits.engine': 'JavaScript game engine — economic simulation, diplomacy, migration and invasions.',
     'home.credits.art': 'Sprites generated via ComfyUI pipeline / procedural art.',
     'home.credits.license': 'Educational project — Project Orion.',
+    'home.back': '← Back',
+    'settings.language': 'Language',
+    'menu.save': '💾 Save',
+    'menu.load': '📂 Load',
+    'menu.pause': '⏸ Pause',
+    'menu.cityManagement': '🏛️ City management',
+    'menu.fullscreen': 'Fullscreen',
+    'menu.fullscreenExit': 'Exit fullscreen',
+    'menu.fullscreenUnavailable': 'Fullscreen unavailable in this browser',
+    'menu.returnMain': '🚪 Return to main menu',
+    'hud.menu': 'Menu',
+    'hud.catalog': 'Catalog',
+    'hud.management': 'Management',
+    'hud.cancelSelection': 'Cancel — return to observation mode',
+    'hud.none': 'None',
+    'manage.title': 'Management',
+    'manage.cityManagement': '🏛️ City management',
+    'manage.worldMap': '🗺️ World map',
+    'catalog.title': 'Catalog',
+    'catalog.housing': '🏠 Housing',
+    'catalog.tools': '🛣️ Tools',
+    'catalog.production': '🌾 Production',
+    'catalog.storage': '📦 Storage & trade',
+    'catalog.services': '🏛️ Services',
+    'catalog.decor': '✨ Decor & beauty',
+    'catalog.mythology': '⚡ Mythology',
+    'catalog.military': '⚔️ Military',
+    'catalog.block': 'Block',
+    'catalog.roadShort': 'Road',
+    'catalog.demolishShort': 'Demolish',
+    'catalog.wineryShort': 'Winery',
+    'catalog.clinicShort': 'Clinic',
+    'catalog.taxShort': 'Tax',
+    'catalog.towerShort': 'Tower',
+    'catalog.heroTempleShort': 'Hero temple',
+    'catalog.grandTempleShort': 'Grand temple',
+    'observer.prefix': 'Observer · ',
+    'worldMap.title': '🗺️ World map',
+    'rotate.prompt': 'Rotate your phone to landscape mode.',
+    'hook.tutorial': 'Click a tile to open the observer',
+    'action.demolishShort': 'Demolish',
+    'demolish.refund': '♻️ Refund: {details}',
+    'demolish.hint': 'Partial refund of build cost ({rate}%)',
     'god.demeter': 'Demeter',
     'god.zeus': 'Zeus',
     'god.athena': 'Athena',
@@ -681,6 +855,8 @@ const STRINGS = {
     'panel.creatures': 'Heroes & Monsters',
     'creature.noMonster': '🕊️ No threat: the city is at peace.',
     'monster.appeared': '👹 A monster, {monster}, has appeared in the city!',
+    'monster.appearedWithHero': '👹 {monster} terrorizes the city — only {hero} can save it',
+    'monster.heroNeeded': 'Only {hero} can defeat this creature.',
     'monster.threat': '{monster} is terrorizing the city!',
     'monster.destroyed': '💥 {building} was destroyed by the monster',
     'monster.fire': '🔥 The monster set a fire: {building} degrades',
@@ -692,8 +868,18 @@ const STRINGS = {
     'monster.name.cerberus': 'Cerberus',
     'hero.noTemple': 'Build a Hero Temple to be able to summon a hero.',
     'hero.summon': '🦸 Summon a hero',
+    'hero.summonNamed': '🦸 Summon {hero}',
     'hero.cost': 'Cost',
     'hero.summoned': '🦸 A hero has been summoned! He sets off to hunt the monster',
+    'hero.summonedNamed': '🦸 {hero} has been summoned and sets off to hunt the monster',
+    'hero.name.perseus': 'Perseus',
+    'hero.name.heracles': 'Heracles',
+    'hero.name.theseus': 'Theseus',
+    'hero.name.ulysses': 'Ulysses',
+    'hero.name.bellerophon': 'Bellerophon',
+    'hero.name.jason': 'Jason',
+    'hero.name.achilles': 'Achilles',
+    'hero.name.orpheus': 'Orpheus',
     'hero.cantSummon': '🦸 Cannot summon a hero (temple, monster or resources missing)',
     'hero.active': 'A hero is hunting the monster…',
     'hero.victory': '🏆 The hero defeated {monster}!',
@@ -721,18 +907,101 @@ function applyStaticTranslations(){
   document.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+}
+
+function syncLanguageSelectors(){
+  document.querySelectorAll('.langSelect').forEach(sel => {
+    sel.value = currentLang;
+  });
+}
+
+function applyGameUITranslations(){
+  applyStaticTranslations();
+  const textMap = {
+    menuSaveBtn: 'menu.save',
+    menuLoadBtn: 'menu.load',
+    menuPauseBtn: 'menu.pause',
+    menuCityBtn: 'menu.cityManagement',
+    menuReturnBtn: 'menu.returnMain',
+    manageTitle: 'manage.title',
+    manageCityBtn: 'manage.cityManagement',
+    manageWorldBtn: 'manage.worldMap',
+    worldMapTitle: 'worldMap.title',
+    quickBuildTitle: 'catalog.title',
+    hookStatus: 'hook.tutorial',
+    menuBackNewGame: 'home.back',
+    menuBackCredits: 'home.back',
+    settingsLanguageLabel: 'settings.language',
+    homeLanguageLabel: 'settings.language',
+  };
+  for (const [id, key] of Object.entries(textMap)){
+    const el = document.getElementById(id);
+    if (el) el.textContent = t(key);
+  }
+  const fsLabel = document.getElementById('fullscreenBtnLabel');
+  if (fsLabel){
+    fsLabel.textContent = document.fullscreenElement ? t('menu.fullscreenExit') : t('menu.fullscreen');
+  }
+  const manageBtn = document.getElementById('manageBtn');
+  if (manageBtn) manageBtn.title = t('hud.management');
+  const manageBtnLabel = document.getElementById('manageBtnLabel');
+  if (manageBtnLabel) manageBtnLabel.textContent = '📊 ' + t('manage.title');
+  const hudMenuBtn = document.getElementById('hudMenuBtn');
+  if (hudMenuBtn) hudMenuBtn.title = t('hud.menu');
+  const hudCatalogBtn = document.getElementById('hudCatalogBtn');
+  if (hudCatalogBtn) hudCatalogBtn.title = t('hud.catalog');
+  const pill = document.getElementById('selectedBuildPill');
+  if (pill) pill.title = t('hud.cancelSelection');
+  const rotate = document.getElementById('rotate');
+  if (rotate) rotate.innerHTML = '📱<br>' + t('rotate.prompt');
+  if (typeof applyHomeTranslations === 'function') applyHomeTranslations();
+  if (typeof renderQuickBuildCatalog === 'function') renderQuickBuildCatalog();
+  if (typeof restoreCatalogState === 'function') restoreCatalogState();
+  if (typeof updateBuildInfoPanel === 'function') updateBuildInfoPanel(selectedBuilding || null);
+  if (typeof updateSelectedBuildPill === 'function') updateSelectedBuildPill();
+  syncLanguageSelectors();
+}
+
+function initLanguageFromStorage(){
+  try {
+    const saved = localStorage.getItem('olympos_lang');
+    if (saved === 'fr' || saved === 'en') currentLang = saved;
+  } catch (err){ /* stockage local indisponible */ }
 }
 
 function setLanguage(lang){
+  if (!STRINGS[lang]) return;
   currentLang = lang;
+  document.documentElement.lang = lang;
+  try { localStorage.setItem('olympos_lang', lang); } catch (err){ /* ignore */ }
   if (typeof debugInfo === 'function') debugInfo(`Langue changée : ${lang}`);
-  applyStaticTranslations();
-  // re-génère la palette et la barre de ressources avec les nouveaux libellés
+  delete window._actionsTilePristine;
+  applyGameUITranslations();
   if (typeof buildPalette === 'function'){
     const container = document.getElementById('buildingButtons');
-    if (container) container.innerHTML = '';
-    buildPalette();
-    if (typeof refreshButtonStates === 'function') refreshButtonStates();
+    if (container){
+      container.innerHTML = '';
+      buildPalette();
+      if (typeof refreshButtonStates === 'function') refreshButtonStates();
+    }
   }
+  if (typeof renderScenarioList === 'function') renderScenarioList();
   if (typeof updateResourceBar === 'function') updateResourceBar();
+  if (typeof renderHud === 'function') renderHud();
+  if (typeof renderCreaturePanel === 'function') renderCreaturePanel();
+  if (typeof renderTaxPanel === 'function') renderTaxPanel();
+  if (typeof renderObjectivesPanel === 'function') renderObjectivesPanel();
+  if (typeof renderMythologyPanel === 'function') renderMythologyPanel();
+  if (typeof renderCalendarPanel === 'function') renderCalendarPanel();
+  if (typeof renderDiplomacyPanel === 'function') renderDiplomacyPanel();
+  if (typeof renderTradePanel === 'function') renderTradePanel();
+  if (typeof renderWorldMap === 'function') renderWorldMap();
+  if (demolishMode && typeof updateDemolishBuildInfo === 'function') updateDemolishBuildInfo();
+  if (typeof saveGame === 'function') saveGame({ silent: true });
 }

@@ -70,13 +70,21 @@ function randomWalkableTile(){
 function spawnMonster(){
   const type = MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
   const tile = randomWalkableTile();
+  const maxHp = type.hp || MONSTER_HP;
   monster = {
     typeKey: type.key, icon: type.icon,
+    maxHp, hp: maxHp,
+    moveEvery: type.moveEvery || MONSTER_MOVE_EVERY_TICKS,
+    attackChance: type.attackChance ?? MONSTER_ATTACK_CHANCE,
     col: tile.col, row: tile.row, prevCol: tile.col, prevRow: tile.row,
-    hp: MONSTER_HP, moveCooldown: MONSTER_MOVE_EVERY_TICKS,
+    moveCooldown: type.moveEvery || MONSTER_MOVE_EVERY_TICKS,
+    facing: 'down',
   };
-  showNotification(t('monster.appeared', { monster: t('monster.name.' + type.key) }), 'bad');
-  debugInfo('Monstre apparu', { type: type.key, col: tile.col, row: tile.row });
+  showNotification(t('monster.appearedWithHero', {
+    monster: t('monster.name.' + type.key),
+    hero: t('hero.name.' + type.heroKey),
+  }), 'bad');
+  debugInfo('Monstre apparu', { type: type.key, col: tile.col, row: tile.row, hp: maxHp });
   renderCreaturePanel();
 }
 
@@ -91,12 +99,20 @@ function monsterAttack(){
   // Sur une maison : 50% "mettre le feu" (perte d'un niveau, destruction si déjà cabane).
   if (cell.building === 'maison' && Math.random() < 0.5){
     if (cell.houseLevel > 0){
-      cell.houseLevel--;
-      cell.population = HOUSE_LEVELS[cell.houseLevel].population;
-      showNotification(t('monster.fire', { building: name }), 'bad');
+      if (typeof queueEmigration === 'function' && queueEmigration(c, r, false)){
+        showNotification(t('monster.fire', { building: name }), 'bad');
+      } else {
+        cell.houseLevel--;
+        cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+        showNotification(t('monster.fire', { building: name }), 'bad');
+      }
     } else {
-      cell.building = null; cell.houseLevel = 0; cell.population = 0;
-      showNotification(t('monster.fireDestroyed'), 'bad');
+      if (typeof queueHouseDeparture === 'function' && queueHouseDeparture(c, r, false)){
+        showNotification(t('monster.fireDestroyed'), 'bad');
+      } else {
+        cell.building = null; cell.houseLevel = 0; cell.population = 0;
+        showNotification(t('monster.fireDestroyed'), 'bad');
+      }
     }
   } else {
     cell.building = null; cell.houseLevel = 0; cell.population = 0;
@@ -114,14 +130,15 @@ function tickMonster(){
   monster.prevCol = monster.col; monster.prevRow = monster.row;
   monster.moveCooldown--;
   if (monster.moveCooldown > 0) return;
-  monster.moveCooldown = MONSTER_MOVE_EVERY_TICKS;
+  monster.moveCooldown = monster.moveEvery || MONSTER_MOVE_EVERY_TICKS;
 
   const neighbors = walkableNeighbors(monster.col, monster.row);
   if (neighbors.length){
     const n = neighbors[Math.floor(Math.random() * neighbors.length)];
     monster.col = n.col; monster.row = n.row;
+    if (typeof updateAgentFacing === 'function') updateAgentFacing(monster);
   }
-  if (Math.random() < MONSTER_ATTACK_CHANCE) monsterAttack();
+  if (Math.random() < (monster.attackChance ?? MONSTER_ATTACK_CHANCE)) monsterAttack();
 }
 
 /* ===================== HEROS ===================== */
@@ -151,10 +168,19 @@ function summonHero(){
     return;
   }
   for (const [res, amt] of Object.entries(HERO_SUMMON_COST)) resources[res] -= amt;
+  const type = (typeof pickHeroForMonster === 'function')
+    ? pickHeroForMonster(monster.typeKey)
+    : HERO_TYPES[0];
   const tile = findHeroTempleTile() || randomWalkableTile();
-  hero = { col: tile.col, row: tile.row, prevCol: tile.col, prevRow: tile.row, moveCooldown: HERO_MOVE_EVERY_TICKS, leaving: false, exit: null };
-  showNotification(t('hero.summoned'), 'good');
-  debugInfo('Héros invoqué', tile);
+  hero = {
+    typeKey: type.key, icon: type.icon,
+    damage: type.damage, moveEvery: type.moveEvery || HERO_MOVE_EVERY_TICKS,
+    col: tile.col, row: tile.row, prevCol: tile.col, prevRow: tile.row,
+    moveCooldown: type.moveEvery || HERO_MOVE_EVERY_TICKS,
+    leaving: false, exit: null, facing: 'down',
+  };
+  showNotification(t('hero.summonedNamed', { hero: t('hero.name.' + type.key) }), 'good');
+  debugInfo('Héros invoqué', { hero: type.key, tile });
   updateResourceBar();
   renderCreaturePanel();
 }
@@ -189,29 +215,48 @@ function tickHero(){
 
   if (!monster){ hero.leaving = true; return; }
 
-  // Au contact : combat. Sinon, on recalcule le chemin vers la cible MOBILE.
+  // Au contact : le héros désigné vainc toujours « son » monstre.
   if (isAdjacentOrSame(hero, monster)){
-    monster.hp -= HERO_DAMAGE;
-    if (monster.hp <= 0){
+    const designated = (typeof isDesignatedHero === 'function')
+      && isDesignatedHero(hero.typeKey, monster.typeKey);
+    if (designated){
       const name = t('monster.name.' + monster.typeKey);
       monster = null;
       hero.leaving = true;
       showNotification(t('hero.victory', { monster: name }), 'good');
-      debugInfo('Monstre vaincu par le héros');
+      debugInfo('Monstre vaincu par le héros désigné', { hero: hero.typeKey });
       renderCreaturePanel();
+    } else {
+      monster.hp -= (typeof heroDamageAgainst === 'function')
+        ? heroDamageAgainst(hero, monster.typeKey)
+        : HERO_DAMAGE;
+      if (monster.hp <= 0){
+        const name = t('monster.name.' + monster.typeKey);
+        monster = null;
+        hero.leaving = true;
+        showNotification(t('hero.victory', { monster: name }), 'good');
+        renderCreaturePanel();
+      }
     }
     return;
   }
 
   hero.moveCooldown--;
   if (hero.moveCooldown > 0) return;
-  hero.moveCooldown = HERO_MOVE_EVERY_TICKS;
+  hero.moveCooldown = hero.moveEvery || HERO_MOVE_EVERY_TICKS;
   stepHeroToward(monster);
 }
 
 function stepHeroToward(goal){
+  const prevCol = hero.col, prevRow = hero.row;
   const path = findPath({ col: hero.col, row: hero.row }, goal);
-  if (path.length){ hero.col = path[0].col; hero.row = path[0].row; }
+  if (path.length){
+    hero.col = path[0].col;
+    hero.row = path[0].row;
+    hero.prevCol = prevCol;
+    hero.prevRow = prevRow;
+    if (typeof updateAgentFacing === 'function') updateAgentFacing(hero);
+  }
 }
 
 /* ===================== TICK GLOBAL ===================== */
@@ -246,20 +291,32 @@ function renderCreaturePanel(){
 
   if (monster){
     const name = t('monster.name.' + monster.typeKey);
+    const def = getMonsterTypeDef(monster.typeKey);
+    const heroName = t('hero.name.' + def.heroKey);
     html += `<p class="creatureThreat">${monster.icon} ${t('monster.threat', { monster: name })}</p>`;
-    const pct = Math.max(0, (monster.hp / MONSTER_HP) * 100);
+    html += `<p class="creatureHint">${t('monster.heroNeeded', { hero: heroName })}</p>`;
+    const maxHp = monster.maxHp || MONSTER_HP;
+    const pct = Math.max(0, (monster.hp / maxHp) * 100);
     html += `<div class="monsterBar"><div class="monsterBarFill" style="width:${pct}%"></div></div>`;
   } else {
     html += `<p class="creatureCalm">${t('creature.noMonster')}</p>`;
   }
 
-  if (hero) html += `<p class="creatureHero">🦸 ${t('hero.active')}</p>`;
+  if (hero){
+    const heroName = hero.typeKey ? t('hero.name.' + hero.typeKey) : t('hero.active');
+    html += `<p class="creatureHero">${hero.icon || '🦸'} ${heroName} — ${t('hero.active')}</p>`;
+  }
 
   if (countHeroTemples() === 0){
     html += `<p class="placeholder">${t('hero.noTemple')}</p>`;
   } else {
     const can = canSummonHero();
-    html += `<button class="buildBtn ${can ? '' : 'unaffordable'}" ${can ? '' : 'disabled'} onclick="summonHero()">${t('hero.summon')}</button>`;
+    let summonLabel = t('hero.summon');
+    if (monster && typeof pickHeroForMonster === 'function'){
+      const needed = pickHeroForMonster(monster.typeKey);
+      summonLabel = t('hero.summonNamed', { hero: t('hero.name.' + needed.key) });
+    }
+    html += `<button class="buildBtn ${can ? '' : 'unaffordable'}" ${can ? '' : 'disabled'} onclick="summonHero()">${summonLabel}</button>`;
     html += `<p class="creatureCost">${t('hero.cost')} : ${summonCostLabel()}</p>`;
   }
 

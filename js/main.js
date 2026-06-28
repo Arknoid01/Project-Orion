@@ -8,6 +8,7 @@ function refreshUI(){
   render();
   updateResourceBar();
   if (typeof renderHud === 'function') renderHud();
+  if (typeof renderColonyHud === 'function') renderColonyHud();
   renderMythologyPanel();
   renderObjectivesPanel();
   renderTaxPanel();
@@ -19,14 +20,20 @@ function refreshUI(){
 }
 
 /* ===================== INIT ===================== */
+initLanguageFromStorage();
+document.documentElement.lang = currentLang;
 applyStaticTranslations();
 applyCanvasResolution();
 buildPalette();
+if (typeof renderQuickBuildCatalog === 'function') renderQuickBuildCatalog();
+applyGameUITranslations();
+if (typeof renderColonyHud === 'function') renderColonyHud();
 
 if (loadGame()){
   debugInfo('Sauvegarde restaurée au chargement de la page');
   document.getElementById('mainMenuOverlay').classList.remove('open');
   hideMainMenu();
+  applyGameUITranslations();
   refreshUI();
   if (typeof centerMapView === 'function') centerMapView();
 } else {

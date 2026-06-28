@@ -43,6 +43,7 @@ function loadGameFromMenu(){
   if (typeof loadGame === 'function' && loadGame()){
     hideMainMenu();
     if (typeof closePanels === 'function') closePanels();
+    applyGameUITranslations();
     refreshUI();
     if (typeof centerMapView === 'function') centerMapView();
     showNotification(t('home.saveLoaded'), 'good');
@@ -65,6 +66,7 @@ function applyHomeTranslations(){
     const el = document.getElementById(id);
     if (el) el.textContent = t(key);
   }
+  if (typeof syncLanguageSelectors === 'function') syncLanguageSelectors();
   const creditsBody = document.getElementById('creditsBody');
   if (creditsBody){
     creditsBody.innerHTML = [

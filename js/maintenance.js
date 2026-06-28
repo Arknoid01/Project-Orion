@@ -29,16 +29,25 @@ function triggerDisaster(col, row, kind){
   const cell = grid[row][col];
 
   if (cell.houseLevel > 0){
-    cell.houseLevel--;
-    cell.population = HOUSE_LEVELS[cell.houseLevel].population;
-    debugWarn(kind === 'fire' ? 'Incendie : maison endommagée' : 'Épidémie : maison touchée', { col, row });
-    showNotification(t(kind === 'fire' ? 'maintenance.fireDamage' : 'maintenance.diseaseDamage'), 'bad');
+    if (typeof queueEmigration === 'function' && queueEmigration(col, row, false)){
+      showNotification(t(kind === 'fire' ? 'maintenance.fireDamage' : 'maintenance.diseaseDamage'), 'bad');
+    } else {
+      cell.houseLevel--;
+      cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+      debugWarn(kind === 'fire' ? 'Incendie : maison endommagée' : 'Épidémie : maison touchée', { col, row });
+      showNotification(t(kind === 'fire' ? 'maintenance.fireDamage' : 'maintenance.diseaseDamage'), 'bad');
+    }
   } else {
-    cell.building = null;
-    cell.houseLevel = 0;
-    cell.population = 0;
-    debugWarn(kind === 'fire' ? 'Incendie : maison détruite' : 'Épidémie : maison décimée', { col, row });
-    showNotification(t(kind === 'fire' ? 'maintenance.fireDestroyed' : 'maintenance.diseaseDestroyed'), 'bad');
-    recomputeAllWalkers(); // une case s'est libérée, un bâtiment a disparu
+    if (typeof queueHouseDeparture === 'function' && queueHouseDeparture(col, row, false)){
+      debugWarn(kind === 'fire' ? 'Incendie : maison détruite' : 'Épidémie : maison décimée', { col, row });
+      showNotification(t(kind === 'fire' ? 'maintenance.fireDestroyed' : 'maintenance.diseaseDestroyed'), 'bad');
+    } else {
+      cell.building = null;
+      cell.houseLevel = 0;
+      cell.population = 0;
+      debugWarn(kind === 'fire' ? 'Incendie : maison détruite' : 'Épidémie : maison décimée', { col, row });
+      showNotification(t(kind === 'fire' ? 'maintenance.fireDestroyed' : 'maintenance.diseaseDestroyed'), 'bad');
+      recomputeAllWalkers();
+    }
   }
 }

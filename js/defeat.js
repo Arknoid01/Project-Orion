@@ -28,6 +28,12 @@ function checkDefeat(){
 }
 
 function triggerDefeat(reason){
+  if (typeof isColonyPhase === 'function' && isColonyPhase() && typeof abandonColony === 'function'){
+    abandonColony(false);
+    showNotification(t('colony.defeat'), 'bad');
+    debugWarn('Colonie échouée : ' + reason);
+    return;
+  }
   defeatAnnounced = true;
   defeatReason = reason;
   showNotification(t('defeat.' + reason), 'bad');

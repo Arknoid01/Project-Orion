@@ -1,139 +1,138 @@
 /* ===================== AGENTS DE MIGRATION (VISUEL) ===================== */
-// Colons qui arrivent par la route (immigration) ou partent vers la sortie (émigration).
-// La logique probabiliste reste dans houses.js / migration.js ; ici on ne fait que
-// retarder l'application du changement de niveau le temps du trajet visible.
+// Colons qui arrivent depuis un point fixe au bord de la carte (pose, montée de niveau)
+// ou repartent vers ce même point (régression, destruction, émigration).
+// Montée de niveau : appliquée à l'arrivée. Régression : appliquée au départ.
+// Destruction : le bâtiment disparaît quand le colon a quitté la carte.
 
-let migrants = []; // { type:'in'|'out', col, row, prevCol, prevRow, path, pathIndex, houseCol, houseRow, moveCooldown }
+let migrants = []; // { type, reason, col, row, prevCol, prevRow, path, pathIndex, houseCol, houseRow, moveCooldown, destroyOnComplete? }
 
 function resetMigrants(){ migrants = []; }
 
-function findEdgeRoadTiles(){
-  const tiles = [];
-  for (let c = 0; c < GRID_COLS; c++){
-    if (grid[0][c].hasRoad) tiles.push({ col: c, row: 0 });
-    if (grid[GRID_ROWS - 1][c].hasRoad) tiles.push({ col: c, row: GRID_ROWS - 1 });
-  }
-  for (let r = 0; r < GRID_ROWS; r++){
-    if (grid[r][0].hasRoad) tiles.push({ col: 0, row: r });
-    if (grid[r][GRID_COLS - 1].hasRoad) tiles.push({ col: GRID_COLS - 1, row: r });
-  }
-  return tiles;
-}
-
-function roadNeighbors(col, row, goalCol, goalRow){
-  return [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]]
-    .filter(([c, r]) => {
-      if (!inBounds(c, r)) return false;
-      if (c === goalCol && r === goalRow) return true;
-      return grid[r][c].hasRoad;
-    })
-    .map(([c, r]) => ({ col: c, row: r }));
-}
-
-function findRoadPath(start, goal){
-  if (start.col === goal.col && start.row === goal.row) return [];
-  const startKey = start.col + ',' + start.row;
-  const goalKey = goal.col + ',' + goal.row;
-  const queue = [start];
-  const cameFrom = { [startKey]: null };
-  let head = 0;
-  while (head < queue.length){
-    const cur = queue[head++];
-    const curKey = cur.col + ',' + cur.row;
-    if (curKey === goalKey) break;
-    for (const n of roadNeighbors(cur.col, cur.row, goal.col, goal.row)){
-      const k = n.col + ',' + n.row;
-      if (cameFrom[k] === undefined){
-        cameFrom[k] = curKey;
-        queue.push(n);
-      }
+function getFixedMigrantEntry(){
+  const col = MIGRANT_ENTRY_COL;
+  const row = MIGRANT_ENTRY_ROW;
+  if (inBounds(col, row) && isWalkable(col, row)) return { col, row };
+  for (let dc = 0; dc < GRID_COLS; dc++){
+    for (const c of [col - dc, col + dc]){
+      if (c < 0 || c >= GRID_COLS) continue;
+      if (isWalkable(c, row)) return { col: c, row };
     }
   }
-  if (cameFrom[goalKey] === undefined) return [];
-  const path = [];
-  let k = goalKey;
-  while (k && k !== startKey){
-    const [c, r] = k.split(',').map(Number);
-    path.unshift({ col: c, row: r });
-    k = cameFrom[k];
-  }
-  return path;
+  return { col, row };
 }
 
-function nearestRoadAdjacentToHouse(houseCol, houseRow){
-  const neighbors = [[houseCol - 1, houseRow], [houseCol + 1, houseRow], [houseCol, houseRow - 1], [houseCol, houseRow + 1]]
-    .filter(([c, r]) => inBounds(c, r) && grid[r][c].hasRoad)
-    .map(([c, r]) => ({ col: c, row: r }));
-  if (neighbors.length === 0) return null;
-  return neighbors[0];
+function walkableGoalForHouse(houseCol, houseRow){
+  if (isWalkable(houseCol, houseRow)) return { col: houseCol, row: houseRow };
+  for (const [c, r] of [[houseCol - 1, houseRow], [houseCol + 1, houseRow], [houseCol, houseRow - 1], [houseCol, houseRow + 1]]){
+    if (inBounds(c, r) && isWalkable(c, r)) return { col: c, row: r };
+  }
+  return null;
 }
 
-function pickNearestEdgeRoad(fromCol, fromRow){
-  const edges = findEdgeRoadTiles();
-  if (edges.length === 0) return null;
-  let best = edges[0], bestLen = Infinity;
-  for (const e of edges){
-    const path = findRoadPath(e, { col: fromCol, row: fromRow });
-    const len = path.length;
-    if (len < bestLen){ bestLen = len; best = e; }
-  }
-  return best;
+function destroyHouseAt(col, row){
+  const cell = grid[row][col];
+  if (cell.building !== 'maison') return;
+  cell.building = null;
+  cell.houseLevel = 0;
+  cell.population = 0;
+  if (typeof recomputeAllWalkers === 'function') recomputeAllWalkers();
+  if (typeof recomputeBeauty === 'function') recomputeBeauty();
 }
 
 function applyHouseGrowth(col, row){
   const cell = grid[row][col];
+  if (cell.building !== 'maison') return;
   cell.houseLevel++;
   cell.population = HOUSE_LEVELS[cell.houseLevel].population;
   debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
 }
 
-function applyHouseEmigration(col, row){
+function applyHouseSettlement(col, row){
   const cell = grid[row][col];
-  cell.houseLevel--;
+  if (cell.building !== 'maison') return;
   cell.population = HOUSE_LEVELS[cell.houseLevel].population;
-  debugWarn(`Émigration : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+  debugInfo(`Colon installé : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
 }
 
-function queueImmigration(houseCol, houseRow){
-  const roadTile = nearestRoadAdjacentToHouse(houseCol, houseRow);
-  if (!roadTile) return false;
-  const entry = pickNearestEdgeRoad(roadTile.col, roadTile.row);
-  if (!entry) return false;
-  const path = findRoadPath(entry, roadTile);
-  if (path.length === 0 && (entry.col !== roadTile.col || entry.row !== roadTile.row)) return false;
+function applyHouseEmigration(col, row){
+  const cell = grid[row][col];
+  if (cell.building !== 'maison') return;
+  cell.houseLevel--;
+  cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+  debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+}
 
-  migrants.push({
+function pushMigrant(agent){
+  migrants.push(agent);
+}
+
+function queueMigrantIn(houseCol, houseRow, reason){
+  const cell = grid[houseRow][houseCol];
+  if (cell.building !== 'maison') return false;
+
+  const entry = getFixedMigrantEntry();
+  const goal = walkableGoalForHouse(houseCol, houseRow);
+  if (!goal) return false;
+  const path = findPath(entry, goal);
+  if (path.length === 0 && (entry.col !== goal.col || entry.row !== goal.row)) return false;
+
+  pushMigrant({
     type: 'in',
+    reason: reason || 'growth',
     col: entry.col, row: entry.row,
     prevCol: entry.col, prevRow: entry.row,
     path, pathIndex: 0,
     houseCol, houseRow,
     moveCooldown: MIGRANT_MOVE_EVERY_TICKS,
   });
-  showNotification(t('migration.arrival'), 'good');
+
+  const msgKey = reason === 'placement' ? 'migration.newHouse' : 'migration.arrival';
+  showNotification(t(msgKey), 'good');
   return true;
 }
 
-function queueEmigration(houseCol, houseRow){
-  const roadTile = nearestRoadAdjacentToHouse(houseCol, houseRow);
-  if (!roadTile) return false;
-  const exit = pickNearestEdgeRoad(roadTile.col, roadTile.row);
-  if (!exit) return false;
-  const path = findRoadPath(roadTile, exit);
-  if (path.length === 0 && (roadTile.col !== exit.col || roadTile.row !== exit.row)) return false;
+function queueMigrantOut(houseCol, houseRow, opts){
+  opts = opts || {};
+  const cell = grid[houseRow][houseCol];
+  if (cell.building !== 'maison') return false;
 
-  applyHouseEmigration(houseCol, houseRow);
+  const entry = getFixedMigrantEntry();
+  const start = walkableGoalForHouse(houseCol, houseRow);
+  if (!start) return false;
+  const path = findPath(start, entry);
+  if (path.length === 0 && (start.col !== entry.col || start.row !== entry.row)) return false;
 
-  migrants.push({
+  if (opts.applyRegress) applyHouseEmigration(houseCol, houseRow);
+
+  pushMigrant({
     type: 'out',
-    col: roadTile.col, row: roadTile.row,
-    prevCol: roadTile.col, prevRow: roadTile.row,
+    reason: opts.reason || (opts.destroyOnComplete ? 'destroy' : 'regress'),
+    col: start.col, row: start.row,
+    prevCol: start.col, prevRow: start.row,
     path, pathIndex: 0,
     houseCol, houseRow,
     moveCooldown: MIGRANT_MOVE_EVERY_TICKS,
+    destroyOnComplete: !!opts.destroyOnComplete,
   });
-  showNotification(t('migration.departure'), 'bad');
+
+  if (opts.notify !== false) showNotification(t('migration.departure'), 'bad');
   return true;
+}
+
+function queueImmigration(houseCol, houseRow){
+  return queueMigrantIn(houseCol, houseRow, 'growth');
+}
+
+function queueHouseSettlement(houseCol, houseRow){
+  return queueMigrantIn(houseCol, houseRow, 'placement');
+}
+
+function queueEmigration(houseCol, houseRow, notify){
+  return queueMigrantOut(houseCol, houseRow, { applyRegress: true, notify: notify !== false, reason: 'regress' });
+}
+
+function queueHouseDeparture(houseCol, houseRow, notify){
+  return queueMigrantOut(houseCol, houseRow, { destroyOnComplete: true, notify: notify !== false, reason: 'destroy' });
 }
 
 function tickMigrants(){
@@ -146,7 +145,10 @@ function tickMigrants(){
 
     if (m.pathIndex >= m.path.length){
       if (m.type === 'in'){
-        applyHouseGrowth(m.houseCol, m.houseRow);
+        if (m.reason === 'placement') applyHouseSettlement(m.houseCol, m.houseRow);
+        else applyHouseGrowth(m.houseCol, m.houseRow);
+      } else if (m.destroyOnComplete){
+        destroyHouseAt(m.houseCol, m.houseRow);
       }
       migrants.splice(i, 1);
       continue;

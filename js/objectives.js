@@ -9,6 +9,9 @@ const OBJECTIVE_METRICS = {
   favor:        () => favor,
   citiesConquered: () => (worldCities || []).filter(c => c.conquered).length,
   barracks:     () => (typeof countBarracks === 'function') ? countBarracks() : 0,
+  coloniesCompleted: () => (typeof completedColonies !== 'undefined') ? completedColonies.length : 0,
+  marbleStock:  () => Math.floor(resources.marble || 0),
+  wineStock:    () => Math.floor(resources.wine || 0),
 };
 
 // Index du niveau "villa" repéré par sa clé (et non "dernier niveau"), pour rester
@@ -33,6 +36,12 @@ function checkObjectives(){
     obj.done = obj.current >= obj.target;
     if (!obj.done) allDone = false;
   });
+
+  if (allDone && typeof isColonyPhase === 'function' && isColonyPhase()){
+    if (typeof completeColony === 'function') completeColony();
+    renderObjectivesPanel();
+    return;
+  }
 
   if (allDone && !victoryAnnounced){
     victoryAnnounced = true;

@@ -1810,6 +1810,29 @@ h2{
  font-style:italic;
  opacity:.9;
 }
+.homeLangRow,.menuLangRow{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:10px;
+ margin-top:16px;
+ font-size:13px;
+ color:var(--marble2,#d7c292);
+}
+.menuLangRow{
+ justify-content:flex-start;
+ padding:4px 0 8px;
+}
+.langSelect{
+ background:rgba(255,255,255,0.08);
+ color:var(--marble,#f4e8cc);
+ border:1px solid rgba(210,162,74,.35);
+ border-radius:6px;
+ padding:6px 10px;
+ font-size:13px;
+ cursor:pointer;
+}
+.langSelect option{ color:#1c1410; background:#f4e8cc; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1833,15 +1856,22 @@ h2{
          <button class="homeBtn secondary" id="homeLoad" onclick="loadGameFromMenu()">Charger sauvegarde</button>
          <button class="homeBtn secondary" id="homeCredits" onclick="showCreditsScreen()">Crédits</button>
        </div>
+       <div class="homeLangRow">
+         <label id="homeLanguageLabel" for="homeLangSelect">Langue</label>
+         <select id="homeLangSelect" class="langSelect" onchange="setLanguage(this.value)">
+           <option value="fr">Français</option>
+           <option value="en">English</option>
+         </select>
+       </div>
      </div>
      <div id="newGameScreen" class="menu-screen-hidden">
-       <button class="menuBack" onclick="showHomeScreen()">← Retour</button>
+       <button class="menuBack" id="menuBackNewGame" onclick="showHomeScreen()">← Retour</button>
        <h2 id="newGameTitle">Nouvelle partie</h2>
        <p id="scenarioMenuSubtitle">Choisir un scénario</p>
        <div id="scenarioList"></div>
      </div>
      <div id="creditsScreen" class="menu-screen-hidden">
-       <button class="menuBack" onclick="showHomeScreen()">← Retour</button>
+       <button class="menuBack" id="menuBackCredits" onclick="showHomeScreen()">← Retour</button>
        <h2 id="creditsTitle">Crédits</h2>
        <div id="creditsBody" class="creditsBody"></div>
      </div>
@@ -1849,16 +1879,17 @@ h2{
  </div>
 
  <div class="hud">
-   <button class="iconBtn" onclick="togglePanel('gameMenuPanel')" title="Menu">☰</button>
+   <button class="iconBtn" id="hudMenuBtn" onclick="togglePanel('gameMenuPanel')" title="Menu">☰</button>
    <div class="hud-pill">🪙 <b id="hudTreasury">0</b></div>
    <div class="hud-pill">👥 <b id="hudPopulation">0</b></div>
    <div id="selectedBuildPill" class="hud-pill" onclick="cancelSelection()" title="Annuler — revenir au mode observation">🔨 <b id="selectedBuildName">Aucun</b> <span class="pillClose">✕</span></div>
    <div class="hud-spacer"></div>
+   <div class="hud-pill" id="hudColonyBadge" style="display:none" onclick="openColoniesPanel()" title="">🏝️ <b id="hudColonyName">Colonie</b></div>
    <div class="hud-pill" id="hudCalendar">📅 …</div>
-   <button class="iconBtn" onclick="togglePanel('quickBuild')" title="Catalogue">🔨</button>
+   <button class="iconBtn" id="hudCatalogBtn" onclick="togglePanel('quickBuild')" title="Catalogue">🔨</button>
  </div>
 
- <button id="manageBtn" onclick="openManagePanel()" title="Gestion">📊 Gestion</button>
+ <button id="manageBtn" onclick="openManagePanel()" title="Gestion"><span id="manageBtnLabel">📊 Gestion</span></button>
 
  <div class="floatingTools">
    <div class="zoomGroup">
@@ -1883,28 +1914,34 @@ h2{
  </div>
 
  <aside id="gameMenuPanel" class="panel">
-   
    <div class="menuList">
-     <button class="actionBtn" onclick="callGameAction('saveGame')">💾 Sauvegarder</button>
-     <button class="actionBtn" onclick="loadGameFromMenu()">📂 Charger</button>
-     <button class="actionBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
-     <button class="actionBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
+     <button class="actionBtn" id="menuSaveBtn" onclick="callGameAction('saveGame')">💾 Sauvegarder</button>
+     <button class="actionBtn" id="menuLoadBtn" onclick="loadGameFromMenu()">📂 Charger</button>
+     <button class="actionBtn" id="menuPauseBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
+     <button class="actionBtn" id="menuCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
      <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
-     <button class="actionBtn" onclick="callGameAction('returnToMainMenu')">🚪 Retour au menu principal</button>
+     <div class="menuLangRow">
+       <label id="settingsLanguageLabel" for="gameLangSelect">Langue</label>
+       <select id="gameLangSelect" class="langSelect" onchange="setLanguage(this.value)">
+         <option value="fr">Français</option>
+         <option value="en">English</option>
+       </select>
+     </div>
+     <button class="actionBtn" id="menuReturnBtn" onclick="callGameAction('returnToMainMenu')">🚪 Retour au menu principal</button>
    </div>
  </aside>
 
  <aside id="managePanel" class="panel">
    <button class="close" onclick="closePanels()">×</button>
-   <h2>Gestion</h2>
+   <h2 id="manageTitle">Gestion</h2>
    <h3 data-i18n="panel.resources">Ressources</h3>
    <div id="manageResourceList" class="manageList"></div>
    <h3 data-i18n="economy.balanceTitle">Bilan journalier</h3>
    <p class="manageHint" data-i18n="economy.balanceHint">Production vs consommation par jour de jeu (+ prod / − besoin).</p>
    <div id="economyBalanceList" class="manageList"></div>
    <div class="menuList">
-     <button class="actionBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
-     <button class="actionBtn" onclick="openWorldMap()">🗺️ Carte du monde</button>
+     <button class="actionBtn" id="manageCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
+     <button class="actionBtn" id="manageWorldBtn" onclick="openWorldMap()">🗺️ Carte du monde</button>
    </div>
  </aside>
 
@@ -1946,37 +1983,9 @@ h2{
 
    <section class="obsTile" id="actionsTile">
      <button class="obsTileHeader" onclick="toggleTile(this)">
-       <span class="icon">🚶</span>
-       <span class="title">Walkers reçus</span>
-       <span class="status">3 actifs</span>
-       <span class="chev">›</span>
-     </button>
-     <div class="obsTileBody">
-       <div class="row"><span>💧 Porteur d'eau</span><b>il y a 8s</b></div>
-       <div class="row"><span>🛒 Marchand</span><b>il y a 14s</b></div>
-       <div class="row"><span>💰 Collecteur</span><b>il y a 28s</b></div>
-     </div>
-   </section>
-
-   <section class="obsTile">
-     <button class="obsTileHeader" onclick="toggleTile(this)">
-       <span class="icon">📈</span>
-       <span class="title">Évolution</span>
-       <span class="status">bloquée</span>
-       <span class="chev">›</span>
-     </button>
-     <div class="obsTileBody">
-       <div class="row"><span>Prochain niveau</span><b>Maison correcte</b></div>
-       <div class="row"><span>Manque</span><b class="bad">Huile + beauté</b></div>
-       <div class="row"><span>Conseil</span><b>Construire jardin / huilerie</b></div>
-     </div>
-   </section>
-
-   <section class="obsTile">
-     <button class="obsTileHeader" onclick="toggleTile(this)">
        <span class="icon">⚙️</span>
        <span class="title">Actions</span>
-       <span class="status">4</span>
+       <span class="status"></span>
        <span class="chev">›</span>
      </button>
      <div class="obsTileBody">
@@ -1988,6 +1997,27 @@ h2{
        </div>
      </div>
    </section>
+
+   <section class="obsTile">
+     <button class="obsTileHeader" onclick="toggleTile(this)">
+       <span class="icon">📈</span>
+       <span class="title">Évolution</span>
+       <span class="status"></span>
+       <span class="chev">›</span>
+     </button>
+     <div class="obsTileBody"></div>
+   </section>
+
+   <section class="obsTile">
+     <button class="obsTileHeader" onclick="toggleTile(this)">
+       <span class="icon">📦</span>
+       <span class="title">Détails</span>
+       <span class="status"></span>
+       <span class="chev">›</span>
+     </button>
+     <div class="obsTileBody"></div>
+   </section>
+
  </aside>
 
  <aside id="worldMapPanel" class="panel">
@@ -2019,105 +2049,13 @@ h2{
  <nav id="quickBuild" class="panel">
   <div id="quickBuildContent">
     <button class="close" onclick="closePanels()">×</button>
-    <h2>Catalogue</h2>
-
-    <section class="catalogCategory open">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>🏠 Habitations</span><b>1</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'maison')">🏠<span>Maison</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>🛣️ Outils</span><b>3</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectRoadMode')">🛣️<span>Route</span></button>
-        <button class="card" onclick="callGameAction('selectBlockMode')">🚧<span>Borne</span></button>
-        <button class="card" onclick="callGameAction('selectDemolishMode')">🔨<span>Démolir</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>🌾 Production</span><b>8</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'farm')">🌾<span>Ferme</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'quarry')">⛏️<span>Carrière</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'oliveGrove')">🫒<span>Oliveraie</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'vineyard')">🍇<span>Vignoble</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'sheepFarm')">🐑<span>Bergerie</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'workshop')">⚒️<span>Atelier</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'oilPress')">🛢️<span>Huilerie</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'winery')">🍷<span>Cave</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>📦 Stockage & commerce</span><b>3</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'granary')">🏺<span>Grenier</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'warehouse')">📦<span>Entrepôt</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'tradingPost')">⚖️<span>Comptoir</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>🏛️ Services</span><b>6</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'fountain')">⛲<span>Fontaine</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'market')">🏪<span>Marché</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'temple')">🛕<span>Temple</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'clinic')">⚕️<span>Clinique</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'taxOffice')">💰<span>Impôts</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'watchtower')">🗼<span>Tour</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>✨ Décor & beauté</span><b>3</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'statue')">🗿<span>Statue</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'garden')">🌳<span>Jardin</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'colonnade')">🏛️<span>Colonnade</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>⚡ Mythologie</span><b>2</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'grandTemple')">🏛️<span>Temple monumental</span></button>
-        <button class="card" onclick="callGameAction('selectBuilding', 'heroTemple')">⚔️<span>Temple héros</span></button>
-      </div>
-    </section>
-
-    <section class="catalogCategory">
-      <button class="catalogHeader" onclick="toggleCatalog(this)">
-        <span>⚔️ Militaire</span><b>1</b>
-      </button>
-      <div class="catalogBody">
-        <button class="card" onclick="callGameAction('selectBuilding', 'barracks')">🛡️<span>Caserne</span></button>
-      </div>
-    </section>
-
+    <h2 id="quickBuildTitle">Catalogue</h2>
+    <div id="quickBuildSections"></div>
     <div id="catalogBuildInfo">
       <div id="catalogBuildInfoTitle">Sélectionnez un bâtiment</div>
-      <div id="catalogBuildInfoText">Les détails et le coût s'affichent ici lorsque vous choisissez une construction.</div>
+      <div id="catalogBuildInfoText">Choisissez une construction dans le catalogue pour voir son rôle et son coût.</div>
       <div id="catalogBuildInfoCost"></div>
     </div>
-
   </div>
 </nav>
 </div>
@@ -2151,13 +2089,16 @@ h2{
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
+<script src="js/characterSprites.js"></script>
 <script src="js/render.js"></script>
 <script src="js/zoom.js"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
 <script src="js/migrationAgents.js"></script>
+<script src="js/militaryAgents.js"></script>
 <script src="js/invasions.js"></script>
 <script src="js/scenarios.js"></script>
+<script src="js/colonies.js"></script>
 <script src="js/home.js"></script>
 <script src="js/economy.js"></script>
 <script src="js/labor.js"></script>
@@ -2217,13 +2158,13 @@ function setSelectedBuildLabel(fnName, arg){
     name.textContent = (def && typeof t === 'function') ? t(def.name) : arg;
     pill.classList.add('show');
   }else if(fnName === 'selectRoadMode'){
-    name.textContent = 'Route';
+    name.textContent = (typeof t === 'function') ? t('catalog.roadShort') : 'Route';
     pill.classList.add('show');
   }else if(fnName === 'selectBlockMode'){
-    name.textContent = 'Borne';
+    name.textContent = (typeof t === 'function') ? t('catalog.block') : 'Block';
     pill.classList.add('show');
   }else if(fnName === 'selectDemolishMode'){
-    name.textContent = 'Démolition';
+    name.textContent = (typeof t === 'function') ? t('action.demolishShort') : 'Demolish';
     pill.classList.add('show');
   }
 }
@@ -2252,7 +2193,8 @@ function callGameAction(fnName, arg){
 function toggleFullscreen(){
   if (!document.fullscreenElement){
     document.documentElement.requestFullscreen().catch(() => {
-      if (typeof showNotification === 'function') showNotification('Plein écran indisponible sur ce navigateur', 'bad');
+      const msg = (typeof t === 'function') ? t('menu.fullscreenUnavailable') : 'Fullscreen unavailable';
+      if (typeof showNotification === 'function') showNotification(msg, 'bad');
       else mock('toggleFullscreen() — indisponible');
     });
   } else {
@@ -2261,7 +2203,9 @@ function toggleFullscreen(){
 }
 document.addEventListener('fullscreenchange', () => {
   const label = document.getElementById('fullscreenBtnLabel');
-  if (label) label.textContent = document.fullscreenElement ? 'Quitter le plein écran' : 'Plein écran';
+  if (label && typeof t === 'function'){
+    label.textContent = document.fullscreenElement ? t('menu.fullscreenExit') : t('menu.fullscreen');
+  }
 });
 
 document.addEventListener('DOMContentLoaded', restoreCatalogState);
@@ -2277,11 +2221,8 @@ const OBSERVER_DATA = {
       {icon:"📋", title:"Besoins", status:"3/5", rows:[
         ["Eau","✔ Fontaine","ok"],["Nourriture","✔ Marché","ok"],["Emploi","✔ Disponible","ok"],["Huile","✖ Manquante","bad"],["Beauté","✖ 42 / 60","bad"]
       ]},
-      {icon:"🚶", title:"Walkers reçus", status:"3 actifs", rows:[
-        ["💧 Porteur d'eau","il y a 8s"],["🛒 Marchand","il y a 14s"],["💰 Collecteur","il y a 28s"]
-      ]},
-      {icon:"📈", title:"Évolution", status:"bloquée", rows:[
-        ["Prochain niveau","Maison correcte"],["Manque","Huile + beauté","bad"],["Conseil","Construire jardin / huilerie"]
+      {icon:"🛡️", title:"Risques", status:"⚠️", rows:[
+        ["Incendie","✔","ok"],["Maladie","✖","bad"]
       ]}
     ],
     actions:true
@@ -2357,7 +2298,7 @@ function setObserverTiles(data){
     // le restaurer après l'avoir détourné pour les actions de la cité.
     if(!window._actionsTilePristine){
       window._actionsTilePristine = {
-        icon: (actions.querySelector('.icon')||{}).textContent || '🚶',
+        icon: (actions.querySelector('.icon')||{}).textContent || '⚙️',
         title: (actions.querySelector('.title')||{}).textContent || 'Actions',
         status: (actions.querySelector('.status')||{}).textContent || '',
         body: actions.querySelector('.obsTileBody').innerHTML,

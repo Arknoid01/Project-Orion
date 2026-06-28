@@ -41,6 +41,134 @@ let roadMode = false;
 let blockMode = false; // pose/retrait de borne de blocage de patrouille
 let hoverTile = null;
 let inspectedTile = null; // { col, row } de la dernière case cliquée, pour rafraîchir l'inspecteur à chaque tick
+let zonePlacementStart = null; // 1er coin pour pose en zone (2 clics)
+
+/* ===================== POSE EN ZONE (2 clics) ===================== */
+function tilesInRect(c1, r1, c2, r2){
+  const cMin = Math.min(c1, c2);
+  const cMax = Math.max(c1, c2);
+  const rMin = Math.min(r1, r2);
+  const rMax = Math.max(r1, r2);
+  const tiles = [];
+  for (let row = rMin; row <= rMax; row++){
+    for (let col = cMin; col <= cMax; col++){
+      if (inBounds(col, row)) tiles.push({ col, row });
+    }
+  }
+  return tiles;
+}
+
+function supportsZonePlacement(){
+  if (roadMode) return true;
+  if (!selectedBuilding) return false;
+  const def = BUILDING_DEFS[selectedBuilding];
+  if (!def || def.isMonument || def.costResources) return false;
+  if (def.footprint && def.footprint > 1) return false;
+  return true;
+}
+
+function zonePlaceableTiles(c1, r1, c2, r2){
+  return tilesInRect(c1, r1, c2, r2).filter(t => {
+    if (roadMode) return canPlaceRoadTerrain(t.col, t.row);
+    return canPlaceTerrain(t.col, t.row);
+  });
+}
+
+function zonePlacementCost(tiles){
+  if (roadMode) return tiles.length * ROAD_COST;
+  const def = BUILDING_DEFS[selectedBuilding];
+  return def ? tiles.length * def.cost : 0;
+}
+
+function clearZonePlacementStart(){
+  zonePlacementStart = null;
+}
+
+function updateZonePlacementUI(){
+  if (!supportsZonePlacement()) return;
+  const targets = [
+    { text: 'catalogBuildInfoText', cost: 'catalogBuildInfoCost' },
+    { text: 'buildInfoText', cost: 'buildInfoCost' },
+  ];
+  const hint = zonePlacementStart ? t('build.zoneSecondClick') : t('build.zoneFirstClick');
+  let costLine = '';
+  if (roadMode){
+    costLine = t('build.cost') + ' : 🪙 ' + ROAD_COST + ' dr. / ' + t('build.zonePerTile');
+  } else if (selectedBuilding){
+    costLine = buildingCostSummary(selectedBuilding) + ' / ' + t('build.zonePerTile');
+  }
+  if (zonePlacementStart && hoverTile && inBounds(hoverTile.col, hoverTile.row)){
+    const tiles = zonePlaceableTiles(
+      zonePlacementStart.col, zonePlacementStart.row,
+      hoverTile.col, hoverTile.row
+    );
+    costLine = t('build.zoneCost', { cost: zonePlacementCost(tiles), tiles: tiles.length });
+  }
+  targets.forEach(ids => {
+    const textEl = document.getElementById(ids.text);
+    const costEl = document.getElementById(ids.cost);
+    if (textEl) textEl.textContent = hint;
+    if (costEl) costEl.textContent = costLine;
+  });
+}
+
+function placeCellBuilding(col, row, key){
+  const cell = grid[row][col];
+  cell.building = key;
+  if (key === 'maison'){
+    cell.houseLevel = 0;
+    cell.population = 0;
+    if (typeof queueHouseSettlement !== 'function' || !queueHouseSettlement(col, row)){
+      cell.population = HOUSE_LEVELS[0].population;
+    }
+  }
+}
+
+function confirmZonePlacement(c1, r1, c2, r2){
+  const tiles = zonePlaceableTiles(c1, r1, c2, r2);
+  if (tiles.length === 0) return { ok: false, reason: 'none' };
+  const cost = zonePlacementCost(tiles);
+  if (!canAfford(cost)) return { ok: false, reason: 'afford' };
+  if (!spend(cost)) return { ok: false, reason: 'afford' };
+  if (roadMode){
+    tiles.forEach(t => { grid[t.row][t.col].hasRoad = true; });
+    return { ok: true, kind: 'road', count: tiles.length, cost };
+  }
+  const def = BUILDING_DEFS[selectedBuilding];
+  tiles.forEach(t => placeCellBuilding(t.col, t.row, selectedBuilding));
+  return { ok: true, kind: 'building', count: tiles.length, cost, icon: def.icon, name: t(def.name) };
+}
+
+function handleZonePlacementClick(col, row){
+  if (!zonePlacementStart){
+    zonePlacementStart = { col, row };
+    updateZonePlacementUI();
+    return;
+  }
+  const result = confirmZonePlacement(zonePlacementStart.col, zonePlacementStart.row, col, row);
+  zonePlacementStart = null;
+  updateZonePlacementUI();
+  if (result.ok){
+    recomputeAllWalkers();
+    if (result.kind === 'road'){
+      showNotification(t('build.zoneBuiltRoads', { n: result.count, cost: result.cost }), 'good');
+    } else {
+      showNotification(t('build.zoneBuiltBuildings', {
+        icon: result.icon, n: result.count, cost: result.cost,
+      }), 'good');
+    }
+  } else if (result.reason === 'afford'){
+    showNotification(t('economy.cantAfford'), 'bad');
+  } else {
+    showNotification(t('build.zoneNone'), 'bad');
+  }
+  recomputeBeauty();
+  renderInspector(col, row);
+  renderTradePanel();
+  render();
+  updateResourceBar();
+  if (typeof renderHud === 'function') renderHud();
+}
 
 /* ===================== REGLES DE PLACEMENT ===================== */
 // Vérifie uniquement le terrain/occupation (sans le coût) — sert à distinguer
@@ -96,12 +224,14 @@ function selectBuilding(key){
   demolishMode = false;
   roadMode = false;
   blockMode = false;
+  clearZonePlacementStart();
   selectedBuilding = (selectedBuilding === key) ? null : key;
   refreshButtonStates();
   render();
   closeDrawerIfMobile();
   updateSelectedBuildPill();
   updateBuildInfoPanel(selectedBuilding);
+  if (supportsZonePlacement()) updateZonePlacementUI();
 }
 
 // Affiche nom, description et coût dans les panneaux de construction (#buildInfo et #catalogBuildInfo).
@@ -150,17 +280,20 @@ function selectRoadMode(){
   selectedBuilding = null;
   demolishMode = false;
   blockMode = false;
+  clearZonePlacementStart();
   roadMode = !roadMode;
   refreshButtonStates();
   render();
   closeDrawerIfMobile();
   updateSelectedBuildPill();
+  updateZonePlacementUI();
 }
 
 function selectBlockMode(){
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
+  clearZonePlacementStart();
   blockMode = !blockMode;
   refreshButtonStates();
   render();
@@ -172,11 +305,28 @@ function selectDemolishMode(){
   selectedBuilding = null;
   roadMode = false;
   blockMode = false;
+  clearZonePlacementStart();
   demolishMode = !demolishMode;
   refreshButtonStates();
   render();
   closeDrawerIfMobile();
   updateSelectedBuildPill();
+  if (demolishMode) updateDemolishBuildInfo();
+  else updateBuildInfoPanel(null);
+}
+
+function updateDemolishBuildInfo(){
+  if (!demolishMode) return;
+  const rate = Math.round(DEMOLISH_REFUND_RATE * 100);
+  const hint = t('demolish.hint', { rate });
+  ['catalogBuildInfoText', 'buildInfoText'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = hint;
+  });
+  ['catalogBuildInfoCost', 'buildInfoCost'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  });
 }
 
 // Pastille "sélection actuelle" de la nouvelle interface (#selectedBuildPill).
@@ -210,6 +360,7 @@ function cancelSelection(){
   roadMode = false;
   blockMode = false;
   demolishMode = false;
+  clearZonePlacementStart();
   refreshButtonStates();
   render();
   updateSelectedBuildPill();
@@ -270,6 +421,76 @@ function refreshAffordability(){
   });
   const roadBtn = document.getElementById('roadBtn');
   if (roadBtn) roadBtn.classList.toggle('unaffordable', !canAfford(ROAD_COST));
+}
+
+/* ===================== CATALOGUE DE CONSTRUCTION (quickBuild) ===================== */
+const QUICK_BUILD_SECTIONS = [
+  { labelKey: 'catalog.housing', items: [{ kind: 'building', key: 'maison' }] },
+  { labelKey: 'catalog.tools', items: [
+    { kind: 'road' }, { kind: 'block' }, { kind: 'demolish' },
+  ]},
+  { labelKey: 'catalog.production', items: [
+    { kind: 'building', key: 'farm' }, { kind: 'building', key: 'quarry' },
+    { kind: 'building', key: 'oliveGrove' }, { kind: 'building', key: 'vineyard' },
+    { kind: 'building', key: 'sheepFarm' }, { kind: 'building', key: 'workshop' },
+    { kind: 'building', key: 'oilPress' }, { kind: 'building', key: 'winery', shortKey: 'catalog.wineryShort' },
+  ]},
+  { labelKey: 'catalog.storage', items: [
+    { kind: 'building', key: 'granary' }, { kind: 'building', key: 'warehouse' },
+    { kind: 'building', key: 'tradingPost' },
+  ]},
+  { labelKey: 'catalog.services', items: [
+    { kind: 'building', key: 'fountain' }, { kind: 'building', key: 'market' },
+    { kind: 'building', key: 'temple' }, { kind: 'building', key: 'clinic', shortKey: 'catalog.clinicShort' },
+    { kind: 'building', key: 'taxOffice', shortKey: 'catalog.taxShort' },
+    { kind: 'building', key: 'watchtower', shortKey: 'catalog.towerShort' },
+  ]},
+  { labelKey: 'catalog.decor', items: [
+    { kind: 'building', key: 'statue' }, { kind: 'building', key: 'garden' },
+    { kind: 'building', key: 'colonnade' },
+  ]},
+  { labelKey: 'catalog.mythology', items: [
+    { kind: 'building', key: 'grandTemple', shortKey: 'catalog.grandTempleShort' },
+    { kind: 'building', key: 'heroTemple', shortKey: 'catalog.heroTempleShort' },
+  ]},
+  { labelKey: 'catalog.military', items: [{ kind: 'building', key: 'barracks' }] },
+];
+
+function quickBuildCardHtml(item){
+  if (item.kind === 'road'){
+    return `<button class="card" onclick="callGameAction('selectRoadMode')">🛣️<span>${t('catalog.roadShort')}</span></button>`;
+  }
+  if (item.kind === 'block'){
+    return `<button class="card" onclick="callGameAction('selectBlockMode')">🚧<span>${t('catalog.block')}</span></button>`;
+  }
+  if (item.kind === 'demolish'){
+    return `<button class="card" onclick="callGameAction('selectDemolishMode')">🔨<span>${t('catalog.demolishShort')}</span></button>`;
+  }
+  const def = BUILDING_DEFS[item.key];
+  if (!def) return '';
+  const label = item.shortKey ? t(item.shortKey) : t(def.name);
+  return `<button class="card" onclick="callGameAction('selectBuilding', '${item.key}')">${def.icon}<span>${label}</span></button>`;
+}
+
+function renderQuickBuildCatalog(){
+  const container = document.getElementById('quickBuildSections');
+  if (!container) return;
+  const openIndices = [...container.querySelectorAll('.catalogCategory.open')]
+    .map(el => Number(el.dataset.sectionIndex));
+  container.innerHTML = QUICK_BUILD_SECTIONS.map((section, index) => {
+    const cards = section.items.map(quickBuildCardHtml).join('');
+    const openClass = openIndices.includes(index) ? ' open' : (index === 0 && openIndices.length === 0 ? ' open' : '');
+    return `<section class="catalogCategory${openClass}" data-section-index="${index}">
+      <button class="catalogHeader" onclick="toggleCatalog(this)">
+        <span>${t(section.labelKey)}</span><b>${section.items.length}</b>
+      </button>
+      <div class="catalogBody">${cards}</div>
+    </section>`;
+  }).join('');
+  const title = document.getElementById('catalogBuildInfoTitle');
+  const text = document.getElementById('catalogBuildInfoText');
+  if (title) title.textContent = t('build.selectTitle');
+  if (text) text.textContent = t('build.selectHint');
 }
 
 /* ===================== INSPECTEUR ===================== */
@@ -477,7 +698,15 @@ canvas.addEventListener('mousemove', (e) => {
       info.textContent = t('info.hover');
     }
   }
+  if (supportsZonePlacement()) updateZonePlacementUI();
   // Le rendu est géré par requestAnimationFrame (loop.js) — pas de render() ici.
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  if (!zonePlacementStart) return;
+  e.preventDefault();
+  clearZonePlacementStart();
+  render();
 });
 
 canvas.addEventListener('click', (e) => {
@@ -492,33 +721,37 @@ canvas.addEventListener('click', (e) => {
   if (demolishMode){
     const anchor = (typeof monumentAnchorAt === 'function') ? monumentAnchorAt(col, row) : null;
     if (anchor && grid[anchor.row][anchor.col].building){
+      const ac = grid[anchor.row][anchor.col];
       debugInfo('Démolition : temple monumental', anchor);
+      notifyDemolishRefund(ac.building, ac.godPatron);
       demolishMonument(anchor.col, anchor.row);
     } else if (cell.building){
-      debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
-      cell.building = null;
+      if (cell.building === 'maison' && typeof queueHouseDeparture === 'function' && queueHouseDeparture(col, row, false)){
+        debugInfo(`Démolition : ${t(BUILDING_DEFS.maison.name)}`, { col, row });
+        notifyDemolishRefund('maison');
+      } else {
+        debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
+        notifyDemolishRefund(cell.building);
+        cell.building = null;
+        cell.houseLevel = 0;
+        cell.population = 0;
+      }
     } else if (cell.hasRoad){
       debugInfo('Route supprimée', { col, row });
+      notifyDemolishRefund('road');
       cell.hasRoad = false;
       cell.patrolBlock = false;
     }
     recomputeAllWalkers();
-  } else if (roadMode){
-    if (canPlaceRoadTerrain(col, row)){
-      if (!spend(ROAD_COST)){
-        showNotification(t('economy.cantAfford'), 'bad');
-      } else {
-        debugInfo('Route construite', { col, row });
-        cell.hasRoad = true;
-        recomputeAllWalkers();
-      }
-    }
   } else if (blockMode){
     if (canToggleBlock(col, row)){
       cell.patrolBlock = !cell.patrolBlock;
       debugInfo(cell.patrolBlock ? 'Borne de blocage posée' : 'Borne de blocage retirée', { col, row });
       recomputeAllWalkers();
     }
+  } else if (supportsZonePlacement()){
+    handleZonePlacementClick(col, row);
+    return;
   } else if (selectedBuilding && canPlaceTerrain(col, row)){
     const def = BUILDING_DEFS[selectedBuilding];
     if (def.isMonument){
@@ -527,11 +760,7 @@ canvas.addEventListener('click', (e) => {
       showNotification(t('economy.cantAfford'), 'bad');
     } else {
       debugInfo(`Construction : ${t(def.name)}`, { col, row });
-      cell.building = selectedBuilding;
-      if (selectedBuilding === 'maison'){
-        cell.houseLevel = 0;
-        cell.population = HOUSE_LEVELS[0].population;
-      }
+      placeCellBuilding(col, row, selectedBuilding);
       recomputeAllWalkers();
     }
   } else if (!demolishMode && !roadMode && !blockMode && !selectedBuilding){

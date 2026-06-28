@@ -3,7 +3,7 @@
 // github.io, pas seulement ce projet — un nom générique risquerait une collision
 // avec un autre des projets hébergés sur arknoid01.github.io.
 const SAVE_KEY = 'olympos_save_v1';
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 
 function saveGame(opts){
   opts = opts || {};
@@ -32,11 +32,12 @@ function saveGame(opts){
     monster,
     hero,
     migrants,
-    invasion,
+    militaryCampaign: (typeof serializeMilitaryCampaign === 'function') ? serializeMilitaryCampaign() : null,
     scenarioId: currentScenarioId,
     mapSeed: (typeof mapSeed !== 'undefined') ? mapSeed : 0,
     tickCount: DEBUG.tickCount,
     lang: currentLang,
+    ...(typeof serializeColonyState === 'function' ? serializeColonyState() : {}),
   };
 
   try {
@@ -96,7 +97,7 @@ function loadGame(){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
-  if (payload.version !== SAVE_VERSION && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
+  if (payload.version !== SAVE_VERSION && payload.version !== 4 && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
@@ -142,7 +143,11 @@ function loadGame(){
   hero = payload.hero || null;
   if (Array.isArray(payload.migrants)) migrants = payload.migrants;
   else if (typeof resetMigrants === 'function') resetMigrants();
-  invasion = payload.invasion || null;
+  if (typeof restoreMilitaryCampaign === 'function'){
+    restoreMilitaryCampaign(payload.militaryCampaign || null);
+  } else if (typeof resetMilitaryAgents === 'function'){
+    resetMilitaryAgents();
+  }
   if (payload.scenarioId && typeof applyScenarioObjectives === 'function'){
     currentScenarioId = payload.scenarioId;
     applyScenarioObjectives(getScenario(currentScenarioId));
@@ -150,6 +155,9 @@ function loadGame(){
   if (typeof payload.mapSeed === 'number') mapSeed = payload.mapSeed;
   DEBUG.tickCount = payload.tickCount || 0;
   if (payload.lang) currentLang = payload.lang;
+  document.documentElement.lang = currentLang;
+  try { localStorage.setItem('olympos_lang', currentLang); } catch (err){ /* ignore */ }
+  if (typeof restoreColonyStateFromSave === 'function') restoreColonyStateFromSave(payload);
 
   recomputeAllWalkers();
   recomputeLabor();

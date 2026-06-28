@@ -21,8 +21,8 @@ const SCENARIOS = [
     descKey: 'scenario.colonizationDesc',
     icon: '🏠',
     objectives: [
+      { key: 'colony', nameKey: 'objective.colony', metric: 'coloniesCompleted', target: 1 },
       { key: 'population', nameKey: 'objective.population', metric: 'population', target: 30 },
-      { key: 'villa', nameKey: 'objective.villa', metric: 'villa', target: 1 },
     ],
     startingTreasury: 1200,
     worldCityCount: 4,
@@ -80,6 +80,7 @@ function resetGameForScenario(scenario){
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
+  if (typeof clearZonePlacementStart === 'function') clearZonePlacementStart();
   blockMode = false;
   DEBUG.tickCount = 0;
   favor = 50;
@@ -104,6 +105,11 @@ function resetGameForScenario(scenario){
   resetInvasion();
   if (typeof resetGodAgents === 'function') resetGodAgents();
   if (typeof resetMarketDay === 'function') resetMarketDay();
+  gamePhase = 'main';
+  activeColonyId = null;
+  completedColonies = [];
+  colonyTroopBonus = 0;
+  mainCitySnapshot = null;
   recomputeAllWalkers();
   recomputeLabor();
   debugInfo('Scénario démarré', { scenario: scenario.id });

@@ -48,11 +48,6 @@ ROAD_SPRITE.onload = () => { debugInfo(`Sprite de route chargé : ${ROAD_SPRITE_
 ROAD_SPRITE.onerror = () => debugWarn(`Sprite de route introuvable : ${ROAD_SPRITE_PATH}`);
 ROAD_SPRITE.src = ROAD_SPRITE_PATH;
 
-const WALKER_SPRITE = new Image();
-WALKER_SPRITE.onload = () => { debugInfo(`Sprite chargé : ${WALKER_SPRITE_PATH}`); render(); };
-WALKER_SPRITE.onerror = () => debugWarn(`Sprite introuvable : ${WALKER_SPRITE_PATH}`);
-WALKER_SPRITE.src = WALKER_SPRITE_PATH;
-
 /* ===================== PRIMITIVES DE DESSIN ===================== */
 // Dessine la case de terrain : sprite si disponible, sinon texture procédurale détaillée.
 function terrainMicroShade(hex, col, row, elevation){
@@ -508,34 +503,20 @@ const SERVICE_COLORS = {
   market:   '#c97b3d',
   religion: '#c4b27a',
   health:   '#9ec2c4',
+  tax:      '#b8943a',
+  fire:     '#a05a3a',
 };
 
 function drawWalkers(now){
-  const spriteReady = WALKER_SPRITE.complete && WALKER_SPRITE.naturalWidth > 0;
-
   walkers.forEach(w => {
     if (w.path.length <= 1) return;
     const { x, y } = getWalkerScreenPos(w, now);
     const roleColor = SERVICE_COLORS[w.serviceType] || '#e8c468';
+    const spriteId = 'walker_' + w.serviceType;
+    const drew = (typeof drawCharacterSprite === 'function')
+      && drawCharacterSprite(spriteId, x, y, w.facing || 'down', now);
 
-    if (spriteReady){
-      const frame = Math.floor(now / WALKER_ANIM_FRAME_MS) % WALKER_FRAMES_PER_CYCLE;
-      const sx = frame * WALKER_FRAME_SIZE;
-      const sy = WALKER_DIRECTION_ROWS[w.facing] * WALKER_FRAME_SIZE;
-      const d = WALKER_DISPLAY_SIZE;
-      ctx.drawImage(
-        WALKER_SPRITE,
-        sx, sy, WALKER_FRAME_SIZE, WALKER_FRAME_SIZE,
-        x - d / 2, y - d + 8, d, d
-      );
-      ctx.beginPath();
-      ctx.arc(x, y - d + 6, 4, 0, Math.PI * 2);
-      ctx.fillStyle = roleColor;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    } else {
+    if (!drew){
       ctx.beginPath();
       ctx.arc(x, y - 6, 7, 0, Math.PI * 2);
       ctx.fillStyle = roleColor;
@@ -573,12 +554,17 @@ function drawHpBar(x, y, ratio){
 function drawCreatures(now){
   if (typeof monster !== 'undefined' && monster){
     const { x, y } = getCreatureScreenPos(monster, now);
-    drawAgentToken(x, y, monster.icon, 'rgba(150,30,30,0.92)');
-    drawHpBar(x, y, monster.hp / MONSTER_HP);
+    const drew = (typeof drawCharacterSprite === 'function')
+      && drawCharacterSprite('monster_' + monster.typeKey, x, y, monster.facing || 'down', now);
+    if (!drew) drawAgentToken(x, y, monster.icon, 'rgba(150,30,30,0.92)');
+    const maxHp = monster.maxHp || MONSTER_HP;
+    drawHpBar(x, y, monster.hp / maxHp);
   }
   if (typeof hero !== 'undefined' && hero){
     const { x, y } = getCreatureScreenPos(hero, now);
-    drawAgentToken(x, y, '🦸', 'rgba(60,110,200,0.92)');
+    const drew = hero.typeKey && (typeof drawCharacterSprite === 'function')
+      && drawCharacterSprite('hero_' + hero.typeKey, x, y, hero.facing || 'down', now);
+    if (!drew) drawAgentToken(x, y, hero.icon || '🦸', 'rgba(60,110,200,0.92)');
   }
   if (typeof godAgents !== 'undefined'){
     godAgents.forEach(agent => {
@@ -593,10 +579,12 @@ function drawCreatures(now){
       drawAgentToken(x, y, m.type === 'in' ? '🧳' : '🚶', color);
     });
   }
-  if (typeof invasion !== 'undefined' && invasion){
-    const { x, y } = getCreatureScreenPos(invasion, now);
-    drawAgentToken(x, y, invasion.icon, 'rgba(120,40,40,0.95)');
-    drawHpBar(x, y, invasion.power / 100);
+  if (typeof getMilitarySoldiers === 'function'){
+    getMilitarySoldiers().forEach(s => {
+      const { x, y } = getMilitarySoldierScreenPos(s, now);
+      const friendly = s.side === 'friendly';
+      drawAgentToken(x, y, friendly ? '🛡️' : '⚔️', friendly ? 'rgba(60,110,200,0.92)' : 'rgba(150,30,30,0.92)');
+    });
   }
 }
 
@@ -630,26 +618,29 @@ function drawHouseStatusIcons(cx, cy, col, row, cell){
 function render(now){
   now = now || performance.now();
 
-  // Réinitialise la transformation avant de nettoyer (sinon clearRect serait lui-même
-  // affecté par le zoom et ne viderait pas tout le buffer réel).
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Applique le zoom (+ devicePixelRatio pour la netteté sur écran haute densité) :
-  // tout ce qui suit se dessine dans les coordonnées "monde" habituelles (TILE_W,
-  // OFFSET_X...), redimensionnées par cette transformation -- jamais d'étirement
-  // d'une image déjà dessinée.
-  const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(zoomLevel * dpr, 0, 0, zoomLevel * dpr, 0, 0);
+  const dpr = getRenderDpr();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // tuiles (cache statique) + routes + bâtiments, triées par profondeur iso
   const drawOrder = getMapDrawOrder();
+  const viewBounds = getVisibleWorldBounds();
   const terrainCache = ensureTerrainLayerCache();
   if (terrainCache){
-    ctx.drawImage(terrainCache, 0, 0);
+    if (viewBounds){
+      const sx = Math.max(0, Math.floor(viewBounds.left));
+      const sy = Math.max(0, Math.floor(viewBounds.top));
+      const sw = Math.min(WORLD_WIDTH - sx, Math.ceil(viewBounds.right - viewBounds.left));
+      const sh = Math.min(WORLD_HEIGHT - sy, Math.ceil(viewBounds.bottom - viewBounds.top));
+      ctx.drawImage(terrainCache, sx, sy, sw, sh, sx, sy, sw, sh);
+    } else {
+      ctx.drawImage(terrainCache, 0, 0);
+    }
   }
 
   drawOrder.forEach(({ col, row }) => {
+      if (!isTileInView(col, row, viewBounds)) return;
       const cell = grid[row][col];
       const { x, y } = tileCenter(col, row);
       if (!terrainCache){
@@ -668,23 +659,41 @@ function render(now){
       }
   });
 
-  // icônes de statut des maisons : passe séparée, après tous les bâtiments, pour
-  // qu'une icône ne se retrouve jamais cachée derrière un bâtiment dessiné après elle.
-  for (let row = 0; row < GRID_ROWS; row++){
-    for (let col = 0; col < GRID_COLS; col++){
-      const cell = grid[row][col];
-      if (cell.building === 'maison'){
-        const { x, y } = tileCenter(col, row);
-        drawHouseStatusIcons(x, y, col, row, cell);
-      }
-    }
-  }
+  // Icônes de statut après tous les bâtiments (profondeur iso), cases visibles seulement.
+  drawOrder.forEach(({ col, row }) => {
+    if (!isTileInView(col, row, viewBounds)) return;
+    const cell = grid[row][col];
+    if (cell.building !== 'maison') return;
+    const { x, y } = tileCenter(col, row);
+    drawHouseStatusIcons(x, y, col, row, cell);
+  });
 
   drawWalkers(now);
   drawCreatures(now);
 
-  // surbrillance de la/les case(s) survolée(s) — 2×2 pour les monuments
+  // surbrillance de la/les case(s) survolée(s) — zone 2 clics, monument 2×2, ou case unique
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){
+    if (supportsZonePlacement() && zonePlacementStart){
+      const rectTiles = tilesInRect(
+        zonePlacementStart.col, zonePlacementStart.row,
+        hoverTile.col, hoverTile.row
+      );
+      rectTiles.forEach(tile => {
+        if (!inBounds(tile.col, tile.row)) return;
+        const { x, y } = tileCenter(tile.col, tile.row);
+        const ok = roadMode
+          ? canPlaceRoadTerrain(tile.col, tile.row)
+          : canPlaceTerrain(tile.col, tile.row);
+        const color = ok ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.25)';
+        drawDiamond(x, y, color, 'rgba(0,0,0,0.35)');
+      });
+      const { x, y } = tileCenter(zonePlacementStart.col, zonePlacementStart.row);
+      drawDiamond(x, y, 'rgba(210,162,74,0.55)', 'rgba(210,162,74,0.9)');
+    } else if (supportsZonePlacement() && !zonePlacementStart){
+      const { x, y } = tileCenter(hoverTile.col, hoverTile.row);
+      const ok = roadMode ? canPlaceRoad(hoverTile.col, hoverTile.row) : canPlace(hoverTile.col, hoverTile.row);
+      drawDiamond(x, y, ok ? 'rgba(210,162,74,0.35)' : 'rgba(255,60,60,0.35)', 'rgba(0,0,0,0.4)');
+    } else {
     const def = selectedBuilding ? BUILDING_DEFS[selectedBuilding] : null;
     const fp = (def && def.footprint) || 1;
     const tiles = (fp > 1 && typeof monumentFootprintTiles === 'function')
@@ -707,5 +716,6 @@ function render(now){
       const { x, y } = tileCenter(t.col, t.row);
       drawDiamond(x, y, color, 'rgba(0,0,0,0.4)');
     });
+    }
   }
 }

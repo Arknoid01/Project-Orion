@@ -59,11 +59,15 @@ function evaluateHouses(){
     const currentDef = HOUSE_LEVELS[cell.houseLevel];
     const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
 
-    // Dégradation immédiate si un besoin du palier actuel manque.
+    // Dégradation si un besoin du palier actuel manque — colon repart vers la sortie.
     if (cell.houseLevel > 0 && !needsMet(currentDef.requires, col, row)){
-      cell.houseLevel--;
-      cell.population = HOUSE_LEVELS[cell.houseLevel].population;
-      debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+      if (typeof queueEmigration === 'function' && queueEmigration(col, row)){
+        // habitant en route
+      } else {
+        cell.houseLevel--;
+        cell.population = HOUSE_LEVELS[cell.houseLevel].population;
+        debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+      }
       return;
     }
 

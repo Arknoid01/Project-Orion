@@ -33,7 +33,7 @@ function getArmyPotential(){
 // Points de combat effectifs = potentiel × moral.
 function getMilitaryPoints(){
   ensureArmyState();
-  return Math.round(getArmyPotential() * army.morale) + ((typeof godMilitaryBonus === 'function') ? godMilitaryBonus() : 0);
+  return Math.round(getArmyPotential() * army.morale) + ((typeof godMilitaryBonus === 'function') ? godMilitaryBonus() : 0) + (colonyTroopBonus || 0);
 }
 
 function getArmyUpkeep(points){
@@ -83,6 +83,10 @@ function processTributes(){
 /* ===================== ATTAQUE ===================== */
 function launchAttack(){
   if (typeof ensureWorldState === 'function') ensureWorldState();
+  if (typeof isMilitaryBusy === 'function' && isMilitaryBusy()){
+    showNotification(t('army.campaignBusy'), 'info');
+    return;
+  }
   if (countBarracks() === 0){ showNotification(t('army.noBarracks'), 'bad'); return; }
   const points = getMilitaryPoints();
   const targets = (worldCities || []).filter(c => !c.conquered);
@@ -92,7 +96,10 @@ function launchAttack(){
     return {
       label: `${c.name} · ⚔️ ${ep} (${t('army.tier.' + cityPowerTier(ep))})`,
       type: points > ep ? 'good' : 'danger',
-      onPick: () => resolveAttack(c),
+      onPick: () => {
+        if (typeof beginAttackCampaign === 'function' && beginAttackCampaign(c)) return;
+        resolveAttack(c);
+      },
     };
   });
   choices.push({ label: t('dialog.no'), type: 'neutral' });
@@ -183,7 +190,7 @@ function openArmyPanel(){
   const data = buildArmyObserverData();
   if (typeof closePanels === 'function') closePanels();
   const titleEl = document.getElementById('observerTitle');
-  if (titleEl) titleEl.textContent = 'Observateur · ' + data.title;
+  if (titleEl) titleEl.textContent = t('observer.prefix') + data.title;
   if (typeof setObserverTiles === 'function') setObserverTiles(data);
   panel.classList.add('open');
   const backdrop = document.getElementById('backdrop');

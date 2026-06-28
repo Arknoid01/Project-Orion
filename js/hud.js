@@ -13,6 +13,7 @@ function renderHud(){
     const state = getCalendarState();
     cal.textContent = `📅 ${t('calendar.month.' + state.month)} · ${t('calendar.day')} ${state.dayOfMonth}`;
   }
+  if (typeof renderColonyHud === 'function') renderColonyHud();
 }
 
 /* ===================== PANNEAU GESTION ===================== */
