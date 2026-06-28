@@ -24,7 +24,7 @@ const SCENARIOS = [
       { key: 'colony', nameKey: 'objective.colony', metric: 'coloniesCompleted', target: 1 },
       { key: 'population', nameKey: 'objective.population', metric: 'population', target: 30 },
     ],
-    startingTreasury: 1200,
+    startingTreasury: 1350,
     worldCityCount: 4,
   },
   {
@@ -36,7 +36,7 @@ const SCENARIOS = [
       { key: 'population', nameKey: 'objective.population', metric: 'population', target: 40 },
       { key: 'barracks', nameKey: 'scenario.objective.barracks', metric: 'barracks', target: 1 },
     ],
-    startingTreasury: 1000,
+    startingTreasury: 1100,
     worldCityCount: 5,
   },
   {
@@ -48,7 +48,7 @@ const SCENARIOS = [
       { key: 'barracks', nameKey: 'scenario.objective.barracks', metric: 'barracks', target: 1 },
       { key: 'conquered', nameKey: 'scenario.objective.conquer', metric: 'citiesConquered', target: 2 },
     ],
-    startingTreasury: 1800,
+    startingTreasury: 2000,
     worldCityCount: 8,
   },
 ];
@@ -72,8 +72,7 @@ function startScenario(scenarioId){
 
 function resetGameForScenario(scenario){
   initGrid();
-  resources = Object.assign(
-    { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 },
+  resources = mergeResources(
     typeof STARTING_RESOURCES !== 'undefined' ? STARTING_RESOURCES : {},
   );
   treasury = scenario.startingTreasury;
@@ -87,6 +86,7 @@ function resetGameForScenario(scenario){
   taxRate = TAX_RATE_DEFAULT;
   productionMultiplier = 1;
   productionEffectTicksLeft = 0;
+  if (typeof initGodDispositions === 'function') initGodDispositions(true);
   totalWheatProduced = 0;
   victoryAnnounced = false;
   lastMonthIndex = null;
@@ -104,6 +104,7 @@ function resetGameForScenario(scenario){
   resetMigrants();
   resetInvasion();
   if (typeof resetGodAgents === 'function') resetGodAgents();
+  if (typeof resetAdventures === 'function') resetAdventures();
   if (typeof resetMarketDay === 'function') resetMarketDay();
   gamePhase = 'main';
   activeColonyId = null;

@@ -12,7 +12,7 @@ function cityAttractiveness(){
 function growthChance(){
   const base = taxGrowthChance(); // courbe pure liée au taux (voir taxes.js)
   const favorBonus = (favor / FAVOR_MAX - 0.5) * GROWTH_FAVOR_INFLUENCE;
-  return Math.max(0.02, Math.min(0.98, base + favorBonus + festivalHappinessBonus()));
+  return Math.max(0.02, Math.min(0.98, base + favorBonus + festivalHappinessBonus() + ((typeof artifactBonus === 'function') ? artifactBonus('growth') : 0)));
 }
 
 function emigrationChance(){

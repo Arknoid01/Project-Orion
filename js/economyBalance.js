@@ -3,7 +3,7 @@
 // Les chiffres sont des estimations (emploi/taxes actuels, stock intermédiaire supposé disponible).
 
 function estimateDailyProduction(){
-  const out = { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 };
+  const out = mergeResources({});
   if (typeof industryFactor !== 'function') return out;
   const day = DAY_DURATION_TICKS;
   forEachBuilding((type) => {
@@ -24,7 +24,7 @@ function estimateDailyProduction(){
 }
 
 function estimateDailyMarketDemand(){
-  const d = { wheat:0, oil:0, wine:0, wool:0 };
+  const d = mergeResources({});
   forEachBuilding((type, col, row) => {
     if (type !== 'maison') return;
     const needs = (typeof houseMarketNeeds === 'function') ? houseMarketNeeds(col, row) : new Set();
@@ -37,15 +37,16 @@ function estimateDailyMarketDemand(){
 }
 
 function estimateDailyIntermediateUse(){
-  const use = { olives:0, grapes:0, marble:0 };
+  const use = mergeResources({});
   if (typeof industryFactor !== 'function') return use;
   const day = DAY_DURATION_TICKS;
   forEachBuilding((type) => {
     const def = BUILDING_DEFS[type];
     if (!def || !def.consumes) return;
-    const [resName, amount] = Object.entries(def.consumes)[0];
     const f = industryFactor(def.produces);
-    use[resName] = (use[resName] || 0) + amount * f * day;
+    for (const [resName, amount] of Object.entries(def.consumes)){
+      use[resName] = (use[resName] || 0) + amount * f * day;
+    }
   });
   return use;
 }
@@ -56,7 +57,7 @@ function renderEconomyBalance(){
   const prod = estimateDailyProduction();
   const demand = estimateDailyMarketDemand();
   const interUse = estimateDailyIntermediateUse();
-  const keys = ['wheat', 'olives', 'grapes', 'marble', 'oil', 'wine', 'wool', 'sculpture'];
+  const keys = ['wheat', 'fish', 'olives', 'grapes', 'marble', 'oil', 'wine', 'wool', 'clothing', 'coal', 'bronze', 'arms', 'sculpture'];
   el.innerHTML = keys.map(k => {
     const p = prod[k] || 0;
     const need = (demand[k] || 0) + (interUse[k] || 0);

@@ -1031,7 +1031,8 @@ h2{
 }
 
 #observerPanel,
-#buildPanel{
+#buildPanel,
+#managePanel{
   border-radius:18px 0 0 18px !important;
 }
 
@@ -1055,7 +1056,8 @@ h2{
 }
 
 #observerPanel::before,
-#buildPanel::before{
+#buildPanel::before,
+#managePanel::before{
   border-radius:14px 0 0 14px !important;
 }
 
@@ -1608,9 +1610,25 @@ h2{
   border-right:0;
   border-radius:18px 0 0 18px;
   padding:20px;
+  padding-bottom:28px;
   transform:translateX(110%);
+  display:flex !important;
+  flex-direction:column !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  min-height:0;
 }
 #managePanel.open{ transform:translateX(0); }
+#managePanel > h2,
+#managePanel > h3,
+#managePanel > .manageHint,
+#managePanel > .manageList,
+#managePanel > .menuList{
+  flex:0 0 auto;
+}
 #managePanel h3{
   margin:6px 0 8px;
   color:var(--gold2);
@@ -1633,6 +1651,7 @@ h2{
 }
 .manageList .row b{ color:var(--gold2); }
 .manageList .row.eco-warn b{ color:#e08080; }
+.manageList .row.eco-good b{ color:var(--ok,#8dde72); }
 
 /* Modale de choix (showChoice / showConfirm) -- absente de la nouvelle UI, réintégrée ici */
 #dialogOverlay{
@@ -1810,27 +1829,56 @@ h2{
  font-style:italic;
  opacity:.9;
 }
-.homeLangRow,.menuLangRow{
+.langRow{
  display:flex;
  align-items:center;
- justify-content:center;
- gap:10px;
- margin-top:16px;
- font-size:13px;
- color:var(--marble2,#d7c292);
+ justify-content:space-between;
+ gap:12px;
+ width:100%;
+ text-align:left;
+ cursor:default;
 }
-.menuLangRow{
- justify-content:flex-start;
- padding:4px 0 8px;
+.homeBtn.langRow{
+ cursor:default;
+}
+.homeBtn.langRow:hover{
+ transform:none;
+ filter:brightness(1.15);
+}
+.actionBtn.langRow{
+ width:100%;
+ font-family:"Cinzel",Georgia,serif;
+ letter-spacing:.7px;
+ cursor:default;
 }
 .langSelect{
- background:rgba(255,255,255,0.08);
- color:var(--marble,#f4e8cc);
- border:1px solid rgba(210,162,74,.35);
- border-radius:6px;
- padding:6px 10px;
- font-size:13px;
+ flex:0 1 auto;
+ max-width:58%;
+ margin:0;
+ padding:0 20px 0 8px;
+ border:none;
+ background-color:transparent;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23e8c468' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+ background-repeat:no-repeat;
+ background-position:right center;
+ color:var(--gold2,#e8c468);
+ font:inherit;
+ font-size:inherit;
+ letter-spacing:inherit;
+ text-align:right;
  cursor:pointer;
+ appearance:none;
+ -webkit-appearance:none;
+ -moz-appearance:none;
+}
+.homeBtn.secondary .langSelect{
+ color:var(--marble,#f4e8cc);
+ font-family:Inter,sans-serif;
+ font-weight:500;
+}
+.langSelect:focus{
+ outline:none;
+ filter:brightness(1.12);
 }
 .langSelect option{ color:#1c1410; background:#f4e8cc; }
 </style>
@@ -1855,13 +1903,13 @@ h2{
          <button class="homeBtn" id="homeNewGame" onclick="showNewGameScreen()">Nouvelle partie</button>
          <button class="homeBtn secondary" id="homeLoad" onclick="loadGameFromMenu()">Charger sauvegarde</button>
          <button class="homeBtn secondary" id="homeCredits" onclick="showCreditsScreen()">Crédits</button>
-       </div>
-       <div class="homeLangRow">
-         <label id="homeLanguageLabel" for="homeLangSelect">Langue</label>
-         <select id="homeLangSelect" class="langSelect" onchange="setLanguage(this.value)">
-           <option value="fr">Français</option>
-           <option value="en">English</option>
-         </select>
+         <div class="homeBtn secondary langRow">
+           <span id="homeLanguageLabel">Langue</span>
+           <select id="homeLangSelect" class="langSelect" onchange="setLanguage(this.value)" aria-labelledby="homeLanguageLabel">
+             <option value="fr">Français</option>
+             <option value="en">English</option>
+           </select>
+         </div>
        </div>
      </div>
      <div id="newGameScreen" class="menu-screen-hidden">
@@ -1885,6 +1933,7 @@ h2{
    <div id="selectedBuildPill" class="hud-pill" onclick="cancelSelection()" title="Annuler — revenir au mode observation">🔨 <b id="selectedBuildName">Aucun</b> <span class="pillClose">✕</span></div>
    <div class="hud-spacer"></div>
    <div class="hud-pill" id="hudColonyBadge" style="display:none" onclick="openColoniesPanel()" title="">🏝️ <b id="hudColonyName">Colonie</b></div>
+   <div class="hud-pill" id="hudAdventureBadge" style="display:none" onclick="openAdventuresPanel()" title="">⚔️ <b id="hudAdventureCount">0</b></div>
    <div class="hud-pill" id="hudCalendar">📅 …</div>
    <button class="iconBtn" id="hudCatalogBtn" onclick="togglePanel('quickBuild')" title="Catalogue">🔨</button>
  </div>
@@ -1920,9 +1969,9 @@ h2{
      <button class="actionBtn" id="menuPauseBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" id="menuCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
      <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
-     <div class="menuLangRow">
-       <label id="settingsLanguageLabel" for="gameLangSelect">Langue</label>
-       <select id="gameLangSelect" class="langSelect" onchange="setLanguage(this.value)">
+     <div class="actionBtn langRow">
+       <span id="settingsLanguageLabel">Langue</span>
+       <select id="gameLangSelect" class="langSelect" onchange="setLanguage(this.value)" aria-labelledby="settingsLanguageLabel">
          <option value="fr">Français</option>
          <option value="en">English</option>
        </select>
@@ -1939,6 +1988,9 @@ h2{
    <h3 data-i18n="economy.balanceTitle">Bilan journalier</h3>
    <p class="manageHint" data-i18n="economy.balanceHint">Production vs consommation par jour de jeu (+ prod / − besoin).</p>
    <div id="economyBalanceList" class="manageList"></div>
+   <h3 data-i18n="panel.gods">Dieux</h3>
+   <p class="manageHint" data-i18n="god.panelHint">Humour de chaque dieu · exigences non remplies = colère accrue.</p>
+   <div id="godSatisfactionList" class="manageList"></div>
    <div class="menuList">
      <button class="actionBtn" id="manageCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
      <button class="actionBtn" id="manageWorldBtn" onclick="openWorldMap()">🗺️ Carte du monde</button>
@@ -2077,6 +2129,7 @@ h2{
 <script src="js/maintenance.js"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
+<script src="js/godSatisfaction.js"></script>
 <script src="js/mythology.js"></script>
 <script src="js/objectives.js"></script>
 <script src="js/defeat.js"></script>
@@ -2086,6 +2139,7 @@ h2{
 <script src="js/diplomacy.js"></script>
 <script src="js/trade.js"></script>
 <script src="js/creatures.js"></script>
+<script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>

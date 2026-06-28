@@ -2,7 +2,7 @@
 // Une colonie = carte séparée avec ses propres objectifs. À la victoire, le joueur
 // revient sur la cité mère avec troupes et ressources en récompense.
 
-const COLONY_LAUNCH_COST = 200;
+const COLONY_LAUNCH_COST = 250;
 
 const COLONY_DEFINITIONS = [
   {
@@ -11,8 +11,8 @@ const COLONY_DEFINITIONS = [
     descKey: 'colony.nemea.desc',
     icon: '🏝️',
     mapSeed: 424242,
-    startingTreasury: 900,
-    startingResources: { wheat: 40, marble: 0, sculpture: 0, olives: 15, oil: 0, grapes: 0, wine: 0, wool: 0 },
+    startingTreasury: 1000,
+    startingResources: { wheat: 45, marble: 0, sculpture: 0, olives: 15, oil: 0, grapes: 0, wine: 0, wool: 0 },
     objectives: [
       { key: 'pop', nameKey: 'objective.population', metric: 'population', target: 18 },
       { key: 'wheat', nameKey: 'objective.wheatProduced', metric: 'wheatProduced', target: 60 },
@@ -25,8 +25,8 @@ const COLONY_DEFINITIONS = [
     descKey: 'colony.thasos.desc',
     icon: '⛰️',
     mapSeed: 818181,
-    startingTreasury: 750,
-    startingResources: { wheat: 25, marble: 10, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 0 },
+    startingTreasury: 850,
+    startingResources: { wheat: 30, marble: 12, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 0 },
     objectives: [
       { key: 'pop', nameKey: 'objective.population', metric: 'population', target: 12 },
       { key: 'marble', nameKey: 'colony.objective.marble', metric: 'marbleStock', target: 30 },
@@ -39,8 +39,8 @@ const COLONY_DEFINITIONS = [
     descKey: 'colony.ionia.desc',
     icon: '🍷',
     mapSeed: 919191,
-    startingTreasury: 850,
-    startingResources: { wheat: 30, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 40, wine: 10, wool: 0 },
+    startingTreasury: 950,
+    startingResources: { wheat: 35, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 45, wine: 12, wool: 0 },
     objectives: [
       { key: 'pop', nameKey: 'objective.population', metric: 'population', target: 20 },
       { key: 'wine', nameKey: 'colony.objective.wine', metric: 'wineStock', target: 25 },
@@ -100,6 +100,8 @@ function captureMainCitySnapshot(){
     completedColonies: completedColonies.slice(),
     colonyTroopBonus,
     tickCount: DEBUG.tickCount,
+    ...(typeof serializeGodDispositions === 'function' ? serializeGodDispositions() : {}),
+    ...(typeof serializeAdventureState === 'function' ? serializeAdventureState() : {}),
   };
 }
 
@@ -107,10 +109,7 @@ function applySnapshotToGame(snapshot){
   grid = sanitizeGrid(cloneJson(snapshot.grid));
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
-  resources = Object.assign(
-    { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 },
-    snapshot.resources || {},
-  );
+  resources = mergeResources(snapshot.resources || {});
   treasury = snapshot.treasury;
   favor = snapshot.favor;
   taxRate = snapshot.taxRate;
@@ -139,6 +138,12 @@ function applySnapshotToGame(snapshot){
   completedColonies = (snapshot.completedColonies || []).slice();
   colonyTroopBonus = snapshot.colonyTroopBonus || 0;
   DEBUG.tickCount = snapshot.tickCount || 0;
+  if (typeof restoreGodDispositions === 'function' && snapshot.godSatisfaction){
+    restoreGodDispositions(snapshot);
+  }
+  if (typeof restoreAdventureState === 'function' && snapshot.adventureMissions){
+    restoreAdventureState(snapshot);
+  }
   if (typeof restoreMilitaryCampaign === 'function'){
     restoreMilitaryCampaign(snapshot.militaryCampaign || null);
   } else if (typeof resetMilitaryAgents === 'function'){
@@ -180,10 +185,7 @@ function resetColonyLocalState(colonyDef){
   if (typeof resetMarketDay === 'function') resetMarketDay();
   if (typeof resetMilitaryAgents === 'function') resetMilitaryAgents();
   treasury = colonyDef.startingTreasury;
-  resources = Object.assign(
-    { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 },
-    colonyDef.startingResources || {},
-  );
+  resources = mergeResources(colonyDef.startingResources || {});
   if (typeof generateProceduralMap === 'function'){
     generateProceduralMap(colonyDef.mapSeed);
   } else {

@@ -14,7 +14,8 @@ function holdFestival(){
   }
   for (const [res, amt] of Object.entries(FESTIVAL_COST)) resources[res] -= amt;
 
-  favor = Math.min(FAVOR_MAX, favor + FESTIVAL_FAVOR_GAIN);
+  if (typeof applyFestivalToGods === 'function') applyFestivalToGods();
+  else favor = Math.min(FAVOR_MAX, favor + FESTIVAL_FAVOR_GAIN);
   festivalTicksLeft = FESTIVAL_DURATION_TICKS;
 
   debugInfo('Festival organisé', { favor });

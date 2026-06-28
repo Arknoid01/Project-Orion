@@ -3,7 +3,7 @@
 // github.io, pas seulement ce projet — un nom générique risquerait une collision
 // avec un autre des projets hébergés sur arknoid01.github.io.
 const SAVE_KEY = 'olympos_save_v1';
-const SAVE_VERSION = 5;
+const SAVE_VERSION = 7;
 
 function saveGame(opts){
   opts = opts || {};
@@ -37,6 +37,8 @@ function saveGame(opts){
     mapSeed: (typeof mapSeed !== 'undefined') ? mapSeed : 0,
     tickCount: DEBUG.tickCount,
     lang: currentLang,
+    ...(typeof serializeGodDispositions === 'function' ? serializeGodDispositions() : {}),
+    ...(typeof serializeAdventureState === 'function' ? serializeAdventureState() : {}),
     ...(typeof serializeColonyState === 'function' ? serializeColonyState() : {}),
   };
 
@@ -97,7 +99,7 @@ function loadGame(){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
-  if (payload.version !== SAVE_VERSION && payload.version !== 4 && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
+  if (payload.version !== SAVE_VERSION && payload.version !== 6 && payload.version !== 5 && payload.version !== 4 && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
@@ -111,12 +113,16 @@ function loadGame(){
   // Fusion avec des valeurs par défaut complètes : une sauvegarde plus ancienne
   // n'a pas les nouvelles ressources (huile, vin...) — sans ça elles seraient
   // undefined et casseraient les additions de production (NaN).
-  resources = Object.assign(
-    { wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0 },
-    payload.resources || {}
-  );
+  resources = mergeResources(payload.resources || {});
   treasury = typeof payload.treasury === 'number' ? payload.treasury : STARTING_TREASURY;
   favor = typeof payload.favor === 'number' ? payload.favor : 50;
+  if (typeof restoreGodDispositions === 'function' && payload.godSatisfaction){
+    restoreGodDispositions(payload);
+  } else if (typeof initGodDispositionsLegacy === 'function'){
+    initGodDispositionsLegacy(favor);
+  } else if (typeof initGodDispositions === 'function'){
+    initGodDispositions(false);
+  }
   taxRate = typeof payload.taxRate === 'number' ? payload.taxRate : TAX_RATE_DEFAULT;
   productionMultiplier = payload.productionMultiplier || 1;
   productionEffectTicksLeft = payload.productionEffectTicksLeft || 0;
@@ -158,6 +164,9 @@ function loadGame(){
   document.documentElement.lang = currentLang;
   try { localStorage.setItem('olympos_lang', currentLang); } catch (err){ /* ignore */ }
   if (typeof restoreColonyStateFromSave === 'function') restoreColonyStateFromSave(payload);
+
+  if (typeof restoreAdventureState === 'function') restoreAdventureState(payload);
+  else if (typeof resetAdventures === 'function') resetAdventures();
 
   recomputeAllWalkers();
   recomputeLabor();

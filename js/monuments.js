@@ -158,6 +158,7 @@ function placeMonument(anchorCol, anchorRow, type, godKey){
   }
   const god = GODS.find(g => g.key === godKey);
   showNotification(t('monument.godArrived', { god: t('god.' + godKey), icon: god ? god.icon : '🏛️' }), 'good');
+  if (typeof onGodMonumentBuilt === 'function') onGodMonumentBuilt(godKey);
   spawnGodAgent(godKey, anchorCol, anchorRow, false);
   debugInfo('Temple monumental construit', { col: anchorCol, row: anchorRow, god: godKey });
   recomputeAllWalkers();
@@ -166,6 +167,7 @@ function placeMonument(anchorCol, anchorRow, type, godKey){
 }
 
 function demolishMonument(anchorCol, anchorRow){
+  const patron = grid[anchorRow][anchorCol]?.godPatron || null;
   removeGodAgentsAt(anchorCol, anchorRow);
   const size = MONUMENT_FOOTPRINT;
   for (let r = anchorRow; r < anchorRow + size; r++){
@@ -177,6 +179,7 @@ function demolishMonument(anchorCol, anchorRow){
       cell.godPatron = null;
     }
   }
+  if (typeof onGodMonumentDemolished === 'function') onGodMonumentDemolished(patron);
   recomputeAllWalkers();
 }
 
@@ -225,12 +228,7 @@ function monumentScreenCenter(anchorCol, anchorRow, size){
 
 /* ===================== AVANTAGES DIVINS ===================== */
 function tickMonumentBenefits(){
-  const patrons = activeGodPatrons();
-
-  // Zeus : plancher de faveur
-  if (patrons.has('zeus') && favor < GOD_FAVOR_FLOOR){
-    favor = GOD_FAVOR_FLOOR;
-  }
+  // Zeus : plancher géré dans tickGodSatisfaction()
 }
 
 function processMonumentMonthly(){
@@ -242,7 +240,12 @@ function processMonumentMonthly(){
     showNotification(t('monument.demeterBlessing'), 'good');
   }
   if (patrons.has('apollo')){
-    favor = Math.min(FAVOR_MAX, favor + GOD_APOLLO_FAVOR_MONTHLY);
+    if (typeof adjustGodSatisfaction === 'function'){
+      adjustGodSatisfaction('apollo', GOD_APOLLO_FAVOR_MONTHLY);
+      if (typeof syncGlobalFavor === 'function') syncGlobalFavor();
+    } else {
+      favor = Math.min(FAVOR_MAX, favor + GOD_APOLLO_FAVOR_MONTHLY);
+    }
     showNotification(t('monument.apolloBlessing'), 'good');
   }
   updateResourceBar();
@@ -299,6 +302,7 @@ function spawnGodAgent(godKey, templeCol, templeRow, notify){
     prevCol: templeCol, prevRow: templeRow,
     moveCooldown: GOD_MOVE_EVERY_TICKS,
     templeCol, templeRow,
+    facing: 'down', mirrorX: false,
   });
   if (notify !== false) showNotification(t('monument.godArrived', { god: t('god.' + godKey), icon: g.icon }), 'good');
 }
@@ -321,5 +325,6 @@ function tickGodAgents(){
       agent.col = n.col;
       agent.row = n.row;
     }
+    if (typeof updateAgentFacing === 'function') updateAgentFacing(agent);
   });
 }

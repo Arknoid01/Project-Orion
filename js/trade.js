@@ -36,6 +36,11 @@ function countTradePosts(){
   return n;
 }
 
+function tradeIncomeMultiplier(){
+  let m = (typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1;
+  if (typeof artifactBonus === 'function') m *= (1 + artifactBonus('trade'));
+  return m;
+}
 function exportCapacity(){ return EXPORT_QTY_PER_POST * countTradePosts(); }
 function importCapacity(){ return IMPORT_QTY_PER_POST * countTradePosts(); }
 
@@ -72,7 +77,7 @@ function processForeignTrade(){
       const qty = Math.min(expCap, Math.floor(resources[b.resource] || 0));
       if (qty <= 0) return;
       resources[b.resource] -= qty;
-      income += Math.round(qty * cityExportPrice(city, b.price) * ((typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1));
+      income += Math.round(qty * cityExportPrice(city, b.price) * tradeIncomeMultiplier());
     });
   });
   if (income > 0) treasury += income;
@@ -114,7 +119,7 @@ function estimatedCityIncome(city){
   city.buys.forEach(b => {
     if (!route.export || !route.export[b.resource]) return;
     const qty = Math.min(cap, Math.floor(resources[b.resource] || 0));
-    income += Math.round(qty * cityExportPrice(city, b.price) * ((typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1));
+    income += Math.round(qty * cityExportPrice(city, b.price) * tradeIncomeMultiplier());
   });
   return income;
 }

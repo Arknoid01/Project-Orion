@@ -11,15 +11,21 @@ function makeOffering(){
     return;
   }
   resources.sculpture -= cost;
-  favor = Math.min(FAVOR_MAX, favor + FAVOR_OFFERING_GAIN);
+  if (typeof applyOfferingToGods === 'function') applyOfferingToGods();
+  else favor = Math.min(FAVOR_MAX, favor + FAVOR_OFFERING_GAIN);
   debugInfo('Offrande faite', { favor });
   updateResourceBar();
   renderMythologyPanel();
+  if (typeof renderGodSatisfactionPanel === 'function') renderGodSatisfactionPanel();
 }
 
 /* ===================== TICK MYTHOLOGIE ===================== */
 function tickMythology(){
-  favor = Math.max(0, favor - FAVOR_DECAY_PER_TICK);
+  if (typeof tickGodSatisfaction === 'function'){
+    tickGodSatisfaction();
+  } else {
+    favor = Math.max(0, favor - FAVOR_DECAY_PER_TICK);
+  }
 
   if (productionEffectTicksLeft > 0){
     productionEffectTicksLeft--;
@@ -51,4 +57,5 @@ function renderMythologyPanel(){
   bar.classList.toggle('favor-low', favor <= FAVOR_CATASTROPHE_THRESHOLD);
   bar.classList.toggle('favor-high', favor >= FAVOR_BLESSING_THRESHOLD);
   label.textContent = `${Math.round(favor)}/${FAVOR_MAX}`;
+  if (typeof renderGodSatisfactionPanel === 'function') renderGodSatisfactionPanel();
 }

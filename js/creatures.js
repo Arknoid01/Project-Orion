@@ -67,7 +67,8 @@ function randomWalkableTile(){
   return { col: 0, row: 0 };
 }
 
-function spawnMonster(){
+function spawnMonster(opts){
+  opts = opts || {};
   const type = MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
   const tile = randomWalkableTile();
   const maxHp = type.hp || MONSTER_HP;
@@ -78,12 +79,21 @@ function spawnMonster(){
     attackChance: type.attackChance ?? MONSTER_ATTACK_CHANCE,
     col: tile.col, row: tile.row, prevCol: tile.col, prevRow: tile.row,
     moveCooldown: type.moveEvery || MONSTER_MOVE_EVERY_TICKS,
-    facing: 'down',
+    facing: 'down', mirrorX: false,
   };
-  showNotification(t('monster.appearedWithHero', {
-    monster: t('monster.name.' + type.key),
-    hero: t('hero.name.' + type.heroKey),
-  }), 'bad');
+  if (opts.godKey){
+    const god = typeof godByKey === 'function' ? godByKey(opts.godKey) : null;
+    showNotification(t('god.wrath.monster', {
+      icon: god?.icon || '👹',
+      god: t('god.' + opts.godKey),
+      monster: t('monster.name.' + type.key),
+    }), 'bad');
+  } else {
+    showNotification(t('monster.appearedWithHero', {
+      monster: t('monster.name.' + type.key),
+      hero: t('hero.name.' + type.heroKey),
+    }), 'bad');
+  }
   debugInfo('Monstre apparu', { type: type.key, col: tile.col, row: tile.row, hp: maxHp });
   renderCreaturePanel();
 }
@@ -177,7 +187,7 @@ function summonHero(){
     damage: type.damage, moveEvery: type.moveEvery || HERO_MOVE_EVERY_TICKS,
     col: tile.col, row: tile.row, prevCol: tile.col, prevRow: tile.row,
     moveCooldown: type.moveEvery || HERO_MOVE_EVERY_TICKS,
-    leaving: false, exit: null, facing: 'down',
+    leaving: false, exit: null, facing: 'down', mirrorX: false,
   };
   showNotification(t('hero.summonedNamed', { hero: t('hero.name.' + type.key) }), 'good');
   debugInfo('Héros invoqué', { hero: type.key, tile });

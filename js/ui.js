@@ -432,8 +432,11 @@ const QUICK_BUILD_SECTIONS = [
   { labelKey: 'catalog.production', items: [
     { kind: 'building', key: 'farm' }, { kind: 'building', key: 'quarry' },
     { kind: 'building', key: 'oliveGrove' }, { kind: 'building', key: 'vineyard' },
-    { kind: 'building', key: 'sheepFarm' }, { kind: 'building', key: 'workshop' },
-    { kind: 'building', key: 'oilPress' }, { kind: 'building', key: 'winery', shortKey: 'catalog.wineryShort' },
+    { kind: 'building', key: 'sheepFarm' }, { kind: 'building', key: 'fishery' },
+    { kind: 'building', key: 'charcoalPit', shortKey: 'catalog.charcoalShort' },
+    { kind: 'building', key: 'workshop' }, { kind: 'building', key: 'oilPress' },
+    { kind: 'building', key: 'winery', shortKey: 'catalog.wineryShort' },
+    { kind: 'building', key: 'weaver' }, { kind: 'building', key: 'foundry' },
   ]},
   { labelKey: 'catalog.storage', items: [
     { kind: 'building', key: 'granary' }, { kind: 'building', key: 'warehouse' },
@@ -453,7 +456,10 @@ const QUICK_BUILD_SECTIONS = [
     { kind: 'building', key: 'grandTemple', shortKey: 'catalog.grandTempleShort' },
     { kind: 'building', key: 'heroTemple', shortKey: 'catalog.heroTempleShort' },
   ]},
-  { labelKey: 'catalog.military', items: [{ kind: 'building', key: 'barracks' }] },
+  { labelKey: 'catalog.military', items: [
+    { kind: 'building', key: 'barracks' },
+    { kind: 'building', key: 'armory', shortKey: 'catalog.armoryShort' },
+  ]},
 ];
 
 function quickBuildCardHtml(item){
@@ -544,11 +550,13 @@ function buildingInspectorHtml(type, col, row){
 
   // transformation (consomme une matière -> produit un bien)
   if (def.consumes){
-    const [inRes, amt] = Object.entries(def.consumes)[0];
     const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
-    html += `<p>🔄 ${t('inspector.transforms')} : ${amt} ${resLabel(inRes)} → ${fmtRate(eff)} ${resLabel(def.produces)}${t('inspector.perTick')}</p>`;
-    const ok = resources[inRes] >= amt;
-    html += `<p class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅ ' + t('inspector.inputOk') : '❌ ' + t('inspector.inputMissing')} (${resLabel(inRes)} : ${Math.floor(resources[inRes])})</p>`;
+    const inputs = Object.entries(def.consumes).map(([r, amt]) => `${amt} ${resLabel(r)}`).join(' + ');
+    html += `<p>🔄 ${t('inspector.transforms')} : ${inputs} → ${fmtRate(eff)} ${resLabel(def.produces)}${t('inspector.perTick')}</p>`;
+    for (const [inRes, amt] of Object.entries(def.consumes)){
+      const ok = (resources[inRes] || 0) >= amt;
+      html += `<p class="${ok ? 'need-ok' : 'need-missing'}">${ok ? '✅' : '❌'} ${resLabel(inRes)} : ${Math.floor(resources[inRes] || 0)}</p>`;
+    }
     if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
   }
 
@@ -679,10 +687,8 @@ on('zoomOutBtn', 'click', () => zoomOut());
 // canvas existe toujours (render.js le crée avant ui.js dans l'ordre de chargement),
 // donc pas besoin de garde ici -- mais infoBar (à l'intérieur du handler) si.
 canvas.addEventListener('mousemove', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) / zoomLevel;
-  const my = (e.clientY - rect.top) / zoomLevel;
-  const { col, row } = screenToTile(mx, my);
+  const { mx, my } = clientToWorld(e.clientX, e.clientY);
+  const { col, row } = pickTileAtWorld(mx, my);
   hoverTile = { col, row };
 
   const info = document.getElementById('infoBar');
@@ -710,10 +716,8 @@ canvas.addEventListener('contextmenu', (e) => {
 });
 
 canvas.addEventListener('click', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) / zoomLevel;
-  const my = (e.clientY - rect.top) / zoomLevel;
-  const { col, row } = screenToTile(mx, my);
+  const { mx, my } = clientToWorld(e.clientX, e.clientY);
+  const { col, row } = pickTileAtWorld(mx, my);
   if (!inBounds(col, row)) return;
 
   const cell = grid[row][col];

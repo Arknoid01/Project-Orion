@@ -14,6 +14,7 @@ import argparse
 import os
 import sys
 
+import numpy as np
 from PIL import Image, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,41 +76,66 @@ def is_chroma_background_pixel(r, g, b, a, key, tolerance):
     return _color_dist(r, g, b, key) <= tolerance
 
 
-def strip_chroma_edge(im, key, tolerance):
-    """Retire uniquement le fond chroma connecté aux bords de l'image."""
+def chroma_alpha_factor(r, g, b, key, tolerance, soft_range):
+    """Comme pour le blanc (voir strip_edge_white) : un dégradé plutôt qu'un
+    seuil tout-ou-rien. Renvoie 0 (fond pur) à 1 (perso, alpha inchangé)."""
+    d = _color_dist(r, g, b, key)
+    if d >= tolerance + soft_range:
+        return 1.0
+    if d <= tolerance:
+        return 0.0
+    return (d - tolerance) / soft_range
+
+
+def strip_chroma_edge(im, key, tolerance, soft_range=70, max_depth=12):
+    """Retire le fond chroma connecté aux bords de l'image, avec un alpha dégradé
+    près de la limite. Comme strip_edge_white : zone "certaine" (nettement fond
+    chroma) traversée sans limite de profondeur, zone "ambigüe" (proche
+    chromatiquement mais pas franchement) limitée à `max_depth` pixels depuis le
+    dernier pixel de fond certain -- empêche de tunneller dans le personnage."""
     im = im.convert("RGBA")
     px = im.load()
     w, h = im.size
     visited = set()
     stack = []
 
-    def matches(x, y):
+    def classify(x, y):
         r, g, b, a = px[x, y]
-        return is_chroma_background_pixel(r, g, b, a, key, tolerance)
+        if a < 8 or (r >= 215 and g >= 215 and b >= 215):
+            return None
+        if is_chroma_background_pixel(r, g, b, a, key, tolerance):
+            return "core"
+        if is_chroma_background_pixel(r, g, b, a, key, tolerance + soft_range):
+            return "soft"
+        return None
 
     for x in range(w):
-        if matches(x, 0):
-            stack.append((x, 0))
-        if matches(x, h - 1):
-            stack.append((x, h - 1))
+        if classify(x, 0):
+            stack.append((x, 0, 0))
+        if classify(x, h - 1):
+            stack.append((x, h - 1, 0))
     for y in range(h):
-        if matches(0, y):
-            stack.append((0, y))
-        if matches(w - 1, y):
-            stack.append((w - 1, y))
+        if classify(0, y):
+            stack.append((0, y, 0))
+        if classify(w - 1, y):
+            stack.append((w - 1, y, 0))
 
     while stack:
-        x, y = stack.pop()
+        x, y, depth = stack.pop()
         if (x, y) in visited:
             continue
-        if not matches(x, y):
+        kind = classify(x, y)
+        if kind is None or (kind == "soft" and depth > max_depth):
             continue
         visited.add((x, y))
-        px[x, y] = (0, 0, 0, 0)
+        r, g, b, a = px[x, y]
+        factor = chroma_alpha_factor(r, g, b, key, tolerance, soft_range)
+        px[x, y] = (r, g, b, int(a * factor))
+        next_depth = 0 if kind == "core" else depth + 1
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             nx, ny = x + dx, y + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                stack.append((nx, ny))
+            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in visited:
+                stack.append((nx, ny, next_depth))
 
     return im
 
@@ -127,41 +153,74 @@ def strip_white_background(im, threshold=WHITE_THRESHOLD):
     return strip_background(im)
 
 
-def strip_edge_white(im, threshold=WHITE_THRESHOLD):
-    """Retire le blanc connecté aux bords — préserve le blanc du personnage (casque, tunique)."""
+def strip_edge_white(im, threshold=WHITE_THRESHOLD, soft_range=200, max_depth=12):
+    """Retire le blanc connecté aux bords — préserve le blanc du personnage
+    (casque, tunique). Alpha dégradé près de la limite (pas tout-ou-rien) pour
+    éviter un halo de pixels "presque blancs" restés pleinement opaques.
+
+    Deux zones : "certain" (très blanc, >= threshold) traversée sans limite de
+    profondeur -- le fond peut être aussi grand qu'il veut. "ambigüe" (dans la
+    plage soft_range, ni clairement fond ni clairement perso) traversée sur
+    `max_depth` pixels MAX depuis le dernier pixel de fond certain -- ça empêche
+    de tunneller à travers une zone claire mais légitime du personnage (cheveux
+    blonds, tunique blanche...), peu importe sa teinte, simplement parce qu'elle
+    est trop loin du vrai contour pour être de l'anti-aliasing.
+    (Vérifié : sans cette distinction, limiter juste la profondeur totale depuis
+    le bord de l'image ne marchait pas non plus -- le fond pur autour du
+    personnage est lui-même souvent large de plusieurs dizaines de pixels.)
+    """
     im = im.convert("RGBA")
     px = im.load()
     w, h = im.size
     visited = set()
     stack = []
 
-    def is_white(x, y):
+    def whiteness(r, g, b):
+        return min(r, g, b)
+
+    def classify(x, y):
         r, g, b, a = px[x, y]
-        return a >= 8 and r >= threshold and g >= threshold and b >= threshold
+        if a < 8:
+            return None
+        wv = whiteness(r, g, b)
+        if wv >= threshold:
+            return "core"
+        if wv >= threshold - soft_range:
+            return "soft"
+        return None
 
     for x in range(w):
-        if is_white(x, 0):
-            stack.append((x, 0))
-        if is_white(x, h - 1):
-            stack.append((x, h - 1))
+        if classify(x, 0):
+            stack.append((x, 0, 0))
+        if classify(x, h - 1):
+            stack.append((x, h - 1, 0))
     for y in range(h):
-        if is_white(0, y):
-            stack.append((0, y))
-        if is_white(w - 1, y):
-            stack.append((w - 1, y))
+        if classify(0, y):
+            stack.append((0, y, 0))
+        if classify(w - 1, y):
+            stack.append((w - 1, y, 0))
 
     while stack:
-        x, y = stack.pop()
+        x, y, depth = stack.pop()
         if (x, y) in visited:
             continue
-        if not is_white(x, y):
+        kind = classify(x, y)
+        if kind is None or (kind == "soft" and depth > max_depth):
             continue
         visited.add((x, y))
-        px[x, y] = (0, 0, 0, 0)
+        r, g, b, a = px[x, y]
+        wv = whiteness(r, g, b)
+        if wv >= threshold:
+            new_alpha = 0
+        else:
+            ratio = max(0, min(1, (wv - (threshold - soft_range)) / soft_range))
+            new_alpha = int(a * (1 - ratio))
+        px[x, y] = (r, g, b, new_alpha)
+        next_depth = 0 if kind == "core" else depth + 1
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             nx, ny = x + dx, y + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                stack.append((nx, ny))
+            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in visited:
+                stack.append((nx, ny, next_depth))
 
     return im
 
@@ -204,35 +263,49 @@ def strip_gray_noise(im, max_spread=18, min_avg=175, foot_ratio=0.72):
     return im
 
 
-def fix_alpha_fringe(img, filter_size=3, solid_alpha=250):
+def fix_alpha_fringe(img, filter_size=3, solid_alpha=250, iterations=4):
     """
-    Décontamination alpha : conserve l'alpha d'origine, remplace le RGB blanc
-    des pixels semi-transparents par la couleur voisine du personnage.
-    Les pixels déjà opaques ne sont pas modifiés.
+    Décontamination alpha : conserve l'alpha d'origine, remplace le RGB des
+    pixels pas pleinement opaques par une couleur extrapolée depuis les pixels
+    opaques voisins, pondérée par l'alpha réel de chaque pixel (pas un seuil
+    binaire ni un MaxFilter par canal -- celui-ci pouvait inventer une teinte
+    qui n'existe ni dans le personnage ni dans le fond, ce qui laissait passer
+    un halo clair/bleuté malgré l'appel à cette fonction). Les pixels déjà
+    pleinement opaques (alpha >= solid_alpha) ne sont jamais modifiés.
     """
     img = img.convert("RGBA")
-    w, h = img.size
-    r, g, b, a = img.split()
-    rgb = Image.merge("RGB", (r, g, b))
-    expanded_rgb = rgb.filter(ImageFilter.MaxFilter(filter_size))
+    arr = np.array(img, dtype=np.float64)
+    rgb = arr[..., :3]
+    alpha = arr[..., 3]
 
-    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    opx = out.load()
-    orig = img.load()
-    exp = expanded_rgb.load()
+    # Pondération par l'alpha réel (pas binaire) : un pixel à alpha=128 ne compte
+    # que pour moitié dans la propagation -- aucune contamination possible par une
+    # couleur cachée derrière un pixel peu ou pas opaque.
+    weight = alpha / 255.0
+    weighted_rgb = rgb * weight[..., None]
+    solid_mask = alpha >= solid_alpha
 
-    for y in range(h):
-        for x in range(w):
-            or_, og, ob, oa = orig[x, y]
-            if oa == 0:
-                continue
-            if oa >= solid_alpha:
-                opx[x, y] = (or_, og, ob, oa)
-            else:
-                er, eg, eb = exp[x, y]
-                opx[x, y] = (er, eg, eb, oa)
+    blur_radius = max(1, filter_size // 2)
+    for _ in range(iterations):
+        w_img = Image.fromarray(weighted_rgb.astype(np.uint8), "RGB")
+        w_img = w_img.filter(ImageFilter.BoxBlur(blur_radius))
+        weighted_rgb = np.array(w_img, dtype=np.float64)
 
-    return out
+        wt_img = Image.fromarray((weight * 255).astype(np.uint8), "L")
+        wt_img = wt_img.filter(ImageFilter.BoxBlur(blur_radius))
+        weight = np.array(wt_img, dtype=np.float64) / 255.0
+
+        # Les pixels déjà bien opaques restent strictement inchangés à chaque
+        # itération -- on étend la couleur SEULEMENT vers les pixels transparents
+        # ou semi-transparents, jamais vers l'intérieur du personnage.
+        weighted_rgb[solid_mask] = rgb[solid_mask]
+        weight[solid_mask] = 1.0
+
+    safe_weight = np.where(weight < 1e-3, 1, weight)
+    extended_rgb = np.clip(weighted_rgb / safe_weight[..., None], 0, 255)
+
+    result = np.dstack([extended_rgb, alpha]).astype(np.uint8)
+    return Image.fromarray(result, "RGBA")
 
 
 def _is_foreground(r, g, b, a, threshold=WHITE_THRESHOLD):

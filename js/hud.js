@@ -14,13 +14,20 @@ function renderHud(){
     cal.textContent = `📅 ${t('calendar.month.' + state.month)} · ${t('calendar.day')} ${state.dayOfMonth}`;
   }
   if (typeof renderColonyHud === 'function') renderColonyHud();
+  if (typeof renderAdventureHud === 'function') renderAdventureHud();
 }
 
 /* ===================== PANNEAU GESTION ===================== */
 // Liste de toutes les ressources (stock/capacité) affichée dans le panneau "Gestion",
 // qui regroupe aussi les raccourcis Gestion de la ville / Carte du monde.
-const MANAGE_RESOURCE_ORDER = ['wheat', 'marble', 'sculpture', 'olives', 'oil', 'grapes', 'wine', 'wool'];
-const MANAGE_RESOURCE_ICONS = { wheat:'🌾', marble:'🪨', sculpture:'🗿', olives:'🫒', oil:'🛢️', grapes:'🍇', wine:'🍷', wool:'🧶' };
+const MANAGE_RESOURCE_ORDER = [
+  'wheat', 'fish', 'marble', 'sculpture', 'olives', 'oil', 'grapes', 'wine',
+  'wool', 'clothing', 'coal', 'bronze', 'arms',
+];
+const MANAGE_RESOURCE_ICONS = {
+  wheat:'🌾', fish:'🐟', marble:'🪨', sculpture:'🗿', olives:'🫒', oil:'🛢️', grapes:'🍇', wine:'🍷',
+  wool:'🧶', clothing:'👕', coal:'🪵', bronze:'🥉', arms:'🗡️',
+};
 
 function renderManageResourceList(){
   const el = document.getElementById('manageResourceList');
@@ -36,5 +43,6 @@ function renderManageResourceList(){
 function openManagePanel(){
   renderManageResourceList();
   if (typeof renderEconomyBalance === 'function') renderEconomyBalance();
+  if (typeof renderGodSatisfactionPanel === 'function') renderGodSatisfactionPanel();
   if (typeof togglePanel === 'function') togglePanel('managePanel');
 }

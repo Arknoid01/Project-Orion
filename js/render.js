@@ -137,6 +137,73 @@ function drawReliefShadow(cx, cy, elevation, terrain, slope, targetCtx){
   }
 }
 
+/** Facteur 0–1+ : eau plate, collines/roche plus massives. */
+function terrainReliefFactor(terrain, elevation){
+  if (terrain === 'water') return 0;
+  elevation = elevation || 0;
+  const base = typeof TERRAIN_ELEV_BASELINE === 'number' ? TERRAIN_ELEV_BASELINE : 0.28;
+  const e = Math.max(0, elevation - base);
+  if (e < 0.01) return terrain === 'sand' ? 0.15 : 0;
+  let factor = e / 0.42;
+  if (terrain === 'hill' || terrain === 'rock' || terrain === 'marble') factor *= 1.15;
+  if (terrain === 'sand') factor *= 0.45;
+  return Math.min(1.35, factor);
+}
+
+/** Socle iso (faces sud) sous une tuile surélevée — dessiné avant le sprite. */
+function drawTerrainBaseBlock(targetCtx, cx, cy, elevation, terrain){
+  if (terrain === 'water') return;
+  const factor = terrainReliefFactor(terrain, elevation);
+  if (factor < 0.05) return;
+  const perElev = typeof TERRAIN_BLOCK_HEIGHT_PER_ELEV === 'number' ? TERRAIN_BLOCK_HEIGHT_PER_ELEV : 24;
+  const depth = factor * perElev;
+  const baseHex = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.grass;
+  const left = shade(baseHex, -42);
+  const right = shade(baseHex, -28);
+  const c = targetCtx || ctx;
+
+  c.fillStyle = left;
+  c.beginPath();
+  c.moveTo(cx - TILE_W / 2, cy);
+  c.lineTo(cx - TILE_W / 2, cy + depth);
+  c.lineTo(cx, cy + TILE_H / 2 + depth);
+  c.lineTo(cx, cy + TILE_H / 2);
+  c.closePath();
+  c.fill();
+
+  c.fillStyle = right;
+  c.beginPath();
+  c.moveTo(cx + TILE_W / 2, cy);
+  c.lineTo(cx + TILE_W / 2, cy + depth);
+  c.lineTo(cx, cy + TILE_H / 2 + depth);
+  c.lineTo(cx, cy + TILE_H / 2);
+  c.closePath();
+  c.fill();
+}
+
+/** Sprite terrain : remplit la largeur, conserve le ratio (blocs 3D atlas). */
+function drawTerrainSpriteImage(targetCtx, img, cx, cy, elevation, terrain, options){
+  options = options || {};
+  const overlap = typeof TERRAIN_TILE_OVERLAP === 'number' ? TERRAIN_TILE_OVERLAP : 5;
+  const drawW = TILE_W + overlap;
+  const aspect = img.naturalWidth > 0 ? img.naturalHeight / img.naturalWidth : 0.5;
+  let drawH = drawW * aspect;
+  const factor = options.flat ? 0 : terrainReliefFactor(terrain, elevation);
+  const stretch = typeof TERRAIN_SPRITE_STRETCH === 'number' ? TERRAIN_SPRITE_STRETCH : 0.55;
+  drawH *= 1 + factor * stretch * 0.12;
+  const surfaceOff = options.surfaceOffsetY
+    ?? (options.isRoad && typeof ROAD_SURFACE_OFFSET_Y === 'number' ? ROAD_SURFACE_OFFSET_Y : 0);
+  const footY = cy + TILE_H / 2 + surfaceOff;
+  const drawY = footY - drawH;
+  (targetCtx || ctx).drawImage(img, cx - drawW / 2, drawY, drawW, drawH);
+}
+
+function drawTerrainWithRelief(targetCtx, img, cx, cy, elevation, terrain){
+  const useBase = typeof TERRAIN_USE_BASE_BLOCK === 'boolean' ? TERRAIN_USE_BASE_BLOCK : false;
+  if (useBase) drawTerrainBaseBlock(targetCtx, cx, cy, elevation, terrain);
+  drawTerrainSpriteImage(targetCtx, img, cx, cy, elevation, terrain);
+}
+
 /* ===================== CACHE COUCHE TERRAIN (statique après génération carte) ===================== */
 let terrainLayerCache = null;
 
@@ -163,7 +230,7 @@ function ensureTerrainLayerCache(){
     const { x, y } = tileCenter(col, row);
     const img = TERRAIN_SPRITE_IMAGES[cell.terrain];
     if (img && img.complete && img.naturalWidth > 0){
-      tctx.drawImage(img, x - TILE_W / 2, y - TILE_H / 2, TILE_W, TILE_H);
+      drawTerrainWithRelief(tctx, img, x, y, cell.elevation, cell.terrain);
       drawReliefShadow(x, y, cell.elevation, cell.terrain, cell.slope, tctx);
     }
   });
@@ -178,7 +245,7 @@ function drawTerrainTile(cx, cy, terrain, elevation, col, row, slope){
   const baseColor = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.grass;
   const img = TERRAIN_SPRITE_IMAGES[terrain];
   if (img && img.complete && img.naturalWidth > 0){
-    ctx.drawImage(img, cx - TILE_W / 2, cy - TILE_H / 2, TILE_W, TILE_H);
+    drawTerrainWithRelief(ctx, img, cx, cy, elevation, terrain);
   } else {
     const shaded = terrainMicroShade(baseColor, col, row, elevation);
     drawDiamond(cx, cy, shaded);
@@ -225,10 +292,19 @@ function shade(hex, percent){
 /* ===================== RENDU BATIMENTS ===================== */
 // Pose un sprite ancré sur la base de la tuile (mêmes proportions pour bâtiments et maisons).
 function drawSpriteOnTile(cx, cy, sprite, targetW){
-  targetW = targetW || 92;
+  targetW = targetW || BUILDING_SPRITE_W;
   const scale = targetW / sprite.naturalWidth;
   const targetH = sprite.naturalHeight * scale;
   ctx.drawImage(sprite, cx - targetW / 2, cy + TILE_H / 2 - targetH + 10, targetW, targetH);
+}
+
+function buildingDrawWidth(def){
+  if (def.spriteScale) return def.spriteScale;
+  if (def.isMonument){
+    const fp = def.footprint || 2;
+    return Math.round(BUILDING_SPRITE_W * fp * 0.95);
+  }
+  return BUILDING_SPRITE_W;
 }
 
 // Sprite de maison à utiliser pour un niveau : le sien, sinon le plus haut niveau
@@ -243,6 +319,7 @@ function houseSpriteForLevel(level){
 
 function drawBuilding(cx, cy, type, col, row){
   const def = BUILDING_DEFS[type];
+  const drawW = buildingDrawWidth(def);
 
   if (def.isMonument){
     drawMonument(type, col, row);
@@ -253,7 +330,7 @@ function drawBuilding(cx, cy, type, col, row){
     const cell = grid[row][col];
     const sprite = houseSpriteForLevel(cell.houseLevel);
     if (sprite){
-      drawSpriteOnTile(cx, cy, sprite);
+      drawSpriteOnTile(cx, cy, sprite, drawW);
       return;
     }
     // repli procédural si aucun sprite n'est encore chargé
@@ -266,7 +343,7 @@ function drawBuilding(cx, cy, type, col, row){
   const sprite = BUILDING_SPRITES[type];
   if (def.isDecoration){
     if (sprite && sprite.complete && sprite.naturalWidth > 0){
-      drawSpriteOnTile(cx, cy, sprite);
+      drawSpriteOnTile(cx, cy, sprite, drawW);
       return;
     }
     drawDecoration(cx, cy, type);
@@ -274,7 +351,7 @@ function drawBuilding(cx, cy, type, col, row){
   }
 
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
-    drawSpriteOnTile(cx, cy, sprite);
+    drawSpriteOnTile(cx, cy, sprite, drawW);
     return;
   }
 
@@ -300,15 +377,14 @@ function drawBuilding(cx, cy, type, col, row){
   ctx.fillText(def.icon, cx, cy - 6);
 }
 
-// Temple monumental 2×2 : dessiné une seule fois depuis l'ancre, centré sur le footprint,
-// avec un sprite plus large (spriteScale, défaut 200 px vs 92 pour un bâtiment normal).
+// Temple monumental 2×2 : dessiné une seule fois depuis l'ancre, centré sur le footprint.
 function drawMonument(type, anchorCol, anchorRow){
   const def = BUILDING_DEFS[type];
   const size = def.footprint || 2;
   const { x, y } = (typeof monumentScreenCenter === 'function')
     ? monumentScreenCenter(anchorCol, anchorRow, size)
     : tileCenter(anchorCol, anchorRow);
-  const targetW = def.spriteScale || 200;
+  const targetW = buildingDrawWidth(def);
   const sprite = BUILDING_SPRITES[type];
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
     drawSpriteOnTile(x, y, sprite, targetW);
@@ -462,11 +538,9 @@ function drawDecoration(cx, cy, type){
 }
 
 /* ===================== RENDU ROUTE ===================== */
-function drawRoad(cx, cy){
-  // sprite de dallage iso si disponible (couvre toute la tuile, léger débord pour
-  // masquer les coutures), sinon repli losange brun procédural.
+function drawRoad(cx, cy, elevation){
   if (ROAD_SPRITE.complete && ROAD_SPRITE.naturalWidth > 0){
-    ctx.drawImage(ROAD_SPRITE, cx - TILE_W / 2, cy - TILE_H / 2, TILE_W, TILE_H);
+    drawTerrainSpriteImage(ctx, ROAD_SPRITE, cx, cy, elevation || 0, 'grass', { flat: true, isRoad: true });
     return;
   }
   // tuile de route légèrement plus petite que la tuile de terrain, pour qu'on voie
@@ -513,8 +587,11 @@ function drawWalkers(now){
     const { x, y } = getWalkerScreenPos(w, now);
     const roleColor = SERVICE_COLORS[w.serviceType] || '#e8c468';
     const spriteId = 'walker_' + w.serviceType;
+    const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(w) : null;
+    const facing = iso ? iso.facing : (w.facing || 'down');
+    const mirrorX = iso ? iso.mirrorX : w.mirrorX;
     const drew = (typeof drawCharacterSprite === 'function')
-      && drawCharacterSprite(spriteId, x, y, w.facing || 'down', now);
+      && drawCharacterSprite(spriteId, x, y, facing, now, undefined, mirrorX);
 
     if (!drew){
       ctx.beginPath();
@@ -543,33 +620,31 @@ function drawAgentToken(x, y, icon, ringColor){
   ctx.fillText(icon, x, y - 7);
 }
 
-function drawHpBar(x, y, ratio){
-  const w = 26, h = 4;
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(x - w / 2, y - 28, w, h);
-  ctx.fillStyle = '#c33';
-  ctx.fillRect(x - w / 2, y - 28, w * Math.max(0, Math.min(1, ratio)), h);
-}
-
 function drawCreatures(now){
   if (typeof monster !== 'undefined' && monster){
     const { x, y } = getCreatureScreenPos(monster, now);
+    const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(monster) : null;
     const drew = (typeof drawCharacterSprite === 'function')
-      && drawCharacterSprite('monster_' + monster.typeKey, x, y, monster.facing || 'down', now);
+      && drawCharacterSprite('monster_' + monster.typeKey, x, y,
+        iso ? iso.facing : (monster.facing || 'down'), now, undefined, iso ? iso.mirrorX : monster.mirrorX);
     if (!drew) drawAgentToken(x, y, monster.icon, 'rgba(150,30,30,0.92)');
-    const maxHp = monster.maxHp || MONSTER_HP;
-    drawHpBar(x, y, monster.hp / maxHp);
   }
   if (typeof hero !== 'undefined' && hero){
     const { x, y } = getCreatureScreenPos(hero, now);
+    const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(hero) : null;
     const drew = hero.typeKey && (typeof drawCharacterSprite === 'function')
-      && drawCharacterSprite('hero_' + hero.typeKey, x, y, hero.facing || 'down', now);
+      && drawCharacterSprite('hero_' + hero.typeKey, x, y,
+        iso ? iso.facing : (hero.facing || 'down'), now, undefined, iso ? iso.mirrorX : hero.mirrorX);
     if (!drew) drawAgentToken(x, y, hero.icon || '🦸', 'rgba(60,110,200,0.92)');
   }
   if (typeof godAgents !== 'undefined'){
     godAgents.forEach(agent => {
       const { x, y } = getCreatureScreenPos(agent, now);
-      drawAgentToken(x, y, agent.icon, 'rgba(214,175,70,0.95)');
+      const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(agent) : null;
+      const drew = (typeof drawCharacterSprite === 'function')
+        && drawCharacterSprite('god_' + agent.godKey, x, y,
+          iso ? iso.facing : (agent.facing || 'down'), now, undefined, iso ? iso.mirrorX : agent.mirrorX);
+      if (!drew) drawAgentToken(x, y, agent.icon, 'rgba(214,175,70,0.95)');
     });
   }
   if (typeof migrants !== 'undefined'){
@@ -651,10 +726,11 @@ function render(now){
         drawDiamond(x, y, `rgba(214,175,70,${alpha})`, 'rgba(0,0,0,0)');
       }
       if (cell.hasRoad){
-        drawRoad(x, y);
+        drawRoad(x, y, cell.elevation);
         if (cell.patrolBlock) drawPatrolBlock(x, y);
       }
       if (cell.building){
+        if (cell.monumentPart) return; // seule l'ancre dessine le monument
         drawBuilding(x, y, cell.building, col, row);
       }
   });

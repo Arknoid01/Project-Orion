@@ -10,6 +10,7 @@ function refreshUI(){
   if (typeof renderHud === 'function') renderHud();
   if (typeof renderColonyHud === 'function') renderColonyHud();
   renderMythologyPanel();
+  if (typeof refreshAdventureUI === 'function') refreshAdventureUI();
   renderObjectivesPanel();
   renderTaxPanel();
   renderCalendarPanel();

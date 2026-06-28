@@ -18,7 +18,8 @@ const NEED_CHECKERS = {
   food:     (col, row) => isHouseSupplied('food', col, row),
   oil:      (col, row) => isHouseSupplied('oil', col, row),
   wine:     (col, row) => isHouseSupplied('wine', col, row),
-  wool:     (col, row) => isHouseSupplied('wool', col, row),
+  fish:     (col, row) => isHouseSupplied('fish', col, row),
+  clothing: (col, row) => isHouseSupplied('clothing', col, row),
   religion: (col, row) => isHouseServedBy('religion', col, row),
   health:   (col, row) => isHouseServedBy('health', col, row),
   fire:     (col, row) => isHouseServedBy('fire', col, row),
@@ -37,7 +38,7 @@ function houseMarketNeeds(col, row){
   for (const level of [HOUSE_LEVELS[cell.houseLevel], HOUSE_LEVELS[cell.houseLevel + 1]]){
     if (!level) continue;
     for (const need of level.requires){
-      if (need === 'food' || need === 'oil' || need === 'wine' || need === 'wool') needs.add(need);
+      if (need === 'food' || need === 'oil' || need === 'wine' || need === 'fish' || need === 'clothing') needs.add(need);
     }
   }
   return needs;

@@ -16,10 +16,11 @@ from PIL import Image, ImageDraw
 # On dimensionne pour que la BASE se rende a la largeur d'une tuile.
 # Le rendu (drawSpriteOnTile) dessine la toile 144 px a DRAW_W px de large.
 # Donc une base large de `base_canvas` px se rend a base_canvas * DRAW_W/CANVAS.
-# Pour viser TILE_W a l'ecran : base_canvas = TILE_W * FILL * CANVAS / DRAW_W.
+# Pour viser BUILDING_SPRITE_W a l'ecran : base_canvas = BUILDING_SPRITE_W * FILL * CANVAS / DRAW_W.
 CANVAS = 144          # taille de la toile de sortie (inchangee)
-DRAW_W = 92           # doit correspondre au targetW de drawSpriteOnTile (render.js)
-TILE_W = 64           # largeur d'une tuile (config.js)
+DRAW_W = 63           # doit correspondre au BUILDING_SPRITE_W de config.js / render.js
+BUILDING_SPRITE_W = 63
+TILE_W = 64           # largeur d'une tuile grille (config.js)
 FILL = 1.0            # 1.0 = base = largeur exacte de la tuile ; 1.1 = leger debord
 CLIP_BASE = True      # couper les coins de la base en losange
 DIRS = ["assets/buildings", "assets/houses"]
@@ -58,7 +59,7 @@ def process(path, src_path):
         content = clip_base_diamond(content)
 
     # redimensionne pour que la base se rende a ~TILE_W, en gardant le ratio
-    target_w = max(1, int(round(TILE_W * FILL * CANVAS / DRAW_W)))
+    target_w = max(1, int(round(BUILDING_SPRITE_W * FILL * CANVAS / DRAW_W)))
     ratio = target_w / content.width
     target_h = max(1, int(round(content.height * ratio)))
     if target_h > CANVAS:           # borne si tres haut : on cale sur la hauteur

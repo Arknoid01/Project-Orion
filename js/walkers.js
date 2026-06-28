@@ -67,7 +67,7 @@ function recomputeAllWalkers(){
     if (!def.isService) return;
     const path = computePatrolPath(col, row, def.range);
     const servedHouses = computeServedHouses(path, def.capacity);
-    walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, prevPathIndex: 0, direction: 1, facing: 'down', servedHouses });
+    walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, prevPathIndex: 0, direction: 1, facing: 'down', mirrorX: false, servedHouses });
   });
   debugInfo(`Patrouilles recalculées : ${walkers.length} bâtiment(s) de service actif(s)`);
 }
@@ -82,16 +82,29 @@ function advanceWalkers(){
 
     const from = w.path[w.prevPathIndex];
     const to = w.path[w.pathIndex];
-    if (to.col > from.col) w.facing = 'right';
-    else if (to.col < from.col) w.facing = 'left';
-    else if (to.row > from.row) w.facing = 'down';
-    else if (to.row < from.row) w.facing = 'up';
-    // si from === to (cas limite), on garde le dernier facing connu plutôt que de le changer
+    if (typeof applyIsoFacingFromDelta === 'function'){
+      applyIsoFacingFromDelta(w, to.col - from.col, to.row - from.row);
+    }
   });
 }
 
 function isHouseServedBy(serviceType, col, row){
   return walkers.some(w => w.serviceType === serviceType && w.servedHouses.some(h => h.col === col && h.row === row));
+}
+
+/** Delta grille du segment de route en cours (respecte le sens de patrouille). */
+function getWalkerMovementDelta(walker){
+  if (!walker.path || walker.path.length <= 1) return null;
+  const i = walker.pathIndex;
+  const j = i + (walker.direction || 1);
+  if (j >= 0 && j < walker.path.length){
+    const from = walker.path[i];
+    const to = walker.path[j];
+    return { dcol: to.col - from.col, drow: to.row - from.row };
+  }
+  const from = walker.path[Math.max(0, i - 1)];
+  const to = walker.path[i];
+  return { dcol: to.col - from.col, drow: to.row - from.row };
 }
 
 /* ===================== POSITION ECRAN INTERPOLEE ===================== */
@@ -102,12 +115,19 @@ function getWalkerScreenPos(walker, now){
   const tile = walker.path[walker.pathIndex];
   if (walker.path.length <= 1) return tileCenter(tile.col, tile.row);
 
-  const fromTile = walker.path[walker.prevPathIndex];
+  const i = walker.pathIndex;
+  const j = i + (walker.direction || 1);
+  const fromTile = (j >= 0 && j < walker.path.length)
+    ? walker.path[i]
+    : walker.path[Math.max(0, i - 1)];
+  const toTile = (j >= 0 && j < walker.path.length)
+    ? walker.path[j]
+    : walker.path[i];
   const elapsed = now - lastTickTimestamp;
   const t = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
 
   const fromPos = tileCenter(fromTile.col, fromTile.row);
-  const toPos = tileCenter(tile.col, tile.row);
+  const toPos = tileCenter(toTile.col, toTile.row);
   return {
     x: fromPos.x + (toPos.x - fromPos.x) * t,
     y: fromPos.y + (toPos.y - fromPos.y) * t,

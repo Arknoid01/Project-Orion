@@ -8,8 +8,9 @@
 
 let treasury = STARTING_TREASURY;
 
-// Au-dessous de zéro, on plancher le trésor et on alerte une seule fois jusqu'à
-// ce qu'il repasse positif (évite de spammer la notification chaque tick).
+// Au-dessous de zéro, le trésor reste négatif (dette) : voir defeat.js (faillite
+// après DEFEAT_BANKRUPTCY_TICKS ticks consécutifs). Notification unique jusqu'à
+// retour au positif.
 let bankruptNotified = false;
 
 function canAfford(amount){
@@ -47,9 +48,8 @@ function payUpkeep(){
   const due = totalUpkeep();
   treasury -= due;
   if (treasury < 0){
-    treasury = 0;
     if (!bankruptNotified){
-      debugWarn('Trésor vide : entretien impayé');
+      debugWarn('Trésor insuffisant : entretien impayé');
       if (typeof showNotification === 'function') showNotification(t('economy.bankrupt'), 'bad');
       bankruptNotified = true;
     }

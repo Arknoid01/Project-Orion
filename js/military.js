@@ -30,14 +30,33 @@ function getArmyPotential(){
   return Math.min(barracks * TROOPS_PER_BARRACKS, Math.floor(pop * TROOPS_PER_POP));
 }
 
+function countArmories(){
+  let n = 0;
+  forEachBuilding((type) => { if (BUILDING_DEFS[type].isArmory) n++; });
+  return n;
+}
+
+function armoryTroopBonus(){
+  const stocked = (resources.arms || 0) >= ARMORY_TROOP_BONUS;
+  return countArmories() * (stocked ? ARMORY_TROOP_BONUS : Math.floor(ARMORY_TROOP_BONUS * 0.4));
+}
+
 // Points de combat effectifs = potentiel × moral.
 function getMilitaryPoints(){
   ensureArmyState();
-  return Math.round(getArmyPotential() * army.morale) + ((typeof godMilitaryBonus === 'function') ? godMilitaryBonus() : 0) + (colonyTroopBonus || 0);
+  return Math.round(getArmyPotential() * army.morale)
+    + ((typeof godMilitaryBonus === 'function') ? godMilitaryBonus() : 0)
+    + (colonyTroopBonus || 0)
+    + ((typeof artifactBonus === 'function') ? artifactBonus('military') : 0)
+    + armoryTroopBonus();
 }
 
 function getArmyUpkeep(points){
-  return { gold: Math.round(points * ARMY_UPKEEP_GOLD), wheat: Math.round(points * ARMY_UPKEEP_WHEAT) };
+  return {
+    gold: Math.round(points * ARMY_UPKEEP_GOLD),
+    wheat: Math.round(points * ARMY_UPKEEP_WHEAT),
+    arms: Math.round(points * ARMY_UPKEEP_ARMS),
+  };
 }
 
 // Mensuel : paie l'entretien du potentiel courant. Payé -> moral remonte ; impayé ->
@@ -47,13 +66,16 @@ function processArmyUpkeep(){
   const potential = getArmyPotential();
   if (potential <= 0){ army.morale = 1; return; }
   const up = getArmyUpkeep(potential);
-  if (treasury >= up.gold && (resources.wheat || 0) >= up.wheat){
+  const hasArms = (resources.arms || 0) >= up.arms;
+  if (treasury >= up.gold && (resources.wheat || 0) >= up.wheat && hasArms){
     treasury -= up.gold;
     resources.wheat -= up.wheat;
+    resources.arms -= up.arms;
     army.morale = Math.min(1, army.morale + 0.1);
   } else {
     treasury = Math.max(0, treasury - up.gold);
     resources.wheat = Math.max(0, (resources.wheat || 0) - up.wheat);
+    resources.arms = Math.max(0, (resources.arms || 0) - up.arms);
     army.morale = Math.max(0.2, army.morale - 0.25);
     showNotification(t('army.unpaid'), 'bad');
   }

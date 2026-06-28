@@ -67,15 +67,15 @@ function buildBuildingObserverData(type, col, row){
   }
 
   if (def.consumes){
-    const [inRes, amt] = Object.entries(def.consumes)[0];
     const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
-    const ok = resources[inRes] >= amt;
+    const rows = Object.entries(def.consumes).map(([inRes, amt]) => {
+      const ok = (resources[inRes] || 0) >= amt;
+      return [`${amt} ${resLabel(inRes)}`, ok ? '✔' : '✖', ok ? 'ok' : 'bad'];
+    });
+    rows.unshift([`${resLabel(def.produces)}`, `+${fmtRate(eff)}${t('inspector.perTick')}`]);
+    const allOk = Object.entries(def.consumes).every(([r, a]) => (resources[r] || 0) >= a);
     tiles.push({
-      icon: '🔄', title: t('inspector.transforms'), status: ok ? 'OK' : '⚠️',
-      rows: [
-        [`${resLabel(inRes)} → ${resLabel(def.produces)}`, `${amt} → ${fmtRate(eff)}`],
-        [t('inspector.inputOk'), ok ? '✔' : '✖', ok ? 'ok' : 'bad'],
-      ],
+      icon: '🔄', title: t('inspector.transforms'), status: allOk ? 'OK' : '⚠️', rows,
     });
   }
 
@@ -165,7 +165,25 @@ function buildCityObserverData(){
           [resLabel('grapes'), Math.floor(resources.grapes)],
           [resLabel('wine'), Math.floor(resources.wine)],
           [resLabel('wool'), Math.floor(resources.wool)],
+          [resLabel('clothing'), Math.floor(resources.clothing || 0)],
+          [resLabel('fish'), Math.floor(resources.fish || 0)],
+          [resLabel('coal'), Math.floor(resources.coal || 0)],
+          [resLabel('bronze'), Math.floor(resources.bronze || 0)],
+          [resLabel('arms'), Math.floor(resources.arms || 0)],
         ],
+      },
+      {
+        icon: '⚡', title: t('panel.gods'), status: `${Math.round(favor)}/${FAVOR_MAX}`,
+        rows: (typeof getGodSatisfactionRows === 'function')
+          ? getGodSatisfactionRows().map(row => {
+            const mood = row.disposition === 'hostile' ? '😠' :
+              row.disposition === 'friendly' ? '😊' : '😐';
+            const req = row.reqMet ? '' : ' ⚠';
+            return [`${row.icon} ${row.name} ${mood}${req}`, `${row.value}%`,
+              row.value <= GOD_SAT_WRATH_THRESHOLD ? 'bad' :
+              row.disposition === 'friendly' && row.value >= GOD_SAT_BLESSING_THRESHOLD ? 'ok' : ''];
+          })
+          : [[t('resource.favor'), `${Math.round(favor)}/${FAVOR_MAX}`]],
       },
       {
         icon: '🎯', title: t('panel.objectives'), status: victoryAnnounced ? '✔' : '…',
@@ -184,6 +202,7 @@ function buildCityObserverData(){
       <button class="actionBtn" onclick="cityManagementAction('openArmyPanel')">⚔️ ${t('panel.army')}</button>
       <button class="actionBtn" onclick="cityManagementAction('launchAttack')">🔥 ${t('army.attack')}</button>
       <button class="actionBtn" onclick="cityManagementAction('openColoniesPanel')">🏝️ ${t('panel.colonies')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('openAdventuresPanel')">⚔️ ${t('panel.adventures')}</button>
     </div>`,
   };
 }
@@ -195,7 +214,7 @@ function cityManagementAction(action){
   if (typeof window[action] === 'function') window[action]();
   // Ces actions ouvrent leur propre écran/modale : ne pas réafficher la gestion de ville
   // par-dessus (sinon on referme l'écran qu'on vient d'ouvrir).
-  const ownScreen = ['openTradePanel', 'openArmyPanel', 'launchAttack', 'openColoniesPanel'];
+  const ownScreen = ['openTradePanel', 'openArmyPanel', 'launchAttack', 'openColoniesPanel', 'openAdventuresPanel'];
   if (!ownScreen.includes(action) && typeof openCityManagement === 'function') openCityManagement();
 }
 
@@ -228,7 +247,7 @@ function buildWalkerObserverData(walker){
         icon: '🧭', title: 'Trajet', status: current ? `(${current.col},${current.row})` : '—',
         rows: [
           ['Position actuelle', current ? `${current.col},${current.row}` : '—'],
-          ['Direction', walker.facing],
+          ['Direction', walker.isoDiagonal ? walker.isoDiagonal.toUpperCase() : walker.facing],
           ['Longueur du trajet', walker.path.length],
         ],
       },

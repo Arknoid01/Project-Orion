@@ -66,6 +66,17 @@ function isTileInView(col, row, bounds){
   return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
 }
 
+// Convertit un clic écran (clientX/clientY) en coordonnées monde du canvas.
+function clientToWorld(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width || WORLD_WIDTH * zoomLevel;
+  const h = rect.height || WORLD_HEIGHT * zoomLevel;
+  return {
+    mx: (clientX - rect.left) * (WORLD_WIDTH / w),
+    my: (clientY - rect.top) * (WORLD_HEIGHT / h),
+  };
+}
+
 /* ---- Molette (desktop) ---- */
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();

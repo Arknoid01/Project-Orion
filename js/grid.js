@@ -67,6 +67,30 @@ function screenToTile(mx, my){
   return { col, row };
 }
 
+// Case dont le centre (avec relief) est la plus proche du point monde cliqué —
+// corrige l'imprécision du clic au zoom et sur terrain en pente.
+function pickTileAtWorld(mx, my){
+  const approx = screenToTile(mx, my);
+  let bestCol = approx.col;
+  let bestRow = approx.row;
+  let bestDist = Infinity;
+  for (let dr = -3; dr <= 3; dr++){
+    for (let dc = -3; dc <= 3; dc++){
+      const c = approx.col + dc;
+      const r = approx.row + dr;
+      if (!inBounds(c, r)) continue;
+      const { x, y } = tileCenter(c, r);
+      const d = Math.hypot(x - mx, y - my);
+      if (d < bestDist){
+        bestDist = d;
+        bestCol = c;
+        bestRow = r;
+      }
+    }
+  }
+  return { col: bestCol, row: bestRow };
+}
+
 function inBounds(col, row){
   return col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS;
 }

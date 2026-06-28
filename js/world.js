@@ -40,10 +40,10 @@ function makeCity(id, name, pos){
   const buyCount = 2 + Math.floor(Math.random() * 2);  // 2 à 3 biens achetés
   const sellCount = 1 + Math.floor(Math.random() * 2); // 1 à 2 biens vendus
   const buys = goods.slice(0, buyCount).map(r => ({
-    resource: r, price: Math.max(1, Math.round(TRADE_BASE_PRICE[r] * (0.9 + Math.random() * 0.45))),
+    resource: r, price: Math.max(1, Math.round(TRADE_BASE_PRICE[r] * (0.92 + Math.random() * 0.38))),
   }));
   const sells = goods.slice(buyCount, buyCount + sellCount).map(r => ({
-    resource: r, price: Math.max(1, Math.round(TRADE_BASE_PRICE[r] * (1.15 + Math.random() * 0.45))),
+    resource: r, price: Math.max(1, Math.round(TRADE_BASE_PRICE[r] * (1.32 + Math.random() * 0.38))),
   }));
   return {
     id, name, x: pos.x, y: pos.y,
