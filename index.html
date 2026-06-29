@@ -1713,6 +1713,67 @@ h2{
 .dialog-danger{ background:linear-gradient(180deg, rgba(214,96,96,.30), rgba(214,96,96,.12)); border-color:rgba(214,96,96,.8); }
 .dialog-neutral{ background:rgba(255,255,255,.06); }
 
+/* Chargement génération du monde */
+#genLoadingOverlay{
+ position:fixed;
+ inset:0;
+ z-index:300;
+ display:none;
+ align-items:center;
+ justify-content:center;
+ background:linear-gradient(160deg,rgba(7,26,42,.97),rgba(14,45,71,.95));
+ backdrop-filter:blur(8px);
+}
+#genLoadingOverlay.open{ display:flex; }
+.genLoadingBox{
+ width:min(420px,86vw);
+ padding:26px 24px;
+ border:1px solid rgba(210,162,74,.45);
+ border-radius:16px;
+ background:rgba(7,26,42,.92);
+ box-shadow:0 24px 60px rgba(0,0,0,.55);
+ text-align:center;
+ color:var(--marble,#f3e7c9);
+}
+.genLoadingBox h2{
+ font-family:Cinzel,serif;
+ font-size:18px;
+ margin:0 0 16px;
+}
+.genProgressTrack{
+ width:100%;
+ height:10px;
+ border-radius:6px;
+ background:rgba(255,255,255,.10);
+ overflow:hidden;
+ border:1px solid rgba(210,162,74,.3);
+}
+.genProgressBar{
+ height:100%;
+ width:0%;
+ background:linear-gradient(90deg,rgba(202,164,74,.9),rgba(214,180,110,1));
+ transition:width .18s ease;
+}
+.genProgressLabel{
+ margin-top:10px;
+ font-size:13px;
+ opacity:.85;
+}
+.genErrorBox{
+ display:none;
+ margin-top:14px;
+ padding:10px 12px;
+ border-radius:8px;
+ background:rgba(214,96,96,.18);
+ border:1px solid rgba(214,96,96,.6);
+ font-size:12px;
+ text-align:left;
+ white-space:pre-wrap;
+ word-break:break-word;
+ max-height:160px;
+ overflow:auto;
+}
+
 /* Menu principal / scénarios */
 #mainMenuOverlay{
  position:fixed;
@@ -1893,6 +1954,15 @@ h2{
  </main>
 
  <div id="notification"></div>
+
+ <div id="genLoadingOverlay">
+   <div class="genLoadingBox">
+     <h2 id="genLoadingTitle">Génération du monde…</h2>
+     <div class="genProgressTrack"><div id="genProgressBar" class="genProgressBar"></div></div>
+     <div id="genProgressLabel" class="genProgressLabel">Initialisation…</div>
+     <div id="genErrorBox" class="genErrorBox"></div>
+   </div>
+ </div>
 
  <div id="mainMenuOverlay">
    <div class="mainMenuBox">
