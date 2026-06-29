@@ -61,17 +61,25 @@ function applyScenarioObjectives(scenario){
   activeObjectives = (scenario.objectives || OBJECTIVES).map(o => Object.assign({}, o));
 }
 
-function startScenario(scenarioId){
+async function startScenario(scenarioId){
   const scenario = getScenario(scenarioId);
   currentScenarioId = scenario.id;
   applyScenarioObjectives(scenario);
-  resetGameForScenario(scenario);
+  if (typeof showGenLoading === 'function') showGenLoading();
+  try {
+    await resetGameForScenario(scenario);
+  } catch (err){
+    if (typeof showGenError === 'function') showGenError(err);
+    else console.error(err);
+    return;
+  }
   hideMainMenu();
   if (typeof centerMapView === 'function') centerMapView();
+  if (typeof hideGenLoading === 'function') hideGenLoading();
 }
 
-function resetGameForScenario(scenario){
-  initGrid();
+async function resetGameForScenario(scenario){
+  await initGrid();
   resources = mergeResources(
     typeof STARTING_RESOURCES !== 'undefined' ? STARTING_RESOURCES : {},
   );

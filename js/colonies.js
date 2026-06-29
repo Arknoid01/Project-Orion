@@ -155,7 +155,7 @@ function applySnapshotToGame(snapshot){
   ensureArmyState();
 }
 
-function resetColonyLocalState(colonyDef){
+async function resetColonyLocalState(colonyDef){
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
@@ -187,9 +187,9 @@ function resetColonyLocalState(colonyDef){
   treasury = colonyDef.startingTreasury;
   resources = mergeResources(colonyDef.startingResources || {});
   if (typeof generateProceduralMap === 'function'){
-    generateProceduralMap(colonyDef.mapSeed);
+    await generateProceduralMap(colonyDef.mapSeed);
   } else {
-    initGrid();
+    await initGrid();
   }
   activeObjectives = colonyDef.objectives.map(o => Object.assign({}, o));
   recomputeAllWalkers();
@@ -234,7 +234,7 @@ function confirmLaunchColony(colonyId){
   }
 }
 
-function launchColony(colonyId){
+async function launchColony(colonyId){
   const def = getColonyDef(colonyId);
   if (!def || !canLaunchColony(colonyId)) return;
   if (!spend(COLONY_LAUNCH_COST)){
@@ -244,7 +244,15 @@ function launchColony(colonyId){
   mainCitySnapshot = captureMainCitySnapshot();
   gamePhase = 'colony';
   activeColonyId = colonyId;
-  resetColonyLocalState(def);
+  if (typeof showGenLoading === 'function') showGenLoading();
+  try {
+    await resetColonyLocalState(def);
+  } catch (err){
+    if (typeof showGenError === 'function') showGenError(err);
+    else console.error(err);
+    return;
+  }
+  if (typeof hideGenLoading === 'function') hideGenLoading();
   if (typeof closePanels === 'function') closePanels();
   if (typeof centerMapView === 'function') centerMapView();
   showNotification(t('colony.started', { name: t(def.nameKey) }), 'good');

@@ -1,12 +1,12 @@
 /* ===================== ETAT DE LA CARTE ===================== */
 let grid = []; // grid[row][col] = { terrain, building, hasRoad, elevation, ... }
 
-function initGrid(){
+async function initGrid(){
   if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
   else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   if (typeof generateProceduralMap === 'function'){
-    generateProceduralMap();
+    await generateProceduralMap();
   } else {
     grid = [];
     for (let row = 0; row < GRID_ROWS; row++){

@@ -2,6 +2,47 @@
 // Relief : bruit domain-warp + massifs ridgés + humidité → biomes cohérents.
 // Modes : continent (terre continue) ou île (avec couloir terrestre vers le bord sud).
 
+/* --- Overlay de chargement + cession de contrôle au navigateur ---
+   IMPORTANT : sans ce yield, la barre de progression ne s'affiche JAMAIS,
+   même avec un délai/setTimeout autour de l'appel global, car tant que le
+   JS tourne en synchrone le navigateur ne repaint rien. Double requestAnimationFrame
+   = on attend qu'une frame ait réellement été peinte avant de continuer. */
+function yieldFrame(){
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function showGenLoading(){
+  const el = document.getElementById('genLoadingOverlay');
+  if (el) el.classList.add('open');
+  const errBox = document.getElementById('genErrorBox');
+  if (errBox){ errBox.style.display = 'none'; errBox.textContent = ''; }
+  reportGenProgress(0, 'Initialisation…');
+}
+
+function hideGenLoading(){
+  const el = document.getElementById('genLoadingOverlay');
+  if (el) el.classList.remove('open');
+}
+
+function reportGenProgress(pct, label){
+  const bar = document.getElementById('genProgressBar');
+  const lbl = document.getElementById('genProgressLabel');
+  if (bar) bar.style.width = Math.max(0, Math.min(100, Math.round(pct))) + '%';
+  if (lbl && label) lbl.textContent = label;
+}
+
+/** Affiche l'erreur réelle dans l'overlay au lieu de laisser un freeze silencieux. */
+function showGenError(err){
+  console.error('[Olympos] Erreur génération du monde :', err);
+  const box = document.getElementById('genErrorBox');
+  if (box){
+    box.style.display = 'block';
+    box.textContent = (err && err.stack) ? err.stack : String(err);
+  }
+  const lbl = document.getElementById('genProgressLabel');
+  if (lbl) lbl.textContent = 'Échec de la génération — détail ci-dessous (F12 aussi).';
+}
+
 let mapSeed = 0;
 let mapLandStyle = 'continent';
 let mapWalkerEntry = null;
@@ -218,9 +259,10 @@ function hasInteriorWalkableReach(col, row){
   const minDist = Math.max(12, Math.floor(Math.min(GRID_COLS, GRID_ROWS) * 0.12));
   const seen = new Set();
   const q = [[col, row]];
+  let head = 0;
   seen.add(`${col},${row}`);
-  while (q.length){
-    const [c, r] = q.shift();
+  while (head < q.length){
+    const [c, r] = q[head++];
     if (mapEdgeDistance(c, r) >= minDist) return true;
     [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dc, dr]) => {
       const nc = c + dc, nr = r + dr;
@@ -789,17 +831,27 @@ function syncAllCellHeights(heights){
   }
 }
 
-function generateProceduralMap(seed){
+async function generateProceduralMap(seed){
   mapSeed = (typeof seed === 'number') ? seed : Math.floor(Math.random() * 1e9);
   mapLandStyle = pickMapLandStyle(mapSeed);
   mapWalkerEntry = null;
   mapLandBridgePath = null;
   mapEntryCorridorCells = null;
 
+  reportGenProgress(5, 'Relief (hauteurs)…');
+  await yieldFrame();
   const heights = generateHeightMap(mapSeed);
+
+  reportGenProgress(30, 'Humidité…');
+  await yieldFrame();
   const moisture = generateMoistureMap(mapSeed, heights);
+
+  reportGenProgress(45, 'Pentes…');
+  await yieldFrame();
   const slopes = computeSlopeMap(heights);
 
+  reportGenProgress(55, 'Biomes…');
+  await yieldFrame();
   grid = [];
   for (let row = 0; row < GRID_ROWS; row++){
     const line = [];
@@ -824,17 +876,28 @@ function generateProceduralMap(seed){
     grid.push(line);
   }
 
+  reportGenProgress(68, 'Lissage des biomes…');
+  await yieldFrame();
   smoothTerrainMap(typeof MAP_BIOME_SMOOTH === 'number' ? MAP_BIOME_SMOOTH : 0);
   syncAllCellHeights(heights);
+
+  reportGenProgress(78, 'Côtes et montagnes…');
+  await yieldFrame();
   polishCoastBiomes(heights, slopes);
   polishMountainBiomes(heights);
   syncAllCellHeights(heights);
 
+  reportGenProgress(88, 'Bords de carte…');
+  await yieldFrame();
   if (typeof polishMapEdges === 'function') polishMapEdges();
+
+  reportGenProgress(94, 'Corridor d\'entrée…');
+  await yieldFrame();
   ensureWalkerEntryCorridor(heights);
   syncAllCellHeights(heights);
   mapWalkerEntry = computeMapWalkerEntry();
 
+  reportGenProgress(100, 'Finalisation…');
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   debugInfo('Carte procédurale générée', {
     seed: mapSeed,
