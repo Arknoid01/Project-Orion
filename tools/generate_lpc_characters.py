@@ -7,7 +7,7 @@ Usage :
   python tools/generate_lpc_characters.py --only walkers water
   LPC_REPO="C:/chemin/lpc_repo" python tools/generate_lpc_characters.py
 
-Sortie : assets/characters/{walkers,gods,monsters,heroes}/*.png (atlas 288×384)
+Sortie : assets/characters/{walkers,migrants,gods,monsters,heroes}/*.png (atlas 288×384)
 """
 from __future__ import annotations
 
@@ -38,6 +38,7 @@ LEGS_ARM = "sheet_definitions/legs/legs_armour.json"
 BOOTS = "sheet_definitions/feet/boots/feet_boots_basic.json"
 SHOES = "sheet_definitions/feet/shoes/feet_shoes_basic.json"
 SASH = "sheet_definitions/torso/waist/belt_sash.json"
+BACKPACK = "sheet_definitions/torso/backpack/backpack.json"
 CROWN = "sheet_definitions/headwear/hats/formal/hat_formal_crown.json"
 SPEAR = "sheet_definitions/weapons/polearm/weapon_polearm_longspear.json"
 TRIDENT = "sheet_definitions/weapons/polearm/weapon_polearm_trident.json"
@@ -187,6 +188,19 @@ RECIPES = [
             {"sheet": SLEEVELESS, "variant": "red"},
             {"sheet": SASH, "variant": "red"},
             {"sheet": "sheet_definitions/hair/short/hair_messy2.json", "recolor": "dark_brown"},
+        ],
+    },
+    # ========== MIGRANTS (1 — arrivées / départs, sac à dos LPC) ==========
+    {
+        "id": "migrant", "category": "migrants", "output": "migrant.png",
+        "body_type": "male",
+        "layers": [
+            {"sheet": B, "recolor": "light"},
+            {"sheet": SAND, "variant": "brown"},
+            {"sheet": PANTS, "recolor": "brown"},
+            {"sheet": TUNIC, "variant": "tan"},
+            {"sheet": BACKPACK, "variant": "leather"},
+            {"sheet": "sheet_definitions/hair/short/hair_parted.json", "recolor": "chestnut"},
         ],
     },
     # ========== DIEUX (14) ==========

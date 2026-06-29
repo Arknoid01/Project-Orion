@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Preview stone — Project Orion</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0b2134; color: #f4e8cc; padding: 24px; }
+    h1 { font-size: 1.1rem; font-weight: 600; }
+    .row { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; margin-top: 16px; }
+    figure { margin: 0; }
+    img { image-rendering: pixelated; border: 2px solid #d2a24a; background: #111; }
+    .src { width: 320px; image-rendering: auto; }
+    .game { width: 256px; }
+    a { color: #f3cc74; }
+    p { max-width: 52rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>Texture stone (Comfy → jeu)</h1>
+  <p>
+    Source Comfy 1024×1024 et version 64×64 utilisée par le moteur.
+    Pour voir en jeu : ouvre <a href="../index.html">index.html</a>,
+    Ctrl+F5 et nouvelle partie. La pierre Comfy apparaît sur les montagnes (niveau 3) et le biome rock.
+  </p>
+  <div class="row">
+    <figure>
+      <figcaption>Source Comfy</figcaption>
+      <img class="src" src="../assets/textures/flat/source/stone.png?v=20260627-stone" alt="stone source">
+    </figure>
+    <figure>
+      <figcaption>Jeu 64×64 (×4)</figcaption>
+      <img class="game" src="../assets/textures/flat/game/stone.png?v=20260627-stone" alt="stone game">
+    </figure>
+  </div>
+</body>
+</html>

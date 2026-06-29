@@ -113,7 +113,7 @@ function getWalkerMovementDelta(walker){
 // est rafraîchi en continu (voir loop.js).
 function getWalkerScreenPos(walker, now){
   const tile = walker.path[walker.pathIndex];
-  if (walker.path.length <= 1) return tileCenter(tile.col, tile.row);
+  if (walker.path.length <= 1) return tileDiamondCenter(tile.col, tile.row);
 
   const i = walker.pathIndex;
   const j = i + (walker.direction || 1);
@@ -126,8 +126,8 @@ function getWalkerScreenPos(walker, now){
   const elapsed = now - lastTickTimestamp;
   const t = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
 
-  const fromPos = tileCenter(fromTile.col, fromTile.row);
-  const toPos = tileCenter(toTile.col, toTile.row);
+  const fromPos = tileDiamondCenter(fromTile.col, fromTile.row);
+  const toPos = tileDiamondCenter(toTile.col, toTile.row);
   return {
     x: fromPos.x + (toPos.x - fromPos.x) * t,
     y: fromPos.y + (toPos.y - fromPos.y) * t,

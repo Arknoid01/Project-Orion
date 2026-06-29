@@ -9,6 +9,7 @@ let migrants = []; // { type, reason, col, row, prevCol, prevRow, path, pathInde
 function resetMigrants(){ migrants = []; }
 
 function getFixedMigrantEntry(){
+  if (typeof getMapWalkerEntry === 'function') return getMapWalkerEntry();
   const col = MIGRANT_ENTRY_COL;
   const row = MIGRANT_ENTRY_ROW;
   if (inBounds(col, row) && isWalkable(col, row)) return { col, row };
@@ -84,6 +85,7 @@ function queueMigrantIn(houseCol, houseRow, reason){
     path, pathIndex: 0,
     houseCol, houseRow,
     moveCooldown: MIGRANT_MOVE_EVERY_TICKS,
+    facing: 'down', mirrorX: false,
   });
 
   const msgKey = reason === 'placement' ? 'migration.newHouse' : 'migration.arrival';
@@ -113,6 +115,7 @@ function queueMigrantOut(houseCol, houseRow, opts){
     houseCol, houseRow,
     moveCooldown: MIGRANT_MOVE_EVERY_TICKS,
     destroyOnComplete: !!opts.destroyOnComplete,
+    facing: 'down', mirrorX: false,
   });
 
   if (opts.notify !== false) showNotification(t('migration.departure'), 'bad');
@@ -158,6 +161,7 @@ function tickMigrants(){
     m.col = next.col;
     m.row = next.row;
     m.pathIndex++;
+    if (typeof updateAgentFacing === 'function') updateAgentFacing(m);
   }
 }
 

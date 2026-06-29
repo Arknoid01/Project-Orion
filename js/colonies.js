@@ -416,11 +416,19 @@ function restoreColonyStateFromSave(payload){
 }
 
 function serializeColonyState(){
+  let snapshot = null;
+  if (mainCitySnapshot){
+    try {
+      snapshot = cloneJson(mainCitySnapshot);
+    } catch (err) {
+      debugWarn('Snapshot cité mère non sérialisable, ignoré pour la sauvegarde', { error: err.message });
+    }
+  }
   return {
     gamePhase,
     activeColonyId,
     completedColonies,
     colonyTroopBonus,
-    mainCitySnapshot: mainCitySnapshot ? cloneJson(mainCitySnapshot) : null,
+    mainCitySnapshot: snapshot,
   };
 }

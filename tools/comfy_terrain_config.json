@@ -1,0 +1,64 @@
+{
+  "comfy_host": "127.0.0.1",
+  "comfy_port": 8188,
+  "output_subfolder": "orion_terrain",
+
+  "models": {
+    "unet": "flux1-dev-Q4_K_S.gguf",
+    "unet_loader": "auto",
+    "clip_t5": "t5xxl_fp8_e4m3fn.safetensors",
+    "clip_l": "clip_l.safetensors",
+    "vae": "ae.safetensors",
+    "lora": "seamless_texture.safetensors",
+    "lora_strength": 0.85
+  },
+
+  "generation": {
+    "width": 1024,
+    "height": 1024,
+    "steps": 20,
+    "guidance": 3.5,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "seed_base": 424242
+  },
+
+  "prompt_suffix": "seamless texture",
+  "prompt_prefix": "smlstxtr",
+  "negative": "text, watermark, logo, signature, blurry, low quality, jpeg artifacts, perspective, isometric, 3d, object, character, border, frame, shadow overlay, vignette",
+
+  "textures": [
+    {
+      "name": "grass_top",
+      "subject": "ancient greek meadow grass, mediterranean olive grove turf, dry sunny aegean hillside, top down view, cycladic island vegetation"
+    },
+    {
+      "name": "forest_top",
+      "subject": "mediterranean pine scrubland floor, greek forest underbrush, dry maquis vegetation, top down view, dappled green brown"
+    },
+    {
+      "name": "sand_top",
+      "subject": "golden aegean beach sand, cycladic island shore, bright sunlit fine sand, top down view, hellenic coastline"
+    },
+    {
+      "name": "sand",
+      "subject": "aegean golden sand surface, mediterranean beach sand tile, warm sunlit sand, flat material"
+    },
+    {
+      "name": "dirt",
+      "subject": "dry mediterranean ochre earth, greek terracotta soil, rocky hillside dirt path, terracotta clay ground"
+    },
+    {
+      "name": "stone",
+      "subject": "ancient greek limestone marble cobblestone pavement, cycladic white grey stone blocks, weathered hellenic masonry, classical agora floor"
+    }
+  ],
+
+  "workflow_file": null,
+  "patch_nodes": {
+    "positive": null,
+    "negative": null,
+    "seed": null,
+    "filename_prefix": null
+  }
+}

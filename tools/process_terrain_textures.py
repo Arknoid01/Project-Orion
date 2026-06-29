@@ -6,6 +6,7 @@ Usage :
   python tools/process_terrain_textures.py OLYMPOS_TERRAIN_TEXTURES.zip
   python tools/process_terrain_textures.py assets/textures_source/*.png
   python tools/process_terrain_textures.py --from-preview chemin/vers/apercu.png
+  python tools/process_terrain_textures.py --from-iso-atlas chemin/planche.webp
 
 Ordre attendu dans le zip (8 fichiers, tri alphabétique ou noms explicites) :
   01_grass, 02_hill, 03_marble, 04_rock, 05_sand, 06_water, 07_road, 08_forest
@@ -46,6 +47,25 @@ GAME_TILE_SOURCES = {
 }
 
 ROAD_OUT = "road.png"
+
+# Planche isométrique 4×4 (ligne, colonne) → tuile jeu
+# Source type « terrain tiles set » (herbe, eau, sable, pierre, bois, glace…)
+ISO_ATLAS_GRID = (4, 4)
+ISO_ATLAS_FILL = 1.0            # largeur face = TILE_W × EXPORT_SCALE exactement
+ISO_ATLAS_BG_THRESHOLD = 22    # noir / fond transparent → alpha 0
+ISO_ATLAS_TILE_H = 88          # hauteur canvas export (toutes tuiles identiques)
+ISO_ATLAS_FACE_ROW = 38        # ligne cible : centre de la face iso (alignement grille)
+ISO_ATLAS_MAP = {
+    "grass":  (1, 3),  # hautes herbes
+    "hill":   (0, 1),  # rochers moussus sur herbe
+    "marble": (1, 1),  # pavés pierre
+    "rock":   (2, 2),  # pierre sombre fissurée
+    "sand":   (2, 1),  # sable
+    "water":  (0, 2),  # eau claire
+    "wheat":  (3, 1),  # pelouse quadrillée → champs de blé doré
+    "forest": (1, 3),  # hautes herbes → assombri
+    "road":   (1, 0),  # planches claires (plus plat, s’aligne mieux que les pavés)
+}
 
 
 def sample_bilinear(px, sn, u, v):
@@ -235,6 +255,216 @@ def load_square(path):
     return im
 
 
+def tint_rgba(im, pixel_fn):
+    im = im.convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            px[x, y] = pixel_fn(px[x, y])
+    return im
+
+
+def make_forest_cell(cell):
+    rnd = random.Random(42)
+
+    def fn(rgba):
+        r, g, b, a = rgba
+        if a < 8:
+            return rgba
+        k = rnd.uniform(0.82, 0.96)
+        return (int(r * k), int(g * k * 1.02), int(b * k * 0.88), a)
+
+    return tint_rgba(cell, fn)
+
+
+def make_wheat_cell(cell):
+    """Champs de blé : fond nettoyé puis teinte dorée (évite franges noires)."""
+    cell = remove_background_auto(cell)
+    bbox = cell.getbbox()
+    if bbox:
+        cell = cell.crop(bbox)
+
+    def fn(rgba):
+        r, g, b, a = rgba
+        if a < 8:
+            return (0, 0, 0, 0)
+        return (
+            min(255, int(r * 1.08 + 42)),
+            min(255, int(g * 0.88 + 32)),
+            max(0, int(b * 0.25)),
+            a,
+        )
+
+    return tint_rgba(cell, fn)
+
+
+def remove_background_auto(im, threshold=None):
+    """Fond blanc ou noir (planche marketing / PNG transparent) → alpha 0."""
+    threshold = ISO_ATLAS_BG_THRESHOLD if threshold is None else threshold
+    im = im.convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a < 12:
+                px[x, y] = (0, 0, 0, 0)
+            elif r <= threshold and g <= threshold and b <= threshold:
+                px[x, y] = (0, 0, 0, 0)
+            elif r >= 242 and g >= 242 and b >= 242:
+                px[x, y] = (0, 0, 0, 0)
+            else:
+                px[x, y] = (r, g, b, 255)
+    return im
+
+
+def remove_white_background(im, threshold=242):
+    return remove_background_auto(im, threshold=threshold)
+
+
+def trim_cell_to_content(cell):
+    cell = remove_background_auto(cell)
+    bbox = cell.getbbox()
+    return cell.crop(bbox) if bbox else cell
+
+
+def max_width_row_info(im):
+    """Ligne la plus large du bloc (≈ face iso) + son centre horizontal."""
+    im = im.convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    best_w, best_y, best_cx = 0, 0, w / 2
+    for y in range(h):
+        xs = [x for x in range(w) if px[x, y][3] > 100]
+        if not xs:
+            continue
+        bw = xs[-1] - xs[0] + 1
+        if bw > best_w:
+            best_w, best_y = bw, y
+            best_cx = (xs[0] + xs[-1]) / 2
+    return best_w, best_y, best_cx
+
+
+def iso_atlas_cell_to_tile(cell, out_w=None, canvas_h=None):
+    """
+    Bloc 3D atlas → tuile jeu 128×88 :
+    - face la plus large redimensionnée à out_w (= une case iso)
+    - pied du bloc en bas du canvas, centré horizontalement
+    """
+    if out_w is None:
+        out_w = TILE_W * EXPORT_SCALE
+    if canvas_h is None:
+        canvas_h = ISO_ATLAS_TILE_H
+
+    cropped = trim_cell_to_content(cell)
+    if not cropped.getbbox():
+        return Image.new("RGBA", (out_w, canvas_h), (0, 0, 0, 0))
+
+    face_w, face_y, face_cx = max_width_row_info(cropped)
+    if face_w < 1:
+        face_w = cropped.size[0]
+        face_y = cropped.size[1] // 2
+        face_cx = cropped.size[0] / 2
+
+    face_row = ISO_ATLAS_FACE_ROW
+    scale = out_w / face_w
+    cw, ch = cropped.size
+    nh = max(1, ch * scale)
+    face_y_s = face_y * scale
+    face_cx_s = face_cx * scale
+
+    # Réduire si la face alignée (ligne 38) ne tient pas dans le canvas
+    for _ in range(24):
+        oy = face_row - face_y_s
+        if oy >= 0 and oy + nh <= canvas_h:
+            break
+        scale *= 0.92
+        nh = max(1, ch * scale)
+        face_y_s = face_y * scale
+        face_cx_s = face_cx * scale
+
+    nw = max(1, int(round(cw * scale)))
+    nh = max(1, int(round(ch * scale)))
+    scaled = cropped.resize((nw, nh), Image.LANCZOS)
+    face_y_s = face_y * scale
+    face_cx_s = face_cx * scale
+
+    oy = int(round(face_row - face_y_s))
+    ox = int(round(out_w / 2 - face_cx_s))
+    if oy < 0:
+        oy = 0
+    if oy + nh > canvas_h:
+        oy = canvas_h - nh
+    if ox + nw > out_w:
+        ox = out_w - nw
+    if ox < 0:
+        ox = 0
+
+    out = Image.new("RGBA", (out_w, canvas_h), (0, 0, 0, 0))
+    out.paste(scaled, (ox, oy), scaled)
+    return defringe_rgba(out)
+
+
+def extract_iso_atlas_cells(atlas_path, grid=ISO_ATLAS_GRID):
+    """Découpe une planche en grille (rows, cols) + rognage au contenu."""
+    im = Image.open(atlas_path).convert("RGBA")
+    w, h = im.size
+    cols, rows = grid[1], grid[0]
+    cells = {}
+    for r in range(rows):
+        for c in range(cols):
+            x0 = round(c * w / cols)
+            x1 = round((c + 1) * w / cols)
+            y0 = round(r * h / rows)
+            y1 = round((r + 1) * h / rows)
+            cells[(r, c)] = im.crop((x0, y0, x1, y1))
+    return cells
+
+
+def export_from_iso_atlas(atlas_path):
+    """Génère assets/tiles/*.png depuis une planche isométrique 4×4."""
+    os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(SRC_DIR, exist_ok=True)
+
+    dest_src = os.path.join(SRC_DIR, os.path.basename(atlas_path))
+    if os.path.abspath(atlas_path) != os.path.abspath(dest_src):
+        Image.open(atlas_path).save(dest_src)
+        print(f"  Copie source -> {dest_src}")
+
+    cells = extract_iso_atlas_cells(atlas_path)
+    out_w = TILE_W * EXPORT_SCALE
+    canvas_h = ISO_ATLAS_TILE_H
+    exported = set()
+
+    for game_key, (row, col) in ISO_ATLAS_MAP.items():
+        if game_key == "road":
+            continue
+        cell = cells.get((row, col))
+        if cell is None:
+            raise SystemExit(f"Case ({row},{col}) introuvable pour '{game_key}'")
+
+        if game_key == "forest":
+            tile = iso_atlas_cell_to_tile(make_forest_cell(cell), out_w, canvas_h)
+        elif game_key == "wheat":
+            tile = iso_atlas_cell_to_tile(make_wheat_cell(cell), out_w, canvas_h)
+        else:
+            tile = iso_atlas_cell_to_tile(cell, out_w, canvas_h)
+
+        out_path = os.path.join(OUT_DIR, f"{game_key}.png")
+        tile.save(out_path)
+        exported.add(game_key)
+        print(f"  OK  {game_key}.png ({out_w}×{canvas_h}) <- atlas[{row},{col}]")
+
+    road_cell = cells.get(ISO_ATLAS_MAP["road"])
+    if road_cell is not None:
+        road = iso_atlas_cell_to_tile(road_cell, out_w, canvas_h)
+        road.save(os.path.join(OUT_DIR, ROAD_OUT))
+        print(f"  OK  {ROAD_OUT} ({out_w}×{canvas_h}) <- atlas{ISO_ATLAS_MAP['road']}")
+
+    print(f"\n{len(exported)} tuiles + route exportées.")
+
+
 def export_tiles(mapping):
     os.makedirs(OUT_DIR, exist_ok=True)
     out_w, out_h = TILE_W * EXPORT_SCALE, TILE_H * EXPORT_SCALE
@@ -308,6 +538,14 @@ def main():
         sys.exit(1)
 
     paths = []
+    if args[0] == "--from-iso-atlas":
+        if len(args) < 2:
+            raise SystemExit("Usage: --from-iso-atlas chemin/planche.webp")
+        atlas = os.path.abspath(args[1])
+        print(f"\nPlanche iso 4×4 -> {OUT_DIR}\n")
+        export_from_iso_atlas(atlas)
+        print("\nTerminé. Recharge le jeu pour voir les nouveaux sols.")
+        return
     if args[0] == "--from-preview":
         if len(args) < 2:
             raise SystemExit("Usage: --from-preview chemin/planche.png")

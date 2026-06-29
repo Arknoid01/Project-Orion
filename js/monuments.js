@@ -217,7 +217,9 @@ function monumentScreenCenter(anchorCol, anchorRow, size){
   let sx = 0, sy = 0, n = 0;
   for (let r = anchorRow; r < anchorRow + size; r++){
     for (let c = anchorCol; c < anchorCol + size; c++){
-      const p = tileCenter(c, r);
+      const p = (typeof tileEntityFoot === 'function')
+        ? tileEntityFoot(c, r)
+        : tileCenter(c, r);
       sx += p.x;
       sy += p.y;
       n++;

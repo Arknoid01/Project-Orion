@@ -1,30 +1,89 @@
-/* ===================== CONFIG GRILLE / ISO ===================== */
-const GRID_COLS = 60;
-const GRID_ROWS = 60;
+/* ===================== CONFIG GRILLE / VUE (ISO FIXE) ===================== */
+const GRID_COLS = 120;
+const GRID_ROWS = 120;
+
 const TILE_W = 64;
 const TILE_H = 32;
-const OFFSET_X = 1952; // centre horizontal (grille 60×60)
+const OFFSET_X = 3872;
 const OFFSET_Y = 80;
+const WORLD_WIDTH = 7808;
+const WORLD_HEIGHT = 3960;
 const ELEVATION_PIXELS = 26; // décalage vertical des entités (bâtiments, unités)
-// Relief visuel des tuiles 3D (blocs atlas) — hauteur du socle + étirement du sprite.
-const TERRAIN_ELEV_BASELINE = 0.28;       // sous ce niveau : terrain plat (eau / plage)
-const TERRAIN_BLOCK_HEIGHT_PER_ELEV = 24; // étirement vertical du sprite par unité d'élévation
-const TERRAIN_SPRITE_STRETCH = 0.55;      // fraction d'étirement (atlas déjà 3D — léger)
+// Relief visuel des tuiles 3D (blocs atlas) — le relief est dans le sprite, pas via étirement.
+const TERRAIN_ELEV_BASELINE = 0.28;       // sous ce niveau : ombre de relief minimale
+const TERRAIN_BLOCK_HEIGHT_PER_ELEV = 24; // socle procédural optionnel (TERRAIN_USE_BASE_BLOCK)
 const TERRAIN_USE_BASE_BLOCK = false;     // false : pas de socle procédural (évite les bandes beiges)
-const TERRAIN_TILE_OVERLAP = 5;           // px de chevauchement horizontal anti-trous
-const ROAD_SURFACE_OFFSET_Y = 0;          // ajustement fin surface route vs herbe
+const TERRAIN_TILE_OVERLAP = 4;           // chevauchement entre losanges (masque les joints sans clip)
+const TERRAIN_CAP_CLIP_PAD = 0;           // 0 = pas de clip dur sur les textures
+const TERRAIN_EXPORT_SCALE = 2;           // PNG 128 px de large = TILE_W × 2
 
-const WORLD_WIDTH = 3960;
-const WORLD_HEIGHT = 2040;
+// Vue carte : rotation/inclinaison désactivées (iso bloc stable)
+const MAP_ROTATION_ENABLED = false;
+const MAP_ROTATION_STEP = 15;
+const MAP_TILT_DEG = 0;
+const TERRAIN_CANVAS_H = 88;              // hauteur export normalisée (assets/tiles/*.png)
+const TERRAIN_FACE_ROW_FRAC = 38 / 88;    // ligne face iso dans le PNG (export normalisé)
 
 /* ===================== ZOOM ===================== */
-const ZOOM_DEFAULT = 0.55;  // carte 60×60 : vue reculée par défaut
+const ZOOM_DEFAULT = 0.55;
 const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = 1.5;
-const BUILDING_SPRITE_W = 63; // largeur cible à l'écran pour un bâtiment 1×1 (légèrement < TILE_W)
+const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
+
+/* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
+// Sprites iso « Isometric Asset - Lite » — affichés comme des bâtiments sur le terrain
+// forest, masqués dès qu'une route ou un bâtiment occupe la case (pas de blocage de pose).
+const FOREST_TREES_ENABLED = true;
+const FOREST_TREE_SPRITE = 'assets/trees/tree.png';
+const FOREST_TREE_SPRITES = [
+  'assets/trees/tree.png',
+  'assets/trees/tree2.png',
+];
+const FOREST_TREE_DENSITY = 1; // arbre sur chaque case forêt libre
+const FOREST_TREE_SIZE = 1.1;     // +10 % vs largeur tuile de base (BUILDING_SPRITE_W)
+
+/* ===================== DÉCOR HERBE (tufts, cailloux, souches…) ===================== */
+const GRASS_DECOR_ENABLED = true;
+const GRASS_DECOR_SPRITES = [
+  'assets/grass/grass00.png',
+  'assets/grass/rockPath00.png',
+  'assets/grass/trunk00.png',
+  'assets/grass/rockPile00.png',
+  'assets/grass/bush00.png',
+  'assets/grass/ruins/arch01.png',
+  'assets/grass/ruins/arch02.png',
+  'assets/grass/ruins/arch03.png',
+  'assets/grass/ruins/arch04.png',
+  'assets/grass/ruins/arch05.png',
+  'assets/grass/ruins/arch06.png',
+  'assets/grass/ruins/pillar04.png',
+  'assets/grass/ruins/ruin01.png',
+  'assets/grass/ruins/wall01.png',
+];
+const GRASS_DECOR_CHANCE = 1 / 6; // 1 chance sur 6 qu'un décor apparaisse sur une case herbe libre
+const GRASS_DECOR_GRASS_KEEP = 0.7;  // touffes grass00 : −30 %
+const GRASS_DECOR_RUINS_KEEP = 0.5;  // ruines : −50 %
+const GRASS_DECOR_SIZE = 0.6;     // 60 % de la largeur tuile (petits props)
+const GRASS_DECOR_RUINS_SIZE = 0.66; // ruines : +10 % vs GRASS_DECOR_SIZE
+// false = bas du losange ; true = centre. lift = remontée en px (négatif = plus haut).
+const GRASS_DECOR_ANCHOR_CENTER = false;
+const NATURE_DECOR_LIFT = -5;
+
+function natureDecorDrawOpts(){
+  if (typeof GRASS_DECOR_ANCHOR_CENTER === 'boolean' && GRASS_DECOR_ANCHOR_CENTER){
+    return { lift: 0, anchorCenter: true };
+  }
+  return { lift: typeof NATURE_DECOR_LIFT === 'number' ? NATURE_DECOR_LIFT : -5 };
+}
+
+/* ===================== OVERLAY BLÉ (épis sur terrain wheat) ===================== */
+const WHEAT_CROPS_ENABLED = true;
+const WHEAT_CROP_SPRITE = 'assets/wheat/wheat_crop.png';
+const WHEAT_CROP_DENSITY = 1;   // 1 = 100 % des cases blé libres
+const WHEAT_CROP_SIZE = 0.4;    // 0.6 × 0.67 (−33 %)
 
 /* ===================== DEFINITIONS BATIMENTS ===================== */
 // validTerrain: terrain requis sous le bâtiment
@@ -79,7 +138,7 @@ const BUILDING_DEFS = {
   colonnade: { name:'building.colonnade', icon:'🏛️', color:'#e3ddcf', validTerrain:'grass', isDecoration:true, beauty:5, range:2, cost:70, upkeep:0.5, sprite:'assets/buildings/colonnade.png' },
   // ---- Temples monumentaux (2×2 cases) : alliance avec un dieu, avantages puissants ----
   // Voir monuments.js. Coût propre à chaque dieu (GODS), affiché dans la modale de choix.
-  grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:120,
+  grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:118,
     sprite:'assets/buildings/grandTemple.png', upkeep:2.5 },
 };
 
@@ -173,6 +232,7 @@ const TERRAIN_COLORS = {
   forest: '#4a6b38',
   rock:   '#8a8580',
   hill:   '#6d9348',
+  road:   '#9c8868',
 };
 
 const TERRAIN_SPRITES = {
@@ -187,6 +247,104 @@ const TERRAIN_SPRITES = {
 };
 
 const ROAD_SPRITE_PATH = 'assets/tiles/road.png';
+
+// Variantes depuis tiles_pretes.zip (losanges iso du pack nature)
+const TERRAIN_TILE_VARIANTS = {
+  grass: Array.from({ length: 10 }, (_, i) =>
+    `assets/textures_source/tiles_pretes/grass${i + 1}.png`),
+  sand: Array.from({ length: 4 }, (_, i) =>
+    `assets/textures_source/tiles_pretes/dirt${i + 1}.png`),
+};
+
+// Sol : cubes texturés PNG (simple) OU calques procéduraux (legacy)
+const TERRAIN_TEXTURED_CUBES = true;     // piles de blocs PNG — approche simple
+const TERRAIN_CUBE_FULL_FACES = true;    // chaque niveau = cube entier (cap + parois), empilés
+const TERRAIN_BLOCK_SIDE_H = 32;         // hauteur paroi uniforme (alignement empilement)
+
+// Textures plates Comfy 512×512 → import_flat_textures.py → faces 64×64
+//
+// Modes rendu (empilement Lego validé) :
+//   Nature pur     → TERRAIN_USE_FLAT_FACES=false, TERRAIN_FLAT_BLOCK_KEYS=[]
+//   Hybride Comfy  → TERRAIN_USE_FLAT_FACES=false, TERRAIN_FLAT_BLOCK_KEYS=['stone', ...]
+//   Full flat      → TERRAIN_USE_FLAT_FACES=true  (expérimental — casse l'empilement si incomplet)
+//
+const TERRAIN_USE_FLAT_FACES = false;
+// [] = PNG nature uniquement (mode validé) — remplir pour tester Comfy bloc par bloc
+const TERRAIN_FLAT_BLOCK_KEYS = [];
+const TERRAIN_FLAT_SOURCE_PX = 512;      // taille export ComfyUI
+const TERRAIN_FLAT_FACE_PX = 64;         // taille en jeu (losange 64×32, face lat. 64×16)
+const TERRAIN_FLAT_TEXTURE_DIR = 'assets/textures/flat/game/';
+const TERRAIN_FLAT_TEXTURE_VERSION = '20260630-nature'; // bump après import Comfy
+// Mapping type Minecraft : top / left / right (noms sans .png)
+const TERRAIN_BLOCK_FACES = {
+  grass:  { top: 'grass_top',  left: 'dirt',  right: 'dirt' },
+  dirt:   { top: 'dirt',       left: 'dirt',  right: 'dirt' },
+  stone:  { top: 'stone',      left: 'stone', right: 'stone' },
+  sand:   { top: 'sand_top',   left: 'sand',  right: 'sand' },
+  forest: { top: 'forest_top', left: 'dirt',  right: 'dirt' },
+};
+
+const TERRAIN_USE_BLOCKS = true;
+const TERRAIN_LAYERED_RENDER = true;
+const TERRAIN_TEXTURE_LAYER = false;     // pas de calque cap séparé en mode cubes
+const TERRAIN_CAP_USE_FLAT_SPRITES = false;
+
+const TERRAIN_PROCEDURAL_CAPS = false;
+const TERRAIN_POLIS_CLIFF_WALLS = false;
+const TERRAIN_PROCEDURAL_3D = false;
+const TERRAIN_CAP_DEPTH_RIM = false;
+const TERRAIN_CAP_DETAIL_DENSITY = 1.0;
+const TERRAIN_CAP_EDGE_FEATHER = true;
+const TERRAIN_CONTACT_SHADOW = true;
+// Texture de sommet selon la hauteur de pile (biomes listés dans TERRAIN_LEVEL_CAP_BIOMES)
+const TERRAIN_LEVEL_CAP_MAP = { 2: 'hill', 3: 'hill' };
+const TERRAIN_LEVEL_CAP_BIOMES = ['grass', 'hill', 'wheat'];
+const TERRAIN_CLIFF_DARKEN = 0.12;       // assombrissement parois falaise
+const TERRAIN_CLIFF_AO = 0.24;           // ombre interne bas de paroi (dans la face)
+const TERRAIN_CLIFF_SHADOW = false;      // pas d'ombres portées flottantes
+const TERRAIN_CUBE_WALL_H = 16;          // hauteur paroi latérale d'un cube (px)
+const TERRAIN_BLOCK_MAX_LEVEL = 3;       // 0=eau, 1=plaine, 2=colline, 3=montagne
+const LEGO_BRICK_STEP = 32;              // distance entre sommets de briques empilées (= TILE_H)
+const TERRAIN_BLOCK_DRAW_W = 64;         // largeur d'une brique à l'écran
+const TERRAIN_BLOCK_CLEAN_WALLS = true;  // parois procédurales uniformes (Mykonos)
+const TERRAIN_BLOCK_SIDE_WALL_MIN = 8;
+const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
+const TERRAIN_CACHE_SCALE = 2;           // cache terrain HiDPI (1 = natif)
+const TERRAIN_BLOCK_FILL = 'dirt';        // brique sous le sommet
+const TERRAIN_BLOCK_SPRITES = {
+  grass:  'assets/tiles/blocks/grass.png',
+  dirt:   'assets/tiles/blocks/dirt.png',
+  stone:  'assets/tiles/blocks/stone.png',
+  sand:   'assets/tiles/blocks/sand.png',
+  forest: 'assets/tiles/blocks/forest.png',
+};
+// terrain jeu → clé bloc (sommet de pile) ; wheat/marble = teinte dérivée (cf. TERRAIN_BLOCK_TINTS)
+const TERRAIN_BLOCK_MAP = {
+  grass: 'grass', wheat: 'wheat', forest: 'forest', hill: 'grass',
+  sand: 'sand', water: null, rock: 'stone', marble: 'marble',
+};
+// Parois latérales selon biome / niveau de pile
+const TERRAIN_BLOCK_FILL_MAP = {
+  rock: 'stone', marble: 'stone', sand: 'dirt', hill: 'dirt', forest: 'dirt',
+};
+const TERRAIN_BLOCK_LEVEL_FILL = {
+  3: 'stone',   // montagne (niveau max) → parois roche
+  2: 'dirt',    // colline
+};
+// Teintes dérivées (base PNG + overlay) — blé = herbe jaune clair
+const TERRAIN_BLOCK_TINTS = {
+  wheat:  { base: 'grass', color: 'rgba(255, 238, 155, 0.58)' },
+  marble: { base: 'stone', color: 'rgba(245, 242, 235, 0.40)' },
+};
+
+// Falaises auto (tools/extract_cliffs_from_nature_pack.py) — parois seules 64×48
+const CLIFF_SPRITE_H = 48;
+const CLIFF_LEVEL_STEP = 1;              // delta de niveau min. pour afficher une paroi
+const CLIFF_DRAW_PAD = 3;                // chevauchement entre parois voisines
+const CLIFF_SPRITE_IDS = ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'];
+const CLIFF_SPRITES = Object.fromEntries(CLIFF_SPRITE_IDS.map(id => [
+  id, `assets/textures_source/cliffs/cliff_${id}.png`,
+]));
 
 const BASE_CAP = {
   wheat:60, marble:60, sculpture:30, olives:45, oil:45, grapes:45, wine:45, wool:45,
@@ -302,25 +460,55 @@ const INVASION_SPAWN_CHANCE = 0.003;
 const INVASION_MIN_DAY = 10;
 
 /* ===================== GENERATION DE CARTE PROCEDURALE ===================== */
-const MAP_NOISE_SCALE = 0.042;
+// Style : 'mixed' (aléatoire), 'continent' (terre continue), 'island' (île + couloir vers le bord sud).
+const MAP_LAND_STYLE = 'mixed';
+const MAP_ISLAND_CHANCE = 0.30;
+const MAP_LAND_BASE_BIAS = 0.06;           // relève les plaines → moins de cases eau
+const MAP_NOISE_SCALE = 0.021;             // ~ moitié pour conserver la taille des reliefs à 120×120
 const MAP_HEIGHT_OCTAVES = 6;
-const MAP_RIDGE_STRENGTH = 0.38;
-const MAP_DETAIL_STRENGTH = 0.08;
-const MAP_WATER_THRESHOLD = 0.24;
-const MAP_SAND_THRESHOLD = 0.31;
-const MAP_MARBLE_THRESHOLD = 0.76;
-const MAP_HILL_THRESHOLD = 0.54;
+const MAP_RIDGE_STRENGTH = 0.52;           // crêtes plus marquées
+const MAP_DETAIL_STRENGTH = 0.07;
+const MAP_RANGE_STRENGTH = 0.24;           // chaînes montagneuses à grande échelle
+const MAP_RANGE_SCALE_MUL = 0.46;
+const MAP_MOUNTAIN_CENTER_BOOST = 0.08;    // léger renfort central (massifs via bruit ridgé)
+const MAP_DOMAIN_WARP = 0.40;
+const MAP_ISLAND_STRENGTH = 0.88;
+const MAP_ISLAND_RADIUS = 0.48;            // île plus large (moins d'océan autour)
+const MAP_VALLEY_STRENGTH = 0.10;
+const MAP_HEIGHT_SMOOTH_PASSES = 1;
+const MAP_WATER_THRESHOLD = 0.20;          // légèrement abaissé (plus de terre jouable)
+const MAP_SAND_THRESHOLD = 0.33;
+const MAP_MARBLE_THRESHOLD = 0.62;         // marbre un peu plus bas → massifs plus larges
+const MAP_HILL_THRESHOLD = 0.44;
 const MAP_HILL_MAX = 0.64;
-const MAP_ROCK_SLOPE = 0.095;
-const MAP_FOREST_MOISTURE = 0.56;
-const MAP_FOREST_MIN_HEIGHT = 0.34;
-const MAP_FOREST_MAX_HEIGHT = 0.58;
-const MAP_FOREST_MAX_SLOPE = 0.055;
-const MAP_WHEAT_MOISTURE = 0.50;
-const MAP_WHEAT_MIN_HEIGHT = 0.30;
-const MAP_WHEAT_MAX_HEIGHT = 0.46;
-const MAP_FLATTEN_RADIUS = 10;
-const MAP_PLAYABLE_ELEVATION = 0.40;
+const MAP_ROCK_SLOPE = 0.088;
+const MAP_COAST_BEACH_SLOPE = 0.046;
+const MAP_FOREST_MOISTURE = 0.52;
+const MAP_FOREST_MIN_HEIGHT = 0.26;        // forêts de plaine et pied de montagne
+const MAP_FOREST_MAX_HEIGHT = 0.50;        // pas de forêt en altitude
+const MAP_FOREST_MAX_SLOPE = 0.048;
+const MAP_WHEAT_MOISTURE = 0.46;
+const MAP_WHEAT_MIN_HEIGHT = 0.26;
+const MAP_WHEAT_MAX_HEIGHT = 0.42;         // plaines uniquement
+const MAP_PLAIN_MARBLE_CHANCE = 0.028;     // carrières isolées en plaine près des monts
+const MAP_RAIN_SHADOW = 0.26;
+const MAP_RAIN_SHADOW_STEPS = 20;
+const MAP_WIND_X = 0.62;
+const MAP_WIND_Y = 0.28;
+const MAP_BIOME_SMOOTH = 2;
+const MAP_BIOME_SMOOTH_MAJORITY = 6;
+const MAP_FLATTEN_RADIUS = 12;
+const MAP_FLATTEN_STRENGTH = 0.34;
+const MAP_PLAYABLE_ELEVATION = 0.36;
+const MAP_EDGE_BORDER_WIDTH = 4;           // défaut (île) — voir MAP_*_EDGE_BORDER
+const MAP_CONTINENT_EDGE_BORDER = 0;       // continent : pas d'anneau d'eau forcé
+const MAP_ISLAND_EDGE_BORDER = 3;
+const MAP_EDGE_WATER_LEVEL = 0.06;
+const MAP_ENTRY_CORRIDOR_WIDTH = 4;        // largeur moyenne de l'isthme d'accès
+const MAP_LAND_BRIDGE_LIFT = 0.34;
+const MAP_LAND_BRIDGE_WIND = 0.38;         // sinuosité du chemin d'accès
+const MAP_MOUNTAIN_MIN_LAND = 0.28;        // masque île min. pour les massifs
+const MAP_MOUNTAIN_MIN_HEIGHT = 0.27;      // pas de montagne sous ce seuil (eau/littoral)
 
 /* ===================== MAINTENANCE (INCENDIES / MALADIES) ===================== */
 // Voir maintenance.js. Premiers chiffres, pas encore équilibrés en conditions réelles
@@ -355,6 +543,8 @@ const ISO_DIAGONAL_FACING = {
 const CHARACTER_ISO_FOOT_PAD = 10;
 const CHARACTER_DISPLAY_SIZE = 44;       // repli générique
 const WALKER_DISPLAY_SIZE = 30;        // citoyens / services (plus petits)
+const MIGRANT_DISPLAY_SIZE = 32;       // colons arrivants / partants (sac à dos)
+const MIGRANT_SPRITE_PATH = 'assets/characters/migrants/migrant.png';
 const HERO_DISPLAY_SIZE = 50;          // héros (un peu plus grands)
 const GOD_DISPLAY_SIZE = 64;           // dieux errants (netement plus grands)
 const MONSTER_DISPLAY_SIZE = 44;       // monstres

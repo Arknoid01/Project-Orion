@@ -18,8 +18,8 @@ from PIL import Image, ImageDraw
 # Donc une base large de `base_canvas` px se rend a base_canvas * DRAW_W/CANVAS.
 # Pour viser BUILDING_SPRITE_W a l'ecran : base_canvas = BUILDING_SPRITE_W * FILL * CANVAS / DRAW_W.
 CANVAS = 144          # taille de la toile de sortie (inchangee)
-DRAW_W = 63           # doit correspondre au BUILDING_SPRITE_W de config.js / render.js
-BUILDING_SPRITE_W = 63
+DRAW_W = 64           # doit correspondre au BUILDING_SPRITE_W de config.js / render.js
+BUILDING_SPRITE_W = 64
 TILE_W = 64           # largeur d'une tuile grille (config.js)
 FILL = 1.0            # 1.0 = base = largeur exacte de la tuile ; 1.1 = leger debord
 CLIP_BASE = True      # couper les coins de la base en losange

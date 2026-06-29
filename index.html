@@ -1942,6 +1942,8 @@ h2{
 
  <div class="floatingTools">
    <div class="zoomGroup">
+     <button class="iconBtn" id="rotateLeftBtn" onclick="rotateMapLeft()" title="Pivoter gauche (Q)">↶</button>
+     <button class="iconBtn" id="rotateRightBtn" onclick="rotateMapRight()" title="Pivoter droite (E)">↷</button>
      <button class="iconBtn" onclick="zoomIn()" title="Zoom +">＋</button>
      <button class="iconBtn" onclick="zoomOut()" title="Zoom -">−</button>
    </div>
@@ -2117,15 +2119,22 @@ h2{
 <!-- ===== Moteur de jeu réel (voir UI_MIGRATION_NOTES.md) ===== -->
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/config.js"></script>
+<script src="js/config.js?v=21"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js"></script>
 <script src="js/procgen.js"></script>
 <script src="js/terrain.js"></script>
-<script src="js/mapgen.js"></script>
-<script src="js/grid.js"></script>
+<script src="js/mapgen.js?v=4"></script>
+<script src="js/terrainLevel.js"></script>
+<script src="js/grid.js?v=11"></script>
+<script src="js/terrainProcedural3D.js"></script>
+<script src="js/terrainVoxelBake.js"></script>
+<script src="js/terrainFlatFaces.js"></script>
+<script src="js/terrainLayers.js"></script>
+<script src="js/terrainIso.js"></script>
+<script src="js/mapView.js"></script>
 <script src="js/houses.js"></script>
-<script src="js/walkers.js"></script>
+<script src="js/walkers.js?v=2"></script>
 <script src="js/maintenance.js"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
@@ -2138,18 +2147,21 @@ h2{
 <script src="js/dialog.js"></script>
 <script src="js/diplomacy.js"></script>
 <script src="js/trade.js"></script>
-<script src="js/creatures.js"></script>
+<script src="js/creatures.js?v=2"></script>
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js"></script>
 <script src="js/characterSprites.js"></script>
-<script src="js/render.js"></script>
+<script src="js/forestTrees.js?v=16"></script>
+<script src="js/grassDecor.js?v=9"></script>
+<script src="js/wheatCrops.js?v=3"></script>
+<script src="js/render.js?v=15"></script>
 <script src="js/zoom.js"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
-<script src="js/migrationAgents.js"></script>
-<script src="js/militaryAgents.js"></script>
+<script src="js/migrationAgents.js?v=2"></script>
+<script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
 <script src="js/scenarios.js"></script>
 <script src="js/colonies.js"></script>

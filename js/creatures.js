@@ -282,11 +282,17 @@ function tickCreatures(){
 
 /* ===================== POSITION ECRAN INTERPOLEE ===================== */
 function getCreatureScreenPos(agent, now){
-  const fromPos = tileCenter(agent.prevCol, agent.prevRow);
-  const toPos = tileCenter(agent.col, agent.row);
+  const fromPos = tileDiamondCenter(agent.prevCol, agent.prevRow);
+  const toPos = tileDiamondCenter(agent.col, agent.row);
   const elapsed = now - lastTickTimestamp;
   const k = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
   return { x: fromPos.x + (toPos.x - fromPos.x) * k, y: fromPos.y + (toPos.y - fromPos.y) * k };
+}
+
+/** Vrai pendant l'interpolation entre deux cases (marche), faux à l'arrêt sur une case. */
+function isCreatureMoving(agent, now){
+  if (agent.col === agent.prevCol && agent.row === agent.prevRow) return false;
+  return (now - lastTickTimestamp) < TICK_DURATION_MS;
 }
 
 /* ===================== PANNEAU ===================== */

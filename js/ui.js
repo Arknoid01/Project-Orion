@@ -132,6 +132,7 @@ function confirmZonePlacement(c1, r1, c2, r2){
   if (!spend(cost)) return { ok: false, reason: 'afford' };
   if (roadMode){
     tiles.forEach(t => { grid[t.row][t.col].hasRoad = true; });
+    if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
     return { ok: true, kind: 'road', count: tiles.length, cost };
   }
   const def = BUILDING_DEFS[selectedBuilding];
@@ -684,10 +685,17 @@ on('taxRateSlider', 'input', (e) => {
 on('zoomInBtn', 'click', () => zoomIn());
 on('zoomOutBtn', 'click', () => zoomOut());
 
+document.addEventListener('keydown', (e) => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+  if (e.key === 'q' || e.key === 'Q') rotateMapLeft();
+  if (e.key === 'e' || e.key === 'E') rotateMapRight();
+});
+
 // canvas existe toujours (render.js le crée avant ui.js dans l'ordre de chargement),
 // donc pas besoin de garde ici -- mais infoBar (à l'intérieur du handler) si.
 canvas.addEventListener('mousemove', (e) => {
-  const { mx, my } = clientToWorld(e.clientX, e.clientY);
+  const pick = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
+  const { mx, my } = pick(e.clientX, e.clientY);
   const { col, row } = pickTileAtWorld(mx, my);
   hoverTile = { col, row };
 
@@ -716,7 +724,8 @@ canvas.addEventListener('contextmenu', (e) => {
 });
 
 canvas.addEventListener('click', (e) => {
-  const { mx, my } = clientToWorld(e.clientX, e.clientY);
+  const pick = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
+  const { mx, my } = pick(e.clientX, e.clientY);
   const { col, row } = pickTileAtWorld(mx, my);
   if (!inBounds(col, row)) return;
 
@@ -745,6 +754,7 @@ canvas.addEventListener('click', (e) => {
       notifyDemolishRefund('road');
       cell.hasRoad = false;
       cell.patrolBlock = false;
+      if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
     }
     recomputeAllWalkers();
   } else if (blockMode){

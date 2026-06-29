@@ -16,6 +16,7 @@ function troopsNpcCount(power){
 }
 
 function getMilitaryEntry(){
+  if (typeof getMapWalkerEntry === 'function') return getMapWalkerEntry();
   const col = MIGRANT_ENTRY_COL;
   const row = MIGRANT_ENTRY_ROW;
   if (inBounds(col, row) && isWalkable(col, row)) return { col, row };

@@ -1,0 +1,4 @@
+{
+  "_comment": "Optionnel — exporte ton propre graphe ComfyUI (Flux + seamless LoRA) et remplace ce fichier, ou laisse le script utiliser le workflow intégré.",
+  "_placeholders": ["{{POSITIVE}}", "{{NEGATIVE}}", "{{SEED}}", "{{FILENAME_PREFIX}}", "{{LORA}}", "{{LORA_STRENGTH}}"]
+}

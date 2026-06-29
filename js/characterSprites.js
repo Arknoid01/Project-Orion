@@ -23,6 +23,9 @@ function initCharacterSprites(){
   HERO_TYPES.forEach(type => {
     if (type.sprite) registerCharacterSprite('hero_' + type.key, type.sprite);
   });
+  if (typeof MIGRANT_SPRITE_PATH !== 'undefined'){
+    registerCharacterSprite('migrant', MIGRANT_SPRITE_PATH);
+  }
   if (typeof GOD_SPRITES !== 'undefined'){
     Object.entries(GOD_SPRITES).forEach(([key, path]) => {
       registerCharacterSprite('god_' + key, path);
@@ -37,6 +40,7 @@ function isCharacterSpriteReady(id){
 
 function getCharacterDisplaySize(id){
   if (!id) return CHARACTER_DISPLAY_SIZE;
+  if (id === 'migrant') return MIGRANT_DISPLAY_SIZE;
   if (id.startsWith('walker_')) return WALKER_DISPLAY_SIZE;
   if (id.startsWith('hero_')) return HERO_DISPLAY_SIZE;
   if (id.startsWith('god_')) return GOD_DISPLAY_SIZE;
@@ -45,7 +49,7 @@ function getCharacterDisplaySize(id){
 }
 
 function getCharacterAnimFrameMs(id){
-  if (id && id.startsWith('walker_')) return WALKER_ANIM_FRAME_MS;
+  if (id === 'migrant' || (id && id.startsWith('walker_'))) return WALKER_ANIM_FRAME_MS;
   return CHARACTER_ANIM_FRAME_MS;
 }
 
@@ -112,12 +116,14 @@ function getAgentIsoFacing(agent){
   };
 }
 
-function drawCharacterSprite(id, x, y, facing, now, displaySize, mirrorX){
+function drawCharacterSprite(id, x, y, facing, now, displaySize, mirrorX, animate){
   const img = characterSpriteImages[id];
   if (!img || !img.complete || !img.naturalWidth) return false;
 
   const frameMs = getCharacterAnimFrameMs(id);
-  const frame = Math.floor((now || performance.now()) / frameMs) % CHARACTER_FRAMES;
+  const frame = animate === false
+    ? 0
+    : Math.floor((now || performance.now()) / frameMs) % CHARACTER_FRAMES;
   const row = CHARACTER_DIRECTION_ROWS[facing] ?? CHARACTER_DIRECTION_ROWS.down;
   const sx = frame * CHARACTER_FRAME_SIZE;
   const sy = row * CHARACTER_FRAME_SIZE;
