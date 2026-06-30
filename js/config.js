@@ -1,14 +1,8 @@
 /* ===================== ADAPTATION MOBILE / FAIBLE MEMOIRE ===================== */
-// Les canvas du jeu sont à l'échelle du monde entier (7808×3960 px), pas juste de
-// l'écran visible. Sur PC ça passe sans souci, mais sur mobile, multiplier ça par
-// le DPR (écran haute densité) + le cache terrain HiDPI peut représenter 700 Mo+
-// rien que pour deux canvas → la page est tuée silencieusement par l'OS (OOM kill),
-// ce qui ressemble à un freeze/crash sans message d'erreur. On détecte donc les
-// appareils à faible capacité et on réduit ces deux multiplicateurs en conséquence.
-const DEVICE_IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-  || (navigator.maxTouchPoints > 1 && /Mobi/i.test(navigator.userAgent));
-const DEVICE_LOW_MEMORY = (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 6);
-const DEVICE_REDUCE_CANVAS_LOAD = DEVICE_IS_MOBILE || DEVICE_LOW_MEMORY;
+// Les valeurs ci-dessous viennent maintenant de js/settings.js (3 niveaux choisis
+// par l'utilisateur dans Paramètres, persistants). DEVICE_REDUCE_CANVAS_LOAD est
+// gardé pour compatibilité avec le reste du code qui le référence encore.
+const DEVICE_REDUCE_CANVAS_LOAD = PERF_LEVEL !== 'faible';
 
 /* ===================== CONFIG GRILLE / VUE (ISO FIXE) ===================== */
 const GRID_COLS = 120;
@@ -42,7 +36,7 @@ const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
-const RENDER_DPR_CAP = DEVICE_REDUCE_CANVAS_LOAD ? 1 : 1.5;           // 1 = échelle entière sûre. NE PAS descendre sous 1 : une échelle fractionnaire casse le rendu en losange (génère des triangles), cf. historique de bug.
+const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
 const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
@@ -54,7 +48,7 @@ const FOREST_TREE_SPRITES = [
   'assets/trees/tree.png',
   'assets/trees/tree2.png',
 ];
-const FOREST_TREE_DENSITY = 1; // arbre sur chaque case forêt libre
+const FOREST_TREE_DENSITY = 1 * PERF.decorMult; // densité pilotée par le niveau de perf (1 = chaque case forêt libre)
 const FOREST_TREE_SIZE = 1.1;     // +10 % vs largeur tuile de base (BUILDING_SPRITE_W)
 
 /* ===================== DÉCOR HERBE (tufts, cailloux, souches…) ===================== */
@@ -75,7 +69,7 @@ const GRASS_DECOR_SPRITES = [
   'assets/grass/ruins/ruin01.png',
   'assets/grass/ruins/wall01.png',
 ];
-const GRASS_DECOR_CHANCE = 1 / 6; // 1 chance sur 6 qu'un décor apparaisse sur une case herbe libre
+const GRASS_DECOR_CHANCE = (1 / 6) * PERF.decorMult; // densité pilotée par le niveau de perf
 const GRASS_DECOR_GRASS_KEEP = 0.7;  // touffes grass00 : −30 %
 const GRASS_DECOR_RUINS_KEEP = 0.5;  // ruines : −50 %
 const GRASS_DECOR_SIZE = 0.6;     // 60 % de la largeur tuile (petits props)
@@ -94,7 +88,7 @@ function natureDecorDrawOpts(){
 /* ===================== OVERLAY BLÉ (épis sur terrain wheat) ===================== */
 const WHEAT_CROPS_ENABLED = true;
 const WHEAT_CROP_SPRITE = 'assets/wheat/wheat_crop.png';
-const WHEAT_CROP_DENSITY = 1;   // 1 = 100 % des cases blé libres
+const WHEAT_CROP_DENSITY = 1 * PERF.decorMult;   // densité pilotée par le niveau de perf (1 = 100 % des cases blé libres)
 const WHEAT_CROP_SIZE = 0.4;    // 0.6 × 0.67 (−33 %)
 
 /* ===================== DEFINITIONS BATIMENTS ===================== */
@@ -321,7 +315,7 @@ const TERRAIN_BLOCK_DRAW_W = 64;         // largeur d'une brique à l'écran
 const TERRAIN_BLOCK_CLEAN_WALLS = true;  // parois procédurales uniformes (Mykonos)
 const TERRAIN_BLOCK_SIDE_WALL_MIN = 8;
 const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
-const TERRAIN_CACHE_SCALE = DEVICE_REDUCE_CANVAS_LOAD ? 1 : 2;           // cache terrain HiDPI (1 = natif). Ne PAS descendre sous 1 : le bake de losange (detectTopDiamondGeometry) n'est pas fiable en échelle fractionnaire (cause un rendu en triangle au lieu du losange complet).
+const TERRAIN_CACHE_SCALE = PERF.cacheScale;           // résolution du cache terrain, pilotée par le niveau de perf (toujours >= 1 dans les presets : cf. historique de bug rendu en triangle à échelle fractionnaire)
 const TERRAIN_BLOCK_FILL = 'dirt';        // brique sous le sommet
 const TERRAIN_BLOCK_SPRITES = {
   grass:  'assets/tiles/blocks/grass.png',

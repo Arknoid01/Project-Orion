@@ -2,7 +2,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
-ctx.imageSmoothingQuality = 'high'; // toujours 'high' : un lissage réduit rend trop visible/dur un éventuel motif d'ombrage en damier sur le terrain (cf. bug "triangles" mobile)
+ctx.imageSmoothingQuality = PERF.smoothing; // piloté par le niveau de perf choisi dans Paramètres
 
 /* ===================== METRIQUES PIED SPRITE (bbox alpha) ===================== */
 // Les PNG bâtiments/maisons font 144 px mais la base occupe ~2 tuiles export (128 px = 1 tuile).
@@ -441,7 +441,7 @@ function ensureTerrainLayerCache(){
     const tctx = c.getContext('2d');
     if (!tctx) return null;
     tctx.imageSmoothingEnabled = true;
-    tctx.imageSmoothingQuality = 'high';
+    tctx.imageSmoothingQuality = PERF.smoothing;
     tctx.setTransform(scale, 0, 0, scale, 0, 0);
 
     const drawOrder = getMapDrawOrder();
