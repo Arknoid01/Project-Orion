@@ -48,7 +48,7 @@ const FOREST_TREE_SPRITES = [
   'assets/trees/tree.png',
   'assets/trees/tree2.png',
 ];
-const FOREST_TREE_DENSITY = 1 * PERF.decorMult; // densité pilotée par le niveau de perf (1 = chaque case forêt libre)
+const FOREST_TREE_DENSITY = 1; // arbre sur chaque case forêt libre (densité indépendante du niveau de perf : ça ne pèse pas assez pour valoir la perte visuelle)
 const FOREST_TREE_SIZE = 1.1;     // +10 % vs largeur tuile de base (BUILDING_SPRITE_W)
 
 /* ===================== DÉCOR HERBE (tufts, cailloux, souches…) ===================== */
@@ -69,7 +69,7 @@ const GRASS_DECOR_SPRITES = [
   'assets/grass/ruins/ruin01.png',
   'assets/grass/ruins/wall01.png',
 ];
-const GRASS_DECOR_CHANCE = (1 / 6) * PERF.decorMult; // densité pilotée par le niveau de perf
+const GRASS_DECOR_CHANCE = 1 / 6; // 1 chance sur 6 qu'un décor apparaisse sur une case herbe libre
 const GRASS_DECOR_GRASS_KEEP = 0.7;  // touffes grass00 : −30 %
 const GRASS_DECOR_RUINS_KEEP = 0.5;  // ruines : −50 %
 const GRASS_DECOR_SIZE = 0.6;     // 60 % de la largeur tuile (petits props)
@@ -88,7 +88,7 @@ function natureDecorDrawOpts(){
 /* ===================== OVERLAY BLÉ (épis sur terrain wheat) ===================== */
 const WHEAT_CROPS_ENABLED = true;
 const WHEAT_CROP_SPRITE = 'assets/wheat/wheat_crop.png';
-const WHEAT_CROP_DENSITY = 1 * PERF.decorMult;   // densité pilotée par le niveau de perf (1 = 100 % des cases blé libres)
+const WHEAT_CROP_DENSITY = 1;   // 1 = 100 % des cases blé libres (indépendant du niveau de perf)
 const WHEAT_CROP_SIZE = 0.4;    // 0.6 × 0.67 (−33 %)
 
 /* ===================== DEFINITIONS BATIMENTS ===================== */

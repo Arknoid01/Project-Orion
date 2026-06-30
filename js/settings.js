@@ -35,9 +35,9 @@ const PERF_LEVEL = getPerfLevel();
 // reprend pas ce risque), qualité de lissage, et densité des décors (arbres,
 // blé, touffes d'herbe) qui coûtent du temps de dessin à chaque frame.
 const PERF_PRESETS = {
-  faible: { dprCap: 1.5, cacheScale: 2, smoothing: 'high', decorMult: 1 },
-  normal: { dprCap: 1,   cacheScale: 1, smoothing: 'high', decorMult: 0.7 },
-  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorMult: 0.35 },
+  faible: { dprCap: 1.5, cacheScale: 2, smoothing: 'high' },
+  normal: { dprCap: 1,   cacheScale: 1, smoothing: 'high' },
+  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low' },
 };
 
 const PERF = PERF_PRESETS[PERF_LEVEL] || PERF_PRESETS.normal;
