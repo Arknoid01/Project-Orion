@@ -194,6 +194,12 @@ function requiredBlockSpriteKeys(){
   if (typeof TERRAIN_BLOCK_SPRITES === 'object'){
     Object.keys(TERRAIN_BLOCK_SPRITES).forEach(k => keys.add(k));
   }
+  if (typeof TERRAIN_BLOCK_TINTS === 'object' && TERRAIN_BLOCK_TINTS){
+    // IMPORTANT : sans ça, le cache de terrain peut se construire AVANT que la
+    // teinte (blé, marbre) soit prête, et retombe alors sur la couleur brute de
+    // sa base (blé -> herbe non teintée) de façon permanente (cf. bug confirmé).
+    Object.keys(TERRAIN_BLOCK_TINTS).forEach(k => keys.add(k));
+  }
   if (typeof TERRAIN_BLOCK_FILL_MAP === 'object'){
     Object.values(TERRAIN_BLOCK_FILL_MAP).forEach(k => keys.add(k));
   }
