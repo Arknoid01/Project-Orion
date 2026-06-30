@@ -2,7 +2,9 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
-ctx.imageSmoothingQuality = 'high'; // meilleur rendu des sprites PNG mis à l'échelle (zoom)
+ctx.imageSmoothingQuality = (typeof DEVICE_REDUCE_CANVAS_LOAD !== 'undefined' && DEVICE_REDUCE_CANVAS_LOAD)
+  ? 'low'
+  : 'high'; // meilleur rendu des sprites PNG mis à l'échelle (zoom) — réduit sur mobile pour la perf
 
 /* ===================== METRIQUES PIED SPRITE (bbox alpha) ===================== */
 // Les PNG bâtiments/maisons font 144 px mais la base occupe ~2 tuiles export (128 px = 1 tuile).
@@ -413,8 +415,8 @@ function invalidateTerrainLayerCache(){
 }
 
 function terrainCacheScaleFactor(){
-  if (typeof TERRAIN_CACHE_SCALE === 'number' && TERRAIN_CACHE_SCALE > 1){
-    return Math.min(3, TERRAIN_CACHE_SCALE);
+  if (typeof TERRAIN_CACHE_SCALE === 'number' && TERRAIN_CACHE_SCALE > 0){
+    return Math.max(0.4, Math.min(3, TERRAIN_CACHE_SCALE));
   }
   return 1;
 }
@@ -441,7 +443,7 @@ function ensureTerrainLayerCache(){
     const tctx = c.getContext('2d');
     if (!tctx) return null;
     tctx.imageSmoothingEnabled = true;
-    tctx.imageSmoothingQuality = 'high';
+    tctx.imageSmoothingQuality = DEVICE_REDUCE_CANVAS_LOAD ? 'low' : 'high';
     tctx.setTransform(scale, 0, 0, scale, 0, 0);
 
     const drawOrder = getMapDrawOrder();

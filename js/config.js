@@ -1,3 +1,15 @@
+/* ===================== ADAPTATION MOBILE / FAIBLE MEMOIRE ===================== */
+// Les canvas du jeu sont à l'échelle du monde entier (7808×3960 px), pas juste de
+// l'écran visible. Sur PC ça passe sans souci, mais sur mobile, multiplier ça par
+// le DPR (écran haute densité) + le cache terrain HiDPI peut représenter 700 Mo+
+// rien que pour deux canvas → la page est tuée silencieusement par l'OS (OOM kill),
+// ce qui ressemble à un freeze/crash sans message d'erreur. On détecte donc les
+// appareils à faible capacité et on réduit ces deux multiplicateurs en conséquence.
+const DEVICE_IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Mobi/i.test(navigator.userAgent));
+const DEVICE_LOW_MEMORY = (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 6);
+const DEVICE_REDUCE_CANVAS_LOAD = DEVICE_IS_MOBILE || DEVICE_LOW_MEMORY;
+
 /* ===================== CONFIG GRILLE / VUE (ISO FIXE) ===================== */
 const GRID_COLS = 120;
 const GRID_ROWS = 120;
@@ -30,7 +42,7 @@ const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
-const RENDER_DPR_CAP = 1.5;
+const RENDER_DPR_CAP = DEVICE_REDUCE_CANVAS_LOAD ? 0.65 : 1.5;
 const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
@@ -309,7 +321,7 @@ const TERRAIN_BLOCK_DRAW_W = 64;         // largeur d'une brique à l'écran
 const TERRAIN_BLOCK_CLEAN_WALLS = true;  // parois procédurales uniformes (Mykonos)
 const TERRAIN_BLOCK_SIDE_WALL_MIN = 8;
 const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
-const TERRAIN_CACHE_SCALE = 2;           // cache terrain HiDPI (1 = natif)
+const TERRAIN_CACHE_SCALE = DEVICE_REDUCE_CANVAS_LOAD ? 0.65 : 2;           // cache terrain HiDPI (1 = natif, réduit sous 1x sur mobile)
 const TERRAIN_BLOCK_FILL = 'dirt';        // brique sous le sommet
 const TERRAIN_BLOCK_SPRITES = {
   grass:  'assets/tiles/blocks/grass.png',
