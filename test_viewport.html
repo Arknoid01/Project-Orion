@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Test couture tuiles — Olympos</title>
+<style>
+  html, body { margin:0; padding:0; background:#111; color:#eee; font-family:sans-serif; overflow:hidden; }
+  #ui {
+    position:fixed; top:0; left:0; right:0; z-index:10;
+    background:rgba(0,0,0,0.85); padding:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  button {
+    padding:10px 14px; font-size:14px; border-radius:8px; border:1px solid #888;
+    background:#222; color:#eee;
+  }
+  button.active { background:#2a6; border-color:#2a6; }
+  #info { font-size:12px; opacity:0.85; width:100%; white-space:pre-wrap; }
+  #wrap { position:fixed; top:90px; left:0; right:0; bottom:0; overflow:auto; }
+  canvas { display:block; image-rendering: auto; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <button id="btnFull" class="active">Mode A : canvas monde complet redimensionné (= jeu actuel)</button>
+  <button id="btnViewport">Mode B : canvas taille écran 1:1 (= hypothèse viewport)</button>
+  <div id="info"></div>
+</div>
+<div id="wrap"><canvas id="cv"></canvas></div>
+
+<script>
+// ===== Reproduit le strict minimum du pipeline de tuiles du jeu =====
+const TILE_W = 64, TILE_H = 32;
+const TERRAIN_TILE_OVERLAP = 10; // valeur mobile actuelle
+const COLS = 14, ROWS = 14; // petite grille de test, suffisant pour voir les coutures
+
+const img = new Image();
+img.src = 'assets/tiles/blocks/grass.png';
+
+function tileScreenX(col, row){ return (col - row) * (TILE_W / 2); }
+function tileScreenY(col, row){ return (col + row) * (TILE_H / 2); }
+
+function worldPixelSize(){
+  const minX = tileScreenX(0, ROWS - 1);
+  const maxX = tileScreenX(COLS - 1, 0);
+  const maxY = tileScreenY(COLS - 1, ROWS - 1);
+  return { w: (maxX - minX) + TILE_W, h: maxY + TILE_H, offsetX: -minX };
+}
+
+function drawGrid(ctx, scale, offsetX){
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.setTransform(scale, 0, 0, scale, offsetX * scale, 0);
+  const pad = TERRAIN_TILE_OVERLAP;
+  for (let row = 0; row < ROWS; row++){
+    for (let col = 0; col < COLS; col++){
+      const cx = tileScreenX(col, row);
+      const cy = tileScreenY(col, row);
+      const drawW = TILE_W + pad;
+      const drawH = TILE_H + pad;
+      ctx.drawImage(img, cx - drawW / 2, cy, drawW, drawH);
+    }
+  }
+}
+
+function renderModeA(){
+  // Canvas dimensionné sur la grille ENTIERE (comme WORLD_WIDTH/HEIGHT dans le jeu),
+  // puis affiché via CSS à une autre taille -> force un redimensionnement navigateur.
+  const cv = document.getElementById('cv');
+  const { w, h, offsetX } = worldPixelSize();
+  const dpr = 1; // équivalent RENDER_DPR_CAP=1 sur mobile
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  // Affichage CSS volontairement different de la résolution interne (zoom logique du jeu)
+  const cssScale = 1.6;
+  cv.style.width = (w * cssScale) + 'px';
+  cv.style.height = (h * cssScale) + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawGrid(ctx, dpr, offsetX);
+  document.getElementById('info').textContent =
+    `Mode A : résolution interne canvas = ${cv.width}x${cv.height}px, taille CSS affichée = ${Math.round(w*cssScale)}x${Math.round(h*cssScale)}px (le navigateur doit réétirer ${cssScale}x). Si les coutures apparaissent ICI mais pas en Mode B -> confirmé, c'est le réétirement qui les cause.`;
+}
+
+function renderModeB(){
+  // Canvas dimensionné exactement à la taille d'affichage écran (devicePixelRatio réel),
+  // donc AUCUN réétirement navigateur necessaire : résolution interne = taille CSS.
+  const cv = document.getElementById('cv');
+  const { w, h, offsetX } = worldPixelSize();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssScale = 1.6; // même zoom logique que mode A, mais cette fois on bake la résolution AU bon niveau
+  cv.width = Math.round(w * cssScale * dpr);
+  cv.height = Math.round(h * cssScale * dpr);
+  cv.style.width = (w * cssScale) + 'px';
+  cv.style.height = (h * cssScale) + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawGrid(ctx, cssScale * dpr, offsetX);
+  document.getElementById('info').textContent =
+    `Mode B : résolution interne canvas = ${cv.width}x${cv.height}px (= taille CSS ${Math.round(w*cssScale)}x${Math.round(h*cssScale)}px x devicePixelRatio ${dpr}). Le navigateur n'a RIEN à réétirer : 1 pixel canvas = 1 pixel écran. Si les coutures disparaissent ICI -> hypothèse confirmée.`;
+}
+
+let mode = 'A';
+function refresh(){
+  if (mode === 'A') renderModeA(); else renderModeB();
+}
+
+img.onload = refresh;
+img.onerror = () => {
+  document.getElementById('info').textContent = 'Erreur : impossible de charger assets/tiles/blocks/grass.png — vérifie que cette page est servie depuis la racine du projet (à côté du dossier assets/).';
+};
+
+document.getElementById('btnFull').onclick = () => {
+  mode = 'A';
+  document.getElementById('btnFull').classList.add('active');
+  document.getElementById('btnViewport').classList.remove('active');
+  refresh();
+};
+document.getElementById('btnViewport').onclick = () => {
+  mode = 'B';
+  document.getElementById('btnViewport').classList.add('active');
+  document.getElementById('btnFull').classList.remove('active');
+  refresh();
+};
+</script>
+</body>
+</html>
