@@ -320,6 +320,9 @@ html,body{
  box-shadow:inset 0 1px rgba(255,255,255,.10);
 }
 .actionBtn{padding:10px}
+.perfLevelBtn{ text-align:left; line-height:1.4; }
+.perfLevelBtn small{ opacity:0.75; font-weight:normal; }
+.perfLevelBtn.active{ border:2px solid rgba(214,180,110,1); background:rgba(214,180,110,0.18); }
 .grid{
  display:grid;
  grid-template-columns:repeat(3,1fr);
@@ -2040,6 +2043,7 @@ h2{
      <button class="actionBtn" id="menuLoadBtn" onclick="loadGameFromMenu()">📂 Charger</button>
      <button class="actionBtn" id="menuPauseBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" id="menuCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
+     <button class="actionBtn" onclick="openPerfSettings()">⚙️ Performances</button>
      <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
      <div class="actionBtn langRow">
        <span id="settingsLanguageLabel">Langue</span>
@@ -2052,7 +2056,27 @@ h2{
    </div>
  </aside>
 
- <aside id="managePanel" class="panel">
+ <aside id="perfSettingsPanel" class="panel">
+   <button class="close" onclick="closePanels()">×</button>
+   <h2>⚙️ Performances</h2>
+   <p class="manageHint">
+     Choisis le niveau qui marche le mieux sur ton appareil/navigateur. Le jeu se
+     recharge pour appliquer le changement. Si un navigateur refuse de charger ou
+     rame, essaie un niveau différent — ça compte plus que le navigateur lui-même.
+   </p>
+   <div class="menuList" id="perfLevelList">
+     <button class="actionBtn perfLevelBtn" data-level="faible" onclick="choosePerfLevel('faible')">
+       🐢 Faible optimisation<br><small>Meilleure qualité visuelle. Pour PC ou mobile haut de gamme.</small>
+     </button>
+     <button class="actionBtn perfLevelBtn" data-level="normal" onclick="choosePerfLevel('normal')">
+       ⚖️ Normal<br><small>Bon équilibre. Réglage par défaut sur mobile.</small>
+     </button>
+     <button class="actionBtn perfLevelBtn" data-level="forte" onclick="choosePerfLevel('forte')">
+       🚀 Forte optimisation<br><small>Le plus économe en mémoire et le plus fluide. Décors réduits.</small>
+     </button>
+   </div>
+   <p class="manageHint" id="perfCurrentLabel"></p>
+ </aside>
    <button class="close" onclick="closePanels()">×</button>
    <h2 id="manageTitle">Gestion</h2>
    <h3 data-i18n="panel.resources">Ressources</h3>
@@ -2187,9 +2211,10 @@ h2{
 <div id="rotate">📱<br>Tournez votre téléphone en mode paysage.</div>
 
 <!-- ===== Moteur de jeu réel (voir UI_MIGRATION_NOTES.md) ===== -->
+<script src="js/settings.js"></script>
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/config.js?v=25"></script>
+<script src="js/config.js?v=26"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js"></script>
 <script src="js/procgen.js"></script>
@@ -2226,7 +2251,7 @@ h2{
 <script src="js/forestTrees.js?v=16"></script>
 <script src="js/grassDecor.js?v=9"></script>
 <script src="js/wheatCrops.js?v=3"></script>
-<script src="js/render.js?v=17"></script>
+<script src="js/render.js?v=18"></script>
 <script src="js/zoom.js"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
@@ -2498,6 +2523,27 @@ function togglePanel(id){
    panel.classList.add('open');
    document.getElementById('backdrop').classList.add('show');
  }
+}
+
+function openPerfSettings(){
+ closePanels();
+ document.getElementById('perfSettingsPanel').classList.add('open');
+ document.getElementById('backdrop').classList.add('show');
+ refreshPerfSettingsUI();
+}
+
+function refreshPerfSettingsUI(){
+ const current = typeof PERF_LEVEL === 'string' ? PERF_LEVEL : 'normal';
+ document.querySelectorAll('.perfLevelBtn').forEach(btn => {
+   btn.classList.toggle('active', btn.dataset.level === current);
+ });
+ const labels = { faible: 'Faible optimisation', normal: 'Normal', forte: 'Forte optimisation' };
+ const lbl = document.getElementById('perfCurrentLabel');
+ if (lbl) lbl.textContent = 'Niveau actuel : ' + (labels[current] || current);
+}
+
+function choosePerfLevel(level){
+ if (typeof setPerfLevel === 'function') setPerfLevel(level); // recharge la page pour appliquer proprement
 }
 function openObserver(title){
  closePanels();
