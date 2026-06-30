@@ -918,10 +918,33 @@ function cellElevation(col, row){
   return grid[row][col].elevation || 0;
 }
 
+/** Centroïde des cases non-eau de la grille (plus fiable que le centre géométrique
+ * fixe quand le style de carte ne place pas l'île au milieu — important en portrait,
+ * où la vue est étroite horizontalement et révèle moins de marge d'erreur). */
+function computeLandCentroid(){
+  if (!Array.isArray(grid) || !grid.length) return null;
+  let sumCol = 0, sumRow = 0, count = 0;
+  for (let row = 0; row < grid.length; row++){
+    const line = grid[row];
+    if (!Array.isArray(line)) continue;
+    for (let col = 0; col < line.length; col++){
+      const cell = line[col];
+      if (cell && cell.terrain && cell.terrain !== 'water'){
+        sumCol += col; sumRow += row; count++;
+      }
+    }
+  }
+  if (!count) return null;
+  return { col: sumCol / count, row: sumRow / count };
+}
+
 function centerMapView(){
   const wrap = document.getElementById('canvasWrap');
   if (!wrap) return;
-  const center = tileCenter(Math.floor(GRID_COLS / 2), Math.floor(GRID_ROWS / 2));
+  const land = computeLandCentroid();
+  const targetCol = land ? Math.round(land.col) : Math.floor(GRID_COLS / 2);
+  const targetRow = land ? Math.round(land.row) : Math.floor(GRID_ROWS / 2);
+  const center = tileCenter(targetCol, targetRow);
   wrap.scrollLeft = Math.max(0, center.x * zoomLevel - wrap.clientWidth / 2);
   wrap.scrollTop = Math.max(0, center.y * zoomLevel - wrap.clientHeight / 2);
 }

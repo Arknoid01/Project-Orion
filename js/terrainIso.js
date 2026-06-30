@@ -213,15 +213,15 @@ function requiredBlockSpriteKeys(){
 function isBlockKeyReady(key){
   if (usesCleanBlockWalls()){
     if (typeof usesFullFaceCubes === 'function' && usesFullFaceCubes()){
-      if (TERRAIN_BLOCK_BAKED[key]) return true;
-      const spec = typeof TERRAIN_BLOCK_TINTS === 'object' && TERRAIN_BLOCK_TINTS
-        ? TERRAIN_BLOCK_TINTS[key]
-        : null;
-      if (spec && typeof rebakeTintBlockFromFlatFaces === 'function'){
-        rebakeTintBlockFromFlatFaces(key);
-        return !!TERRAIN_BLOCK_BAKED[key];
-      }
-      return false;
+      // IMPORTANT : ne PAS appeler rebakeTintBlockFromFlatFaces ici. Cette fonction
+      // est prévue pour le mode "textures plates" (usesFlatBlockFaces), pas pour le
+      // mode cube plein actif ici. Si elle se déclenche quand même (ex: appelée avant
+      // que buildTintedBlockSprites ait fini son propre bake), elle peut écraser un
+      // bake correct (blé/marbre teintés via détection de losange) par un résultat
+      // différent et incorrect -> sol "blé" qui s'affiche comme de l'herbe non teintée.
+      // On attend simplement que buildTintedBlockSprites (appelé après chaque sprite
+      // de base chargé) ait fait son travail, sans court-circuit concurrent.
+      return !!TERRAIN_BLOCK_BAKED[key];
     }
     // IMPORTANT : ne JAMAIS retomber sur img.complete ici. Le bake (TERRAIN_BLOCK_BAKED)
     // est requis dès lors que usesCleanBlockWalls() est actif ; comme le bake se fait
