@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Test couture v2 — pipeline fidèle (bake + cache + écran)</title>
+<style>
+  html, body { margin:0; padding:0; background:#111; color:#eee; font-family:sans-serif; overflow:hidden; }
+  #ui {
+    position:fixed; top:0; left:0; right:0; z-index:10;
+    background:rgba(0,0,0,0.85); padding:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  button {
+    padding:10px 14px; font-size:14px; border-radius:8px; border:1px solid #888;
+    background:#222; color:#eee;
+  }
+  button.active { background:#2a6; border-color:#2a6; }
+  #info { font-size:12px; opacity:0.85; width:100%; white-space:pre-wrap; }
+  #wrap { position:fixed; top:120px; left:0; right:0; bottom:0; overflow:auto; }
+  canvas { display:block; image-rendering: auto; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <button id="btn1px" class="active">Etape 1 : bake brut (1 sprite seul, zoom x4)</button>
+  <button id="btnCache">Etape 2 : grille sur cache (= terrainLayerCache du jeu)</button>
+  <button id="btnScreen">Etape 3 : cache -> écran (= pipeline complet réel)</button>
+  <div id="info"></div>
+</div>
+<div id="wrap"><canvas id="cv"></canvas></div>
+
+<!-- On réutilise le VRAI fichier de bake du jeu, sans le modifier -->
+<script src="js/terrainVoxelBake.js"></script>
+<script>
+const TILE_W = 64, TILE_H = 32;
+const TERRAIN_TILE_OVERLAP = 10;
+const TERRAIN_CUBE_FULL_FACES = true; // mêmes constantes que le jeu, pour que bakeBlockAsset/bakeTerrainBlockCanvas se comportent pareil
+const TERRAIN_BLOCK_SIDE_H = 32;
+const TERRAIN_BLOCK_SIDE_WALL_MIN = 8;
+const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
+const COLS = 10, ROWS = 10;
+
+const img = new Image();
+img.src = 'assets/tiles/blocks/grass.png';
+
+let bakedCanvas = null; // résultat EXACT de bakeTerrainBlockCanvas (le vrai code du jeu)
+let bakeError = null;
+
+function doBake(){
+  try {
+    const trimmed = trimTransparentCanvas(img);
+    const result = bakeTerrainBlockCanvas(trimmed.canvas, TILE_W, TILE_H);
+    if (!result){ bakeError = 'bakeTerrainBlockCanvas a retourné null (detectTopDiamondGeometry a échoué)'; return; }
+    bakedCanvas = result.canvas;
+  } catch (e){
+    bakeError = 'Exception pendant le bake : ' + (e && e.message);
+  }
+}
+
+function tileScreenX(col, row){ return (col - row) * (TILE_W / 2); }
+function tileScreenY(col, row){ return (col + row) * (TILE_H / 2); }
+
+function step1(){
+  const cv = document.getElementById('cv');
+  cv.width = 400; cv.height = 400;
+  cv.style.width = '400px'; cv.style.height = '400px';
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#222';
+  ctx.fillRect(0, 0, 400, 400);
+  if (bakedCanvas){
+    ctx.drawImage(bakedCanvas, 0, 0, bakedCanvas.width, bakedCanvas.height, 20, 20, bakedCanvas.width * 4, bakedCanvas.height * 4);
+  }
+  document.getElementById('info').textContent = bakeError
+    ? ('ERREUR DE BAKE : ' + bakeError)
+    : `Sprite baké isolé, zoomé x4. Taille bakée réelle : ${bakedCanvas ? bakedCanvas.width+'x'+bakedCanvas.height : '?'}px. Regarde les bords du losange : anti-aliasing/halo visible ?`;
+}
+
+function step2(){
+  // Reproduit EXACTEMENT ensureTerrainLayerCache() : cache à part, scale=1 (mobile)
+  const cv = document.getElementById('cv');
+  const worldW = (COLS + ROWS) * (TILE_W / 2);
+  const worldH = (COLS + ROWS) * (TILE_H / 2) + TILE_H;
+  cv.width = worldW; cv.height = worldH;
+  cv.style.width = worldW + 'px'; cv.style.height = worldH + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#234';
+  ctx.fillRect(0, 0, worldW, worldH);
+  const offsetX = ROWS * (TILE_W / 2);
+  ctx.setTransform(1, 0, 0, 1, offsetX, 0);
+  const pad = TERRAIN_TILE_OVERLAP;
+  for (let row = 0; row < ROWS; row++){
+    for (let col = 0; col < COLS; col++){
+      const cx = tileScreenX(col, row);
+      const cy = tileScreenY(col, row);
+      const drawW = TILE_W + pad;
+      const drawH = (bakedCanvas.height / bakedCanvas.width) * drawW;
+      ctx.drawImage(bakedCanvas, cx - drawW / 2, cy, drawW, drawH);
+    }
+  }
+  document.getElementById('info').textContent =
+    `Grille bakée sur le cache (canvas ${worldW}x${worldH}px, résolution NATIVE, pas de redimensionnement CSS). Coutures visibles ICI ?`;
+}
+
+function step3(){
+  // Reproduit le blit final cache -> canvas écran (avec un facteur d'échelle, comme zoomLevel du jeu)
+  const cv = document.getElementById('cv');
+  const worldW = (COLS + ROWS) * (TILE_W / 2);
+  const worldH = (COLS + ROWS) * (TILE_H / 2) + TILE_H;
+
+  // 1) construit le cache (offscreen, comme le jeu)
+  const cache = document.createElement('canvas');
+  cache.width = worldW; cache.height = worldH;
+  const cctx = cache.getContext('2d');
+  cctx.imageSmoothingEnabled = true;
+  cctx.imageSmoothingQuality = 'high';
+  const offsetX = ROWS * (TILE_W / 2);
+  cctx.setTransform(1, 0, 0, 1, offsetX, 0);
+  const pad = TERRAIN_TILE_OVERLAP;
+  for (let row = 0; row < ROWS; row++){
+    for (let col = 0; col < COLS; col++){
+      const cx = tileScreenX(col, row);
+      const cy = tileScreenY(col, row);
+      const drawW = TILE_W + pad;
+      const drawH = (bakedCanvas.height / bakedCanvas.width) * drawW;
+      cctx.drawImage(bakedCanvas, cx - drawW / 2, cy, drawW, drawH);
+    }
+  }
+
+  // 2) blit cache -> canvas écran avec un zoom (comme render() le fait chaque frame)
+  const zoomLevel = 1.6;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(worldW * zoomLevel * dpr);
+  cv.height = Math.round(worldH * zoomLevel * dpr);
+  cv.style.width = (worldW * zoomLevel) + 'px';
+  cv.style.height = (worldH * zoomLevel) + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.setTransform(zoomLevel * dpr, 0, 0, zoomLevel * dpr, 0, 0);
+  ctx.drawImage(cache, 0, 0);
+
+  document.getElementById('info').textContent =
+    `Pipeline complet : bake -> cache (résolution native) -> blit zoomé x${zoomLevel} sur canvas écran (dpr=${dpr}). C'EST EXACTEMENT ce que fait le jeu à chaque frame. Coutures ICI ?`;
+}
+
+let mode = '1';
+function refresh(){
+  if (!bakedCanvas){ doBake(); }
+  if (bakeError){ document.getElementById('info').textContent = 'ERREUR DE BAKE : ' + bakeError; return; }
+  if (mode === '1') step1();
+  else if (mode === '2') step2();
+  else step3();
+}
+
+img.onload = refresh;
+img.onerror = () => { document.getElementById('info').textContent = 'Erreur chargement grass.png — lance cette page depuis la racine du projet.'; };
+
+function setActive(id){
+  ['btn1px','btnCache','btnScreen'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+document.getElementById('btn1px').onclick = () => { mode = '1'; setActive('btn1px'); refresh(); };
+document.getElementById('btnCache').onclick = () => { mode = '2'; setActive('btnCache'); refresh(); };
+document.getElementById('btnScreen').onclick = () => { mode = '3'; setActive('btnScreen'); refresh(); };
+</script>
+</body>
+</html>
