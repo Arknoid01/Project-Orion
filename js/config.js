@@ -42,7 +42,7 @@ const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
-const RENDER_DPR_CAP = DEVICE_REDUCE_CANVAS_LOAD ? 0.65 : 1.5;
+const RENDER_DPR_CAP = DEVICE_REDUCE_CANVAS_LOAD ? 1 : 1.5;           // 1 = échelle entière sûre. NE PAS descendre sous 1 : une échelle fractionnaire casse le rendu en losange (génère des triangles), cf. historique de bug.
 const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
