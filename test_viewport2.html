@@ -31,7 +31,7 @@
 
 <!-- cache-bust : v3-diag -->
 <!-- On réutilise le VRAI fichier de bake du jeu, sans le modifier -->
-<script src="js/terrainVoxelBake.js?v=3diag"></script>
+<script src="js/terrainVoxelBake.js?v=4scan"></script>
 <script>
 const TILE_W = 64, TILE_H = 32;
 const TERRAIN_TILE_OVERLAP = 10;
@@ -42,7 +42,7 @@ const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
 const COLS = 10, ROWS = 10;
 
 const img = new Image();
-img.src = 'assets/tiles/blocks/grass.png?v=3diag';
+img.src = 'assets/tiles/blocks/grass.png?v=4scan';
 
 let bakedCanvas = null;
 let bakeError = null;
@@ -61,24 +61,47 @@ function doBake(){
 function tileScreenX(col, row){ return (col - row) * (TILE_W / 2); }
 function tileScreenY(col, row){ return (col + row) * (TILE_H / 2); }
 
-/** Mesure objectivement si une couture sombre existe à la jonction de 2 tuiles. */
-function diagnoseSeam(ctx, worldW, worldH, offsetX){
-  // Coordonnée pixel EXACTE de la jonction entre tile(2,2) et tile(3,2) (un bord droit de losange).
-  const cx = tileScreenX(2, 2) + offsetX;
-  const cy = tileScreenY(2, 2) + TILE_H * 0.55; // un peu sous le sommet, sur le bord droit du losange
-  let data;
-  try { data = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height).data; }
-  catch(e){ return 'getImageData impossible : ' + e.message; }
+/** Scanne toute une ligne horizontale et repère les chutes de luminosité (coutures). */
+function scanRowForSeams(ctx, y){
   const w = ctx.canvas.width;
-  const samples = [];
-  for (let dx = -6; dx <= 6; dx++){
-    const x = Math.round(cx + dx);
-    const y = Math.round(cy);
-    if (x < 0 || x >= w) continue;
-    const i = (y * w + x) * 4;
-    samples.push(`x${dx>=0?'+':''}${dx}:rgb(${data[i]},${data[i+1]},${data[i+2]})`);
+  let data;
+  try { data = ctx.getImageData(0, Math.max(0, y - 1), w, 3).data; }
+  catch(e){ return 'getImageData impossible : ' + e.message; }
+  const rowW = w;
+  const brightness = new Array(rowW);
+  for (let x = 0; x < rowW; x++){
+    const i = (1 * rowW + x) * 4; // ligne du milieu des 3 lignes lues
+    brightness[x] = (data[i] + data[i+1] + data[i+2]) / 3;
   }
-  return samples.join('  ');
+  // moyenne glissante locale (5px) pour comparer chaque pixel a son voisinage
+  let dips = [];
+  for (let x = 4; x < rowW - 4; x++){
+    const local = (brightness[x-4]+brightness[x-3]+brightness[x-2]+brightness[x-1]+brightness[x+1]+brightness[x+2]+brightness[x+3]+brightness[x+4]) / 8;
+    const drop = local - brightness[x];
+    if (drop > 18) dips.push({ x, drop: Math.round(drop), val: Math.round(brightness[x]), around: Math.round(local) });
+  }
+  if (!dips.length) return `Ligne y=${y} : AUCUNE chute de luminosité detectee (scan de ${rowW}px). Pas de couture sur cette ligne.`;
+  // regroupe les dips consecutifs
+  const groups = [];
+  let cur = [dips[0]];
+  for (let i = 1; i < dips.length; i++){
+    if (dips[i].x - dips[i-1].x <= 2) cur.push(dips[i]);
+    else { groups.push(cur); cur = [dips[i]]; }
+  }
+  groups.push(cur);
+  const summary = groups.map(g => {
+    const worst = g.reduce((a,b) => a.drop > b.drop ? a : b);
+    return `x=${worst.x} (chute de ${worst.drop}, val=${worst.val} vs voisinage=${worst.around})`;
+  }).join(' | ');
+  return `Ligne y=${y} : ${groups.length} couture(s) detectee(s) sur ${rowW}px scannes -> ${summary}`;
+}
+
+function fullDiagnostic(ctx, worldH){
+  const lines = [];
+  // teste plusieurs hauteurs : sommet du losange, milieu, bas
+  const ys = [Math.round(worldH*0.15), Math.round(worldH*0.35), Math.round(worldH*0.5), Math.round(worldH*0.65), Math.round(worldH*0.85)];
+  ys.forEach(y => { if (y > 0 && y < ctx.canvas.height) lines.push(scanRowForSeams(ctx, y)); });
+  return lines.join('\n');
 }
 
 function step1(){
@@ -122,9 +145,9 @@ function step2(){
     }
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const diag = diagnoseSeam(ctx, worldW, worldH, offsetX);
+  const diag = fullDiagnostic(ctx, worldH);
   document.getElementById('info').textContent =
-    `Grille bakée sur le cache (résolution native, ${worldW}x${worldH}px).\nMESURE OBJECTIVE à la jonction de 2 tuiles (12 pixels, de gauche a droite) :\n${diag}\n-> Si tous les rgb() sont proches/identiques = PAS de couture. Si une chute brutale et sombre apparait au milieu (vers x+0) = couture confirmée.`;
+    `Grille bakée sur le cache (résolution native, ${worldW}x${worldH}px).\nSCAN AUTOMATIQUE (5 lignes horizontales, toute la largeur) :\n${diag}`;
 }
 
 function step3(){
@@ -163,9 +186,9 @@ function step3(){
   ctx.drawImage(cache, 0, 0);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  const diag = diagnoseSeam(ctx, cv.width, cv.height, offsetX * zoomLevel * dpr);
+  const diag = fullDiagnostic(ctx, cv.height);
   document.getElementById('info').textContent =
-    `Pipeline complet : bake -> cache -> blit zoomé x${zoomLevel} (dpr=${dpr}).\nMESURE OBJECTIVE a la jonction (12 pixels) :\n${diag}`;
+    `Pipeline complet : bake -> cache -> blit zoomé x${zoomLevel} (dpr=${dpr}).\nSCAN AUTOMATIQUE (5 lignes horizontales, toute la largeur) :\n${diag}`;
 }
 
 let mode = '1';
