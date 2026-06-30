@@ -391,7 +391,7 @@ function bakeTerrainBlockCanvas(sourceCanvas, isoW, isoH){
   // avant d'agrandir à la taille cible, cette bordure sombre est coupée plutôt que
   // recopiée jusqu'au bord de la tuile, où elle créait un quadrillage visible entre
   // tuiles voisines, peu importe le padding/chevauchement utilisé.
-  const capInset = typeof TERRAIN_BLOCK_CAP_INSET === 'number' ? TERRAIN_BLOCK_CAP_INSET : 0.12;
+  const capInset = typeof TERRAIN_BLOCK_CAP_INSET === 'number' ? TERRAIN_BLOCK_CAP_INSET : 0.28;
   const insetX = geo.diamondWidth * capInset;
   const insetY = geo.diamondHeight * capInset;
 
