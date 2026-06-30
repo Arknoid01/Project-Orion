@@ -25,7 +25,7 @@ const ELEVATION_PIXELS = 26; // décalage vertical des entités (bâtiments, uni
 const TERRAIN_ELEV_BASELINE = 0.28;       // sous ce niveau : ombre de relief minimale
 const TERRAIN_BLOCK_HEIGHT_PER_ELEV = 24; // socle procédural optionnel (TERRAIN_USE_BASE_BLOCK)
 const TERRAIN_USE_BASE_BLOCK = false;     // false : pas de socle procédural (évite les bandes beiges)
-const TERRAIN_TILE_OVERLAP = DEVICE_REDUCE_CANVAS_LOAD ? 10 : 4;           // chevauchement entre losanges (masque les joints sans clip) — plus large sur mobile car l'upscale du canvas y révèle les coutures malgré le padding desktop
+const TERRAIN_TILE_OVERLAP = 4;           // chevauchement entre losanges (masque les joints sans clip). MEME valeur partout : un padding plus large fait "baver" la bordure naturellement plus sombre du sprite source sur la tuile voisine -> quadrillage visible (bug identifié et confirmé par scan pixel le 30/06).
 const TERRAIN_CAP_CLIP_PAD = 0;           // 0 = pas de clip dur sur les textures
 const TERRAIN_EXPORT_SCALE = 2;           // PNG 128 px de large = TILE_W × 2
 
