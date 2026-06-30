@@ -89,6 +89,13 @@ function detectTopDiamondGeometry(canvas){
   const frontCornerY = cornerY;
   if (frontCornerY <= topY + 4) return null;
 
+  // Garde-fou anti-lecture-partielle : un losange iso correct a ses deux coins
+  // latéraux (gauche/droite) à peu près à la même hauteur. Un fort déséquilibre
+  // trahit un getImageData lu avant la fin du décodage GPU (bug mobile observé
+  // sur Adreno) -> on rejette plutôt que de baker un triangle de façon permanente.
+  const cornerSkew = Math.abs(leftCornerY - rightCornerY);
+  if (cornerSkew > (frontCornerY - topY) * 0.6) return null;
+
   return {
     topY,
     cornerY,

@@ -77,13 +77,26 @@ function initTerrainIsoBlockSprites(){
   Object.entries(TERRAIN_BLOCK_SPRITES).forEach(([id, path]) => {
     if (TERRAIN_BLOCK_IMAGES[id]) return;
     const img = new Image();
-    img.onload = () => {
-      bakeBlockAsset(id, img);
-      if (typeof buildTintedBlockSprites === 'function') buildTintedBlockSprites();
-      bumpTerrainVersion();
-      if (typeof debugInfo === 'function') debugInfo(`Sprite bloc terrain charge : ${path}`);
-      if (typeof render === 'function') render();
+    const onReady = () => {
+      // img.decode() garantit que l'image est ENTIEREMENT décodée/rasterisée avant
+      // qu'on lise ses pixels (getImageData dans bakeBlockAsset). Sur certains GPU
+      // mobiles (Adreno notamment), 'onload' seul peut se déclencher avant la fin
+      // du décodage GPU, ce qui fait lire un buffer partiel et casse la détection
+      // de la forme du losange (symptôme : tuiles en triangle au lieu de losange).
+      const proceed = () => {
+        bakeBlockAsset(id, img);
+        if (typeof buildTintedBlockSprites === 'function') buildTintedBlockSprites();
+        bumpTerrainVersion();
+        if (typeof debugInfo === 'function') debugInfo(`Sprite bloc terrain charge : ${path}`);
+        if (typeof render === 'function') render();
+      };
+      if (typeof img.decode === 'function'){
+        img.decode().then(proceed).catch(proceed);
+      } else {
+        proceed();
+      }
     };
+    img.onload = onReady;
     img.onerror = () => {
       if (typeof debugWarn === 'function') debugWarn(`Sprite bloc introuvable : ${path}`);
     };
