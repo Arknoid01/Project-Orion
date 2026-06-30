@@ -31,7 +31,7 @@
 
 <!-- cache-bust : v3-diag -->
 <!-- On réutilise le VRAI fichier de bake du jeu, sans le modifier -->
-<script src="js/terrainVoxelBake.js?v=5fix"></script>
+<script src="js/terrainVoxelBake.js?v=6vig"></script>
 <script>
 const TILE_W = 64, TILE_H = 32;
 const TERRAIN_TILE_OVERLAP = 4; // valeur corrigee (etait 10, cause confirmee du quadrillage)
@@ -42,7 +42,7 @@ const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
 const COLS = 10, ROWS = 10;
 
 const img = new Image();
-img.src = 'assets/tiles/blocks/grass.png?v=5fix';
+img.src = 'assets/tiles/blocks/grass.png?v=6vig';
 
 let bakedCanvas = null;
 let bakeError = null;
@@ -104,6 +104,28 @@ function fullDiagnostic(ctx, worldH){
   return lines.join('\n');
 }
 
+/** Compare la luminosité du centre du losange a celle de son bord (vignette naturelle ?). */
+function measureVignette(canvas){
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  let data;
+  try { data = ctx.getImageData(0, 0, w, h).data; } catch(e){ return 'mesure impossible : ' + e.message; }
+  function brightnessAt(x, y){
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || x >= w || y < 0 || y >= h) return null;
+    const i = (y * w + x) * 4;
+    if (d_alpha(data, i) < 10) return null;
+    return (data[i] + data[i+1] + data[i+2]) / 3;
+  }
+  function d_alpha(data, i){ return data[i+3]; }
+  const cx = w / 2, cy = h * 0.35; // centre approximatif du cap (pas les parois)
+  const center = brightnessAt(cx, cy);
+  const edgeLeft = brightnessAt(w * 0.12, h * 0.35);
+  const edgeRight = brightnessAt(w * 0.88, h * 0.35);
+  const edgeTop = brightnessAt(w / 2, h * 0.06);
+  return `Centre du losange: ${center!==null?Math.round(center):'transparent'} | Bord gauche: ${edgeLeft!==null?Math.round(edgeLeft):'transparent'} | Bord droit: ${edgeRight!==null?Math.round(edgeRight):'transparent'} | Bord haut: ${edgeTop!==null?Math.round(edgeTop):'transparent'} -> ${center!==null && edgeLeft!==null ? 'difference centre/bord gauche = '+Math.round(center-edgeLeft) : ''}`;
+}
+
 function step1(){
   const cv = document.getElementById('cv');
   cv.width = 400; cv.height = 400;
@@ -116,9 +138,10 @@ function step1(){
   if (bakedCanvas){
     ctx.drawImage(bakedCanvas, 0, 0, bakedCanvas.width, bakedCanvas.height, 20, 20, bakedCanvas.width * 4, bakedCanvas.height * 4);
   }
+  const vignette = bakedCanvas ? measureVignette(bakedCanvas) : '';
   document.getElementById('info').textContent = bakeError
     ? ('ERREUR DE BAKE : ' + bakeError)
-    : `Sprite baké isolé, zoomé x4. Taille bakée réelle : ${bakedCanvas ? bakedCanvas.width+'x'+bakedCanvas.height : '?'}px.`;
+    : `Sprite baké isolé, zoomé x4. Taille bakée : ${bakedCanvas ? bakedCanvas.width+'x'+bakedCanvas.height : '?'}px.\nVIGNETTE (luminosite 0-255) : ${vignette}\n-> Si "difference centre/bord" > 15-20, le sprite a une vraie vignette qui peut creer le quadrillage en se touchant entre tuiles.`;
 }
 
 function step2(){
