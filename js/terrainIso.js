@@ -223,9 +223,12 @@ function isBlockKeyReady(key){
       }
       return false;
     }
-    if (TERRAIN_BLOCK_BAKED[key]) return true;
-    const img = TERRAIN_BLOCK_TINTED_IMAGES[key] || TERRAIN_BLOCK_IMAGES[key];
-    return img && ((img.complete && img.naturalWidth > 0) || img.width > 0);
+    // IMPORTANT : ne JAMAIS retomber sur img.complete ici. Le bake (TERRAIN_BLOCK_BAKED)
+    // est requis dès lors que usesCleanBlockWalls() est actif ; comme le bake se fait
+    // maintenant après img.decode() (asynchrone), img.complete peut devenir vrai AVANT
+    // que le bake soit terminé. Accepter img.complete seul faisait construire le cache
+    // de terrain avec un sprite non-baké -> rendu en triangle au lieu du losange complet.
+    return !!TERRAIN_BLOCK_BAKED[key];
   }
   const img = TERRAIN_BLOCK_IMAGES[key];
   return img && img.complete && img.naturalWidth > 0;
