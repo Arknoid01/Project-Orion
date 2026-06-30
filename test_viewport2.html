@@ -29,28 +29,29 @@
 </div>
 <div id="wrap"><canvas id="cv"></canvas></div>
 
+<!-- cache-bust : v3-diag -->
 <!-- On réutilise le VRAI fichier de bake du jeu, sans le modifier -->
-<script src="js/terrainVoxelBake.js"></script>
+<script src="js/terrainVoxelBake.js?v=3diag"></script>
 <script>
 const TILE_W = 64, TILE_H = 32;
 const TERRAIN_TILE_OVERLAP = 10;
-const TERRAIN_CUBE_FULL_FACES = true; // mêmes constantes que le jeu, pour que bakeBlockAsset/bakeTerrainBlockCanvas se comportent pareil
+const TERRAIN_CUBE_FULL_FACES = true;
 const TERRAIN_BLOCK_SIDE_H = 32;
 const TERRAIN_BLOCK_SIDE_WALL_MIN = 8;
 const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
 const COLS = 10, ROWS = 10;
 
 const img = new Image();
-img.src = 'assets/tiles/blocks/grass.png';
+img.src = 'assets/tiles/blocks/grass.png?v=3diag';
 
-let bakedCanvas = null; // résultat EXACT de bakeTerrainBlockCanvas (le vrai code du jeu)
+let bakedCanvas = null;
 let bakeError = null;
 
 function doBake(){
   try {
     const trimmed = trimTransparentCanvas(img);
     const result = bakeTerrainBlockCanvas(trimmed.canvas, TILE_W, TILE_H);
-    if (!result){ bakeError = 'bakeTerrainBlockCanvas a retourné null (detectTopDiamondGeometry a échoué)'; return; }
+    if (!result){ bakeError = 'bakeTerrainBlockCanvas a retourné null'; return; }
     bakedCanvas = result.canvas;
   } catch (e){
     bakeError = 'Exception pendant le bake : ' + (e && e.message);
@@ -59,6 +60,26 @@ function doBake(){
 
 function tileScreenX(col, row){ return (col - row) * (TILE_W / 2); }
 function tileScreenY(col, row){ return (col + row) * (TILE_H / 2); }
+
+/** Mesure objectivement si une couture sombre existe à la jonction de 2 tuiles. */
+function diagnoseSeam(ctx, worldW, worldH, offsetX){
+  // Coordonnée pixel EXACTE de la jonction entre tile(2,2) et tile(3,2) (un bord droit de losange).
+  const cx = tileScreenX(2, 2) + offsetX;
+  const cy = tileScreenY(2, 2) + TILE_H * 0.55; // un peu sous le sommet, sur le bord droit du losange
+  let data;
+  try { data = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height).data; }
+  catch(e){ return 'getImageData impossible : ' + e.message; }
+  const w = ctx.canvas.width;
+  const samples = [];
+  for (let dx = -6; dx <= 6; dx++){
+    const x = Math.round(cx + dx);
+    const y = Math.round(cy);
+    if (x < 0 || x >= w) continue;
+    const i = (y * w + x) * 4;
+    samples.push(`x${dx>=0?'+':''}${dx}:rgb(${data[i]},${data[i+1]},${data[i+2]})`);
+  }
+  return samples.join('  ');
+}
 
 function step1(){
   const cv = document.getElementById('cv');
@@ -74,11 +95,10 @@ function step1(){
   }
   document.getElementById('info').textContent = bakeError
     ? ('ERREUR DE BAKE : ' + bakeError)
-    : `Sprite baké isolé, zoomé x4. Taille bakée réelle : ${bakedCanvas ? bakedCanvas.width+'x'+bakedCanvas.height : '?'}px. Regarde les bords du losange : anti-aliasing/halo visible ?`;
+    : `Sprite baké isolé, zoomé x4. Taille bakée réelle : ${bakedCanvas ? bakedCanvas.width+'x'+bakedCanvas.height : '?'}px.`;
 }
 
 function step2(){
-  // Reproduit EXACTEMENT ensureTerrainLayerCache() : cache à part, scale=1 (mobile)
   const cv = document.getElementById('cv');
   const worldW = (COLS + ROWS) * (TILE_W / 2);
   const worldH = (COLS + ROWS) * (TILE_H / 2) + TILE_H;
@@ -101,17 +121,17 @@ function step2(){
       ctx.drawImage(bakedCanvas, cx - drawW / 2, cy, drawW, drawH);
     }
   }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const diag = diagnoseSeam(ctx, worldW, worldH, offsetX);
   document.getElementById('info').textContent =
-    `Grille bakée sur le cache (canvas ${worldW}x${worldH}px, résolution NATIVE, pas de redimensionnement CSS). Coutures visibles ICI ?`;
+    `Grille bakée sur le cache (résolution native, ${worldW}x${worldH}px).\nMESURE OBJECTIVE à la jonction de 2 tuiles (12 pixels, de gauche a droite) :\n${diag}\n-> Si tous les rgb() sont proches/identiques = PAS de couture. Si une chute brutale et sombre apparait au milieu (vers x+0) = couture confirmée.`;
 }
 
 function step3(){
-  // Reproduit le blit final cache -> canvas écran (avec un facteur d'échelle, comme zoomLevel du jeu)
   const cv = document.getElementById('cv');
   const worldW = (COLS + ROWS) * (TILE_W / 2);
   const worldH = (COLS + ROWS) * (TILE_H / 2) + TILE_H;
 
-  // 1) construit le cache (offscreen, comme le jeu)
   const cache = document.createElement('canvas');
   cache.width = worldW; cache.height = worldH;
   const cctx = cache.getContext('2d');
@@ -130,7 +150,6 @@ function step3(){
     }
   }
 
-  // 2) blit cache -> canvas écran avec un zoom (comme render() le fait chaque frame)
   const zoomLevel = 1.6;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   cv.width = Math.round(worldW * zoomLevel * dpr);
@@ -142,9 +161,11 @@ function step3(){
   ctx.imageSmoothingQuality = 'high';
   ctx.setTransform(zoomLevel * dpr, 0, 0, zoomLevel * dpr, 0, 0);
   ctx.drawImage(cache, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+  const diag = diagnoseSeam(ctx, cv.width, cv.height, offsetX * zoomLevel * dpr);
   document.getElementById('info').textContent =
-    `Pipeline complet : bake -> cache (résolution native) -> blit zoomé x${zoomLevel} sur canvas écran (dpr=${dpr}). C'EST EXACTEMENT ce que fait le jeu à chaque frame. Coutures ICI ?`;
+    `Pipeline complet : bake -> cache -> blit zoomé x${zoomLevel} (dpr=${dpr}).\nMESURE OBJECTIVE a la jonction (12 pixels) :\n${diag}`;
 }
 
 let mode = '1';
@@ -169,3 +190,4 @@ document.getElementById('btnScreen').onclick = () => { mode = '3'; setActive('bt
 </script>
 </body>
 </html>
+
