@@ -22,6 +22,7 @@
  --safeBottom:env(safe-area-inset-bottom);
  --safeLeft:env(safe-area-inset-left);
  --safeRight:env(safe-area-inset-right);
+ --hudOffset:64px; /* espace sous le HUD du haut ; agrandi en portrait si le HUD passe sur 2 lignes */
 }
 *{
  box-sizing:border-box;
@@ -205,7 +206,7 @@ html,body{
 
 /* Observateur à droite */
 #observerPanel{
- top:calc(var(--safeTop) + 64px);
+ top:calc(var(--safeTop) + var(--hudOffset));
  right:var(--safeRight);
  bottom:calc(var(--safeBottom) + 10px);
  width:min(92vw,400px);
@@ -217,7 +218,7 @@ html,body{
 #observerPanel.open{transform:translateX(0)}
 
 #buildPanel{
- top:calc(var(--safeTop) + 64px);
+ top:calc(var(--safeTop) + var(--hudOffset));
  right:var(--safeRight);
  bottom:calc(var(--safeBottom) + 10px);
  width:min(92vw,440px);
@@ -387,19 +388,45 @@ html,body{
 /* Portrait */
 #rotate{display:none}
 @media (orientation:portrait){
- #rotate{
-  display:grid;
-  position:fixed;
-  inset:0;
-  z-index:9999;
-  place-items:center;
-  text-align:center;
-  background:#071a2a;
-  color:var(--marble);
-  font-size:22px;
-  padding:30px;
+ /* Le jeu fonctionne maintenant aussi en portrait : on adapte le HUD au lieu de
+    bloquer l'écran. #rotate (ancien écran "tournez votre téléphone") est désactivé
+    plus bas via #rotate{display:none !important}. */
+ :root{
+  --hudOffset:104px; /* le HUD passe sur 2 lignes en portrait, donc plus d'espace sous lui */
+ }
+ .hud{
+  flex-wrap:wrap;
+  height:auto;
+  row-gap:6px;
+ }
+ .hud-pill{
+  height:38px;
+  padding:0 10px;
+  font-size:13px;
+ }
+ .hud-pill, .iconBtn{
+  flex-shrink:0;
+ }
+ .iconBtn{
+  width:38px;
+  height:38px;
+  font-size:18px;
+ }
+ .hud-spacer{
+  flex-basis:100%;
+  height:0;
+  flex:0 0 100%;
+ }
+ #manageBtn{
+  height:36px;
+  padding:0 11px;
+  font-size:13px;
  }
 }
+/* Ancien écran de blocage portrait, conservé désactivé au cas où on voudrait le
+   réactiver pour une raison précise (ex: très petit écran <320px). */
+#rotate{ display:none !important; }
+
 @media (max-height:480px){
  .hud{height:40px}
  .hud-pill,.iconBtn{height:40px}
@@ -983,7 +1010,7 @@ h2{
 }
 
 #gameMenuPanel{
-  top:calc(var(--safeTop) + 64px);
+  top:calc(var(--safeTop) + var(--hudOffset));
   left:var(--safeLeft);
   width:min(82vw,320px);
   max-height:calc(100dvh - var(--safeTop) - var(--safeBottom) - 84px);
@@ -1508,7 +1535,7 @@ h2{
 
 /* Panneau carte du monde : même tiroir droit que l'observateur */
 #worldMapPanel{
-  top:calc(var(--safeTop) + 64px);
+  top:calc(var(--safeTop) + var(--hudOffset));
   right:var(--safeRight);
   bottom:calc(var(--safeBottom) + 10px);
   width:min(92vw,440px);
@@ -1580,7 +1607,7 @@ h2{
 /* Bouton "Gestion" : flottant, sous le bouton catalogue (coin haut-droit) */
 #manageBtn{
   position:absolute;
-  top:calc(var(--safeTop) + 64px);
+  top:calc(var(--safeTop) + var(--hudOffset));
   right:calc(var(--safeRight) + 8px);
   z-index:22;
   pointer-events:auto;
@@ -1604,9 +1631,33 @@ h2{
 }
 #manageBtn:active{ filter:brightness(1.15); }
 
+/* Panneau "Performances" : tiroir droit, même gabarit que Gestion */
+#perfSettingsPanel{
+  top:calc(var(--safeTop) + var(--hudOffset));
+  right:var(--safeRight);
+  bottom:calc(var(--safeBottom) + 10px);
+  width:min(92vw,380px);
+  border-right:0;
+  border-radius:18px 0 0 18px;
+  padding:20px;
+  padding-bottom:28px;
+  transform:translateX(110%);
+  display:flex !important;
+  flex-direction:column !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  min-height:0;
+}
+#perfSettingsPanel.open{
+  transform:translateX(0);
+}
+
 /* Panneau "Gestion" : tiroir droit (ressources + raccourcis) */
 #managePanel{
-  top:calc(var(--safeTop) + 64px);
+  top:calc(var(--safeTop) + var(--hudOffset));
   right:var(--safeRight);
   bottom:calc(var(--safeBottom) + 10px);
   width:min(92vw,380px);
