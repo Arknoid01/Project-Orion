@@ -321,7 +321,7 @@ const TERRAIN_BLOCK_DRAW_W = 64;         // largeur d'une brique à l'écran
 const TERRAIN_BLOCK_CLEAN_WALLS = true;  // parois procédurales uniformes (Mykonos)
 const TERRAIN_BLOCK_SIDE_WALL_MIN = 8;
 const TERRAIN_BLOCK_SIDE_WALL_MAX = 16;
-const TERRAIN_CACHE_SCALE = DEVICE_REDUCE_CANVAS_LOAD ? 0.65 : 2;           // cache terrain HiDPI (1 = natif, réduit sous 1x sur mobile)
+const TERRAIN_CACHE_SCALE = DEVICE_REDUCE_CANVAS_LOAD ? 1 : 2;           // cache terrain HiDPI (1 = natif). Ne PAS descendre sous 1 : le bake de losange (detectTopDiamondGeometry) n'est pas fiable en échelle fractionnaire (cause un rendu en triangle au lieu du losange complet).
 const TERRAIN_BLOCK_FILL = 'dirt';        // brique sous le sommet
 const TERRAIN_BLOCK_SPRITES = {
   grass:  'assets/tiles/blocks/grass.png',
