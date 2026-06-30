@@ -385,6 +385,16 @@ function bakeTerrainBlockCanvas(sourceCanvas, isoW, isoH){
 
   if (colors) paintCleanSideWalls(ctx, isoW, isoH, sideH, colors);
 
+  // Recadrage interne : on évite la vignette naturelle du PNG source (bordure plus
+  // sombre près des bords du losange, confirmée par mesure : ~60 points de luminosité
+  // d'écart entre centre et bord gauche/droit). En zoomant légèrement sur le centre
+  // avant d'agrandir à la taille cible, cette bordure sombre est coupée plutôt que
+  // recopiée jusqu'au bord de la tuile, où elle créait un quadrillage visible entre
+  // tuiles voisines, peu importe le padding/chevauchement utilisé.
+  const capInset = typeof TERRAIN_BLOCK_CAP_INSET === 'number' ? TERRAIN_BLOCK_CAP_INSET : 0.12;
+  const insetX = geo.diamondWidth * capInset;
+  const insetY = geo.diamondHeight * capInset;
+
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(isoW / 2, 0);
@@ -395,10 +405,26 @@ function bakeTerrainBlockCanvas(sourceCanvas, isoW, isoH){
   ctx.clip();
   ctx.drawImage(
     sourceCanvas,
-    geo.xMin, geo.topY, geo.diamondWidth, geo.diamondHeight,
+    geo.xMin + insetX, geo.topY + insetY,
+    geo.diamondWidth - insetX * 2, geo.diamondHeight - insetY * 2,
     0, 0, isoW, isoH,
   );
   ctx.restore();
+
+  // Durcit l'alpha du bord du losange (0 ou 255, jamais entre les deux).
+  // ctx.clip() laisse un anti-aliasing semi-transparent sur le contour ; en
+  // superposant des tuiles voisines (chevauchement anti-couture), ces pixels
+  // semi-transparents s'accumulent et certains moteurs de rendu (Skia/Android)
+  // les rendent visibles sous forme de liseré sombre répété sur toute la carte.
+  // Un alpha binaire élimine ce cumul, quelle que soit la plateforme.
+  try {
+    const capData = ctx.getImageData(0, 0, isoW, isoH);
+    const d = capData.data;
+    for (let i = 3; i < d.length; i += 4){
+      d[i] = d[i] > 96 ? 255 : 0;
+    }
+    ctx.putImageData(capData, 0, 0);
+  } catch { /* canvas non lisible (tainted) : on laisse l'anti-aliasing d'origine */ }
 
   const cap = document.createElement('canvas');
   cap.width = isoW;
