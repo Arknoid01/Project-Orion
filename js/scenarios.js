@@ -75,6 +75,8 @@ async function startScenario(scenarioId){
   }
   hideMainMenu();
   if (typeof centerMapView === 'function') centerMapView();
+  if (typeof waitForTerrainReady === 'function') await waitForTerrainReady();
+  if (typeof render === 'function') render();
   if (typeof hideGenLoading === 'function') hideGenLoading();
 }
 
@@ -87,6 +89,7 @@ async function resetGameForScenario(scenario){
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
+  stairsMode = false;
   if (typeof clearZonePlacementStart === 'function') clearZonePlacementStart();
   blockMode = false;
   DEBUG.tickCount = 0;

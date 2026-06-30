@@ -239,9 +239,9 @@ function renderProceduralBlockCanvas(topHex, fillHex, isoW, isoH){
 
 /** Couleur de repli si PNG face manquant. */
 const _FLAT_FACE_FALLBACK = {
-  grass_top: '#7eaa5f', grass_side: '#7a5a3c',
-  forest_top: '#527a3c', sand_top: '#e8d4a8', sand: '#c9b084',
-  dirt: '#9a7a52', stone: '#b5b0a2', marble: '#d8d4cc',
+  grass_top: '#b8a856', grass_side: '#9a7a52',
+  forest_top: '#6a8a48', sand_top: '#e8c878', sand: '#d4b070',
+  dirt: '#c4a868', stone: '#c4b8a0', marble: '#e8e2d4',
 };
 
 function createFlatFallbackFace(name){
@@ -349,11 +349,11 @@ function bakeTerrainBlockFromFlatFaces(blockKey, isoW, isoH){
 }
 
 const _BLOCK_BIOME_COLORS = {
-  grass: { top: '#7eaa5f', fill: '#7a5a3c' },
-  dirt:  { top: '#9a7a52', fill: '#7a5a3c' },
-  stone: { top: '#b5b0a2', fill: '#8d8878' },
-  sand:  { top: '#e8d4a8', fill: '#c9b084' },
-  forest:{ top: '#527a3c', fill: '#7a5a3c' },
+  grass: { top: '#b8a856', fill: '#9a7a52' },
+  dirt:  { top: '#c4a868', fill: '#9a7a52' },
+  stone: { top: '#c4b8a0', fill: '#a8a090' },
+  sand:  { top: '#e8c878', fill: '#d4b070' },
+  forest:{ top: '#6a8a48', fill: '#8a6840' },
 };
 
 /**

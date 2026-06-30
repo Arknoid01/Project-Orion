@@ -45,6 +45,7 @@ function triggerDisaster(col, row, kind){
       cell.building = null;
       cell.houseLevel = 0;
       cell.population = 0;
+      if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
       debugWarn(kind === 'fire' ? 'Incendie : maison détruite' : 'Épidémie : maison décimée', { col, row });
       showNotification(t(kind === 'fire' ? 'maintenance.fireDestroyed' : 'maintenance.diseaseDestroyed'), 'bad');
       recomputeAllWalkers();

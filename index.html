@@ -367,23 +367,6 @@ html,body{
  gap:8px;
  z-index:22;
 }
-#hookStatus{
- position:absolute;
- left:calc(var(--safeLeft) + 10px);
- bottom:calc(var(--safeBottom) + 10px);
- max-width:58vw;
- background:rgba(7,26,42,.86);
- border:1px solid rgba(243,204,116,.75);
- border-radius:999px;
- padding:8px 13px;
- z-index:21;
- font-size:12px;
- color:var(--marble2);
- white-space:nowrap;
- overflow:hidden;
- text-overflow:ellipsis;
- box-shadow:0 4px 14px rgba(0,0,0,.45);
-}
 
 /* Portrait */
 #rotate{display:none}
@@ -451,7 +434,6 @@ button,
 
 .obsTileBody,
 .row,
-#hookStatus,
 body{
     font-family:"Inter","Segoe UI",sans-serif;
 }
@@ -2066,12 +2048,10 @@ h2{
 
  <div class="floatingTools">
    <div class="zoomGroup">
-     <button class="iconBtn" id="rotateLeftBtn" onclick="rotateMapLeft()" title="Pivoter gauche (Q)">↶</button>
-     <button class="iconBtn" id="rotateRightBtn" onclick="rotateMapRight()" title="Pivoter droite (E)">↷</button>
      <button class="iconBtn" onclick="zoomIn()" title="Zoom +">＋</button>
      <button class="iconBtn" onclick="zoomOut()" title="Zoom -">−</button>
    </div>
-   <button class="iconBtn" onclick="mock('togglePause()')">⏸</button>
+   <button class="iconBtn" id="hudPauseBtn" onclick="callGameAction('togglePause')" title="Pause">⏸</button>
    <button class="iconBtn" onclick="toggleDebugPanel()" title="Debug">🐛</button>
  </div>
 
@@ -2080,7 +2060,6 @@ h2{
    <div id="debugLogList"></div>
  </div>
 
- <div id="hookStatus">Clique sur la maison au centre pour ouvrir l'observateur</div>
  <div id="backdrop" class="backdrop" onclick="closePanels()"></div>
 
  <!-- Modale de choix (diplomatie, commerce, attaque, confirmations) -->
@@ -2234,7 +2213,8 @@ h2{
      <button class="card" onclick="selectBuildMock('Ferme','selectBuilding','farm','Coût : 🪙 100','Produit du blé sur les terrains fertiles. Sert à nourrir les quartiers via le marché.')"><span class="sprite">🌾</span><span>Ferme</span></button>
      <button class="card" onclick="selectBuildMock('Fontaine','selectBuilding','fountain','Coût : 🪙 80','Envoie un porteur d’eau sur les routes et dessert les maisons proches.')"><span class="sprite">⛲</span><span>Fontaine</span></button>
      <button class="card" onclick="selectBuildMock('Marché','selectBuilding','market','Coût : 🪙 120','Distribue nourriture et biens aux maisons avec un walker marchand.')"><span class="sprite">🏪</span><span>Marché</span></button>
-     <button class="card" onclick="selectBuildMock('Route','selectRoadMode',null,'Coût : 🪙 2 / case','Connecte les bâtiments et guide les walkers dans la ville.')"><span class="sprite">🛣️</span><span>Route</span></button>
+     <button class="card" onclick="selectBuildMock('Route','selectRoadMode',null,'Coût : 🪙 4 / case','Connecte les bâtiments et guide les walkers dans la ville.')"><span class="sprite">🛣️</span><span>Route</span></button>
+     <button class="card" onclick="selectBuildMock('Escalier','selectStairsMode',null,'Coût : 🪙 8 / case','Monte d\'un niveau entre deux routes voisines (montagne, roche).')"><span class="sprite">🪜</span><span>Escalier</span></button>
      <button class="card" onclick="selectBuildMock('Démolir','selectDemolishMode',null,'Remboursement partiel','Supprime routes et bâtiments sélectionnés.')"><span class="sprite">🔨</span><span>Démolir</span></button>
    </div>
 
@@ -2262,26 +2242,30 @@ h2{
 <div id="rotate">📱<br>Tournez votre téléphone en mode paysage.</div>
 
 <!-- ===== Moteur de jeu réel (voir UI_MIGRATION_NOTES.md) ===== -->
-<script src="js/settings.js"></script>
+<script src="js/settings.js?v=2"></script>
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/config.js?v=27"></script>
+<script src="js/grassDecorSprites.js"></script>
+<script src="js/rockDecorSprites.js"></script>
+<script src="js/config.js?v=44"></script>
+<script src="js/mediterraneanDecorSprites.js?v=4"></script>
 <script src="js/world.js"></script>
-<script src="js/monuments.js"></script>
+<script src="js/monuments.js?v=2"></script>
 <script src="js/procgen.js"></script>
 <script src="js/terrain.js"></script>
-<script src="js/mapgen.js?v=6"></script>
-<script src="js/terrainLevel.js"></script>
+<script src="js/mapgen.js?v=10"></script>
+<script src="js/terrainLevel.js?v=2"></script>
 <script src="js/grid.js?v=13"></script>
-<script src="js/terrainProcedural3D.js"></script>
-<script src="js/terrainVoxelBake.js?v=3"></script>
+<script src="js/terrainProcedural3D.js?v=2"></script>
+<script src="js/terrainVoxelBake.js?v=4"></script>
 <script src="js/terrainFlatFaces.js"></script>
 <script src="js/terrainLayers.js"></script>
-<script src="js/terrainIso.js?v=6"></script>
+<script src="js/terrainIso.js?v=7"></script>
 <script src="js/mapView.js"></script>
 <script src="js/houses.js"></script>
-<script src="js/walkers.js?v=2"></script>
-<script src="js/maintenance.js"></script>
+<script src="js/roadStairs.js?v=2"></script>
+<script src="js/walkers.js?v=3"></script>
+<script src="js/maintenance.js?v=2"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
 <script src="js/godSatisfaction.js"></script>
@@ -2293,31 +2277,34 @@ h2{
 <script src="js/dialog.js"></script>
 <script src="js/diplomacy.js"></script>
 <script src="js/trade.js"></script>
-<script src="js/creatures.js?v=2"></script>
+<script src="js/creatures.js?v=3"></script>
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
-<script src="js/loop.js"></script>
+<script src="js/loop.js?v=2"></script>
+<script src="js/pause.js"></script>
 <script src="js/characterSprites.js"></script>
-<script src="js/forestTrees.js?v=16"></script>
-<script src="js/grassDecor.js?v=9"></script>
-<script src="js/wheatCrops.js?v=3"></script>
-<script src="js/render.js?v=18"></script>
-<script src="js/zoom.js"></script>
+<script src="js/forestTrees.js?v=19"></script>
+<script src="js/grassDecor.js?v=15"></script>
+<script src="js/rockDecor.js?v=2"></script>
+<script src="js/wheatCrops.js?v=5"></script>
+<script src="js/mediterraneanDecor.js?v=6"></script>
+<script src="js/render.js?v=27"></script>
+<script src="js/zoom.js?v=2"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
-<script src="js/migrationAgents.js?v=2"></script>
+<script src="js/migrationAgents.js?v=3"></script>
 <script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
-<script src="js/scenarios.js?v=2"></script>
-<script src="js/colonies.js?v=2"></script>
+<script src="js/scenarios.js?v=3"></script>
+<script src="js/colonies.js?v=3"></script>
 <script src="js/home.js"></script>
 <script src="js/economy.js"></script>
 <script src="js/labor.js"></script>
 <script src="js/production.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/economyBalance.js"></script>
-<script src="js/ui.js"></script>
+<script src="js/ui.js?v=3"></script>
 <script src="js/observer.js"></script>
 <script src="js/main.js"></script>
 
@@ -2357,7 +2344,7 @@ function toggleCatalog(btn){
 }
 
 function isPlacementAction(fnName){
-  return ['selectBuilding','selectRoadMode','selectBlockMode','selectDemolishMode'].includes(fnName);
+  return ['selectBuilding','selectRoadMode','selectStairsMode','selectBlockMode','selectDemolishMode'].includes(fnName);
 }
 
 function setSelectedBuildLabel(fnName, arg){
@@ -2372,6 +2359,9 @@ function setSelectedBuildLabel(fnName, arg){
   }else if(fnName === 'selectRoadMode'){
     name.textContent = (typeof t === 'function') ? t('catalog.roadShort') : 'Route';
     pill.classList.add('show');
+  }else if(fnName === 'selectStairsMode'){
+    name.textContent = (typeof t === 'function') ? t('catalog.stairsShort') : 'Escalier';
+    pill.classList.add('show');
   }else if(fnName === 'selectBlockMode'){
     name.textContent = (typeof t === 'function') ? t('catalog.block') : 'Block';
     pill.classList.add('show');
@@ -2382,17 +2372,10 @@ function setSelectedBuildLabel(fnName, arg){
 }
 
 function callGameAction(fnName, arg){
-  // Connecté aux vrais noms de fonctions : si elles existent, on les appelle.
-  // Sinon, on affiche seulement le hook pour tester l'interface.
   const fn = window[fnName];
-  const label = arg !== undefined ? `${fnName}('${arg}')` : `${fnName}()`;
-
   if(typeof fn === 'function'){
     if(arg !== undefined) fn(arg);
     else fn();
-    mock(label + ' ✓');
-  }else{
-    mock(label + ' — hook mock');
   }
 
   if(isPlacementAction(fnName)){
@@ -2407,7 +2390,6 @@ function toggleFullscreen(){
     document.documentElement.requestFullscreen().catch(() => {
       const msg = (typeof t === 'function') ? t('menu.fullscreenUnavailable') : 'Fullscreen unavailable';
       if (typeof showNotification === 'function') showNotification(msg, 'bad');
-      else mock('toggleFullscreen() — indisponible');
     });
   } else {
     document.exitFullscreen();
@@ -2664,9 +2646,7 @@ function openCityObserver(){
  mock('openCityObserver()');
 }
 
-function mock(hook){
- document.getElementById('hookStatus').textContent = 'Hook : ' + hook;
-}
+function mock(hook){}
 
 function selectBuildMock(title, fnName, arg, cost, desc){
  // Marque visuellement le dernier bouton choisi.

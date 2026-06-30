@@ -26,7 +26,8 @@ if (typeof FOREST_TREES_ENABLED === 'boolean' && FOREST_TREES_ENABLED){
       forestTreeSpritesLoaded++;
       if (typeof measureSpriteFoot === 'function') measureSpriteFoot(img);
       if (typeof debugInfo === 'function') debugInfo(`Sprite chargé : ${path}`);
-      if (typeof render === 'function') render();
+      if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+      else if (typeof render === 'function') render();
     };
     img.onerror = () => {
       forestTreeSpritesLoaded++;
@@ -39,21 +40,71 @@ if (typeof FOREST_TREES_ENABLED === 'boolean' && FOREST_TREES_ENABLED){
   });
 }
 
+function scatterTreeTerrains(){
+  if (typeof SCATTER_TREE_TERRAINS === 'object' && Array.isArray(SCATTER_TREE_TERRAINS)){
+    return SCATTER_TREE_TERRAINS;
+  }
+  return ['grass', 'hill'];
+}
+
+function scatterTreeAtCell(col, row){
+  if (!(typeof SCATTER_TREES_ENABLED === 'boolean' && SCATTER_TREES_ENABLED)) return null;
+  const density = typeof SCATTER_TREE_DENSITY === 'number' ? SCATTER_TREE_DENSITY : 0.15;
+  const rng = mulberry32(hashSeed(col, row) ^ 0x3c7a91e5);
+  if (rng() > density) return null;
+  const count = FOREST_TREE_IMAGES.length;
+  if (count <= 0) return null;
+  const variant = count > 1 ? Math.floor(rng() * count) : 0;
+  return {
+    scale: 0.78 + rng() * 0.18,
+    variant: Math.max(0, Math.min(variant, count - 1)),
+  };
+}
+
+function cellShowsScatterTree(cell, col, row){
+  if (!(typeof SCATTER_TREES_ENABLED === 'boolean' && SCATTER_TREES_ENABLED)) return false;
+  if (!cell || !scatterTreeTerrains().includes(cell.terrain)) return false;
+  if (cell.building || cell.monumentPart || cell.hasRoad) return false;
+  const lv = typeof cellLevel === 'function' ? cellLevel(col, row) : (cell.level || 1);
+  if (lv <= 0) return false;
+  return scatterTreeAtCell(col, row) !== null;
+}
+
+function drawScatterTreeOnCell(cx, cy, col, row, cell){
+  if (!areForestTreeSpritesReady()) return;
+  const tree = scatterTreeAtCell(col, row);
+  if (!tree) return;
+  const sprite = treeSpriteByVariant(tree.variant);
+  if (!sprite) return;
+
+  const sizeMul = typeof SCATTER_TREE_SIZE === 'number' ? SCATTER_TREE_SIZE : 0.5;
+  const targetW = typeof natureDecorDrawWidth === 'function'
+    ? natureDecorDrawWidth(tree.scale, sizeMul)
+    : Math.round(BUILDING_SPRITE_W * tree.scale * sizeMul);
+
+  const treeOpts = typeof forestTreeDrawOpts === 'function'
+    ? forestTreeDrawOpts()
+    : { lift: 0, anchorCenter: true };
+
+  if (typeof drawSpriteOnTile === 'function'){
+    drawSpriteOnTile(cx, cy, sprite, targetW, treeOpts);
+  }
+}
+
 function forestTreeAtCell(col, row){
   const rng = mulberry32(hashSeed(col, row) ^ 0x7a3f2c1d);
   if (rng() > FOREST_TREE_DENSITY) return null;
   const count = FOREST_TREE_IMAGES.length;
-  const variant = count > 1 && rng() >= 0.5 ? 1 : 0;
+  // Choisir uniformément parmi tous les variants disponibles.
+  const variant = count > 1 ? Math.floor(rng() * count) : 0;
   return {
     scale: 0.9 + rng() * 0.2,
-    variant: Math.min(variant, Math.max(0, count - 1)),
+    variant: Math.max(0, Math.min(variant, count - 1)),
   };
 }
 
-function forestTreeImageForCell(col, row){
-  const tree = forestTreeAtCell(col, row);
-  if (!tree) return null;
-  const img = FOREST_TREE_IMAGES[tree.variant];
+function treeSpriteByVariant(variant){
+  const img = FOREST_TREE_IMAGES[variant];
   if (img && img.complete && img.naturalWidth > 0) return img;
   for (let i = 0; i < FOREST_TREE_IMAGES.length; i++){
     const fallback = FOREST_TREE_IMAGES[i];
@@ -62,10 +113,18 @@ function forestTreeImageForCell(col, row){
   return null;
 }
 
+function forestTreeImageForCell(col, row){
+  const tree = forestTreeAtCell(col, row);
+  if (!tree) return null;
+  return treeSpriteByVariant(tree.variant);
+}
+
 function cellShowsForestTree(cell, col, row){
   if (!(typeof FOREST_TREES_ENABLED === 'boolean' && FOREST_TREES_ENABLED)) return false;
   if (!cell || cell.terrain !== 'forest') return false;
   if (cell.building || cell.monumentPart || cell.hasRoad) return false;
+  const lv = typeof cellLevel === 'function' ? cellLevel(col, row) : (cell.level || 1);
+  if (lv <= 0) return false;
   return forestTreeAtCell(col, row) !== null;
 }
 
@@ -77,14 +136,13 @@ function drawForestTreeOnCell(cx, cy, col, row, cell){
   if (!sprite) return;
 
   const sizeMul = typeof FOREST_TREE_SIZE === 'number' ? FOREST_TREE_SIZE : 1;
-  let targetW = BUILDING_SPRITE_W * tree.scale * sizeMul;
-  if (typeof spriteDrawWidthForTile === 'function'){
-    targetW = spriteDrawWidthForTile(sprite, 1) * tree.scale * sizeMul;
-  }
+  const targetW = typeof natureDecorDrawWidth === 'function'
+    ? natureDecorDrawWidth(tree.scale, sizeMul)
+    : Math.round(BUILDING_SPRITE_W * tree.scale * sizeMul);
 
-  const treeOpts = typeof natureDecorDrawOpts === 'function'
-    ? natureDecorDrawOpts()
-    : { lift: -5 };
+  const treeOpts = typeof forestTreeDrawOpts === 'function'
+    ? forestTreeDrawOpts()
+    : { lift: 0, anchorCenter: true };
 
   if (typeof drawSpriteOnTile === 'function'){
     drawSpriteOnTile(cx, cy, sprite, targetW, treeOpts);

@@ -121,11 +121,13 @@ function monsterAttack(){
         showNotification(t('monster.fireDestroyed'), 'bad');
       } else {
         cell.building = null; cell.houseLevel = 0; cell.population = 0;
+        if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
         showNotification(t('monster.fireDestroyed'), 'bad');
       }
     }
   } else {
     cell.building = null; cell.houseLevel = 0; cell.population = 0;
+    if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
     showNotification(t('monster.destroyed', { building: name }), 'bad');
   }
 

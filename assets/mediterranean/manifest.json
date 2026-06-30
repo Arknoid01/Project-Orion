@@ -1,0 +1,1102 @@
+[
+  {
+    "file": "assets/mediterranean/nature_tree_00.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      15,
+      47,
+      138,
+      201
+    ],
+    "size": [
+      88,
+      105
+    ],
+    "stats": {
+      "green": 0.8313488190513371,
+      "autumn": 0.4682803045090767,
+      "floral": 0.002927971891469842,
+      "stone": 0.10423579933632637,
+      "terracotta": 0.014639859457349209
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_01.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      141,
+      44,
+      265,
+      201
+    ],
+    "size": [
+      88,
+      101
+    ],
+    "stats": {
+      "green": 0.8092803775068816,
+      "autumn": 0.33228470310656705,
+      "floral": 0.006291781360597719,
+      "stone": 0.04187966968147857,
+      "terracotta": 0.007274872198191113
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_02.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      269,
+      46,
+      397,
+      202
+    ],
+    "size": [
+      88,
+      103
+    ],
+    "stats": {
+      "green": 0.13946711074104912,
+      "autumn": 0.07306411323896753,
+      "floral": 0.2866361365528726,
+      "stone": 0.06307243963363864,
+      "terracotta": 0.03309741881765196
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_03.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      414,
+      25,
+      457,
+      197
+    ],
+    "size": [
+      88,
+      324
+    ],
+    "stats": {
+      "green": 0.895397737368951,
+      "autumn": 0.13131552449209263,
+      "floral": 0.0125570100100693,
+      "stone": 0.04477877154534147,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_04.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      469,
+      36,
+      503,
+      196
+    ],
+    "size": [
+      88,
+      346
+    ],
+    "stats": {
+      "green": 0.9150257328261356,
+      "autumn": 0.07132468113671962,
+      "floral": 0.0217610203624972,
+      "stone": 0.05319982098903558,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_05.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      506,
+      41,
+      662,
+      201
+    ],
+    "size": [
+      88,
+      84
+    ],
+    "stats": {
+      "green": 0.7072299910740851,
+      "autumn": 0.2520083308539125,
+      "floral": 0.006248140434394526,
+      "stone": 0.0728949717346028,
+      "terracotta": 0.018744421303183576
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_06.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      658,
+      46,
+      770,
+      200
+    ],
+    "size": [
+      88,
+      115
+    ],
+    "stats": {
+      "green": 0.8568962540997755,
+      "autumn": 0.5363369583980666,
+      "floral": 0.0008631106507854307,
+      "stone": 0.027446918694976695,
+      "terracotta": 0.005523908165026756
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_07.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      783,
+      25,
+      828,
+      202
+    ],
+    "size": [
+      88,
+      341
+    ],
+    "stats": {
+      "green": 0.8897669300790237,
+      "autumn": 0.14819445833750125,
+      "floral": 0.017605281584475344,
+      "stone": 0.038861658497549266,
+      "terracotta": 5.0015004501350405e-05
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_08.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      840,
+      43,
+      996,
+      204
+    ],
+    "size": [
+      88,
+      91
+    ],
+    "stats": {
+      "green": 0.7179653679653679,
+      "autumn": 0.18463203463203462,
+      "floral": 0.005844155844155844,
+      "stone": 0.05389610389610389,
+      "terracotta": 0.012554112554112554
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_09.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      16,
+      220,
+      129,
+      337
+    ],
+    "size": [
+      68,
+      70
+    ],
+    "stats": {
+      "green": 0.7721560846560847,
+      "autumn": 0.21329365079365079,
+      "floral": 0.004298941798941799,
+      "stone": 0.05423280423280423,
+      "terracotta": 0.013227513227513227
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_10.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      138,
+      226,
+      244,
+      334
+    ],
+    "size": [
+      68,
+      69
+    ],
+    "stats": {
+      "green": 0.6536571263370916,
+      "autumn": 0.16045099739809193,
+      "floral": 0.013587742122000578,
+      "stone": 0.08528476438276959,
+      "terracotta": 0.04163052905464007
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_11.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      254,
+      223,
+      362,
+      329
+    ],
+    "size": [
+      68,
+      67
+    ],
+    "stats": {
+      "green": 0.3867069486404834,
+      "autumn": 0.09969788519637462,
+      "floral": 0.16042296072507553,
+      "stone": 0.09546827794561934,
+      "terracotta": 0.07009063444108761
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_12.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      373,
+      224,
+      479,
+      324
+    ],
+    "size": [
+      68,
+      64
+    ],
+    "stats": {
+      "green": 0.855146124523507,
+      "autumn": 0.21442185514612452,
+      "floral": 0.014930114358322744,
+      "stone": 0.0940279542566709,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_13.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      488,
+      221,
+      583,
+      324
+    ],
+    "size": [
+      68,
+      74
+    ],
+    "stats": {
+      "green": 0.5418889237527456,
+      "autumn": 0.045497332914967055,
+      "floral": 0.08220897395669909,
+      "stone": 0.2732977721995607,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_14.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      593,
+      223,
+      681,
+      321
+    ],
+    "size": [
+      68,
+      76
+    ],
+    "stats": {
+      "green": 0.7717420390687717,
+      "autumn": 0.4343055927214343,
+      "floral": 0.005084292213005084,
+      "stone": 0.04308268664704308,
+      "terracotta": 0.0037463205780037465
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_15.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      692,
+      222,
+      787,
+      322
+    ],
+    "size": [
+      68,
+      72
+    ],
+    "stats": {
+      "green": 0.4377076411960133,
+      "autumn": 0.08111849390919158,
+      "floral": 0.15946843853820597,
+      "stone": 0.12320044296788484,
+      "terracotta": 0.047895902547065335
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_16.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      799,
+      221,
+      892,
+      323
+    ],
+    "size": [
+      68,
+      74
+    ],
+    "stats": {
+      "green": 0.6506444683136412,
+      "autumn": 0.1307733619763695,
+      "floral": 0.05155746509129968,
+      "stone": 0.17105263157894737,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_17.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      901,
+      226,
+      1000,
+      326
+    ],
+    "size": [
+      68,
+      69
+    ],
+    "stats": {
+      "green": 0.8289060268494716,
+      "autumn": 0.39045986860896886,
+      "floral": 0.01570979720079977,
+      "stone": 0.06341045415595545,
+      "terracotta": 0.0037132247929163096
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_18.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      19,
+      354,
+      106,
+      422
+    ],
+    "size": [
+      68,
+      53
+    ],
+    "stats": {
+      "green": 0.9667799169497924,
+      "autumn": 0.386560966402416,
+      "floral": 0.008305020762551907,
+      "stone": 0.06002265005662514,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_19.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      117,
+      354,
+      193,
+      421
+    ],
+    "size": [
+      68,
+      60
+    ],
+    "stats": {
+      "green": 0.9176346356916578,
+      "autumn": 0.12425202393523407,
+      "floral": 0.049982400563181976,
+      "stone": 0.12917986624428018,
+      "terracotta": 0.00035198873636043646
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_20.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      204,
+      354,
+      278,
+      418
+    ],
+    "size": [
+      68,
+      59
+    ],
+    "stats": {
+      "green": 0.8760593220338984,
+      "autumn": 0.2464689265536723,
+      "floral": 0.007768361581920904,
+      "stone": 0.09851694915254237,
+      "terracotta": 0.00035310734463276836
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_21.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      291,
+      349,
+      352,
+      419
+    ],
+    "size": [
+      68,
+      78
+    ],
+    "stats": {
+      "green": 0.6568542568542568,
+      "autumn": 0.19855699855699857,
+      "floral": 0.04098124098124098,
+      "stone": 0.2784992784992785,
+      "terracotta": 0.002886002886002886
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_22.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      368,
+      354,
+      442,
+      418
+    ],
+    "size": [
+      68,
+      59
+    ],
+    "stats": {
+      "green": 0.9153147306943543,
+      "autumn": 0.5519143413367943,
+      "floral": 0.0012978585334198572,
+      "stone": 0.026606099935107073,
+      "terracotta": 0.0003244646333549643
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_23.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      457,
+      338,
+      533,
+      416
+    ],
+    "size": [
+      68,
+      70
+    ],
+    "stats": {
+      "green": 0.8635407273820258,
+      "autumn": 0.20919747520288548,
+      "floral": 0.004809137360985873,
+      "stone": 0.07664562669071236,
+      "terracotta": 0.0009017132551848512
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_24.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      543,
+      353,
+      614,
+      415
+    ],
+    "size": [
+      68,
+      60
+    ],
+    "stats": {
+      "green": 0.9125611745513866,
+      "autumn": 0.10864600326264275,
+      "floral": 0.01631321370309951,
+      "stone": 0.05154975530179445,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_25.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      621,
+      354,
+      686,
+      410
+    ],
+    "size": [
+      68,
+      59
+    ],
+    "stats": {
+      "green": 0.9114840408028957,
+      "autumn": 0.0723922342875946,
+      "floral": 0.01349128002632445,
+      "stone": 0.07206317867719644,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_26.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      778,
+      348,
+      863,
+      414
+    ],
+    "size": [
+      68,
+      53
+    ],
+    "stats": {
+      "green": 0.9422535211267605,
+      "autumn": 0.360093896713615,
+      "floral": 0.004225352112676056,
+      "stone": 0.07042253521126761,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_27.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      878,
+      339,
+      994,
+      416
+    ],
+    "size": [
+      68,
+      45
+    ],
+    "stats": {
+      "green": 0.9300184162062615,
+      "autumn": 0.10082872928176796,
+      "floral": 0.01979742173112339,
+      "stone": 0.08011049723756906,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_28.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      36,
+      436,
+      92,
+      556
+    ],
+    "size": [
+      88,
+      187
+    ],
+    "stats": {
+      "green": 0.8865175456597578,
+      "autumn": 0.15883439359737328,
+      "floral": 0.008413708187974553,
+      "stone": 0.06895136466242562,
+      "terracotta": 0.00010260619741432382
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_29.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      108,
+      434,
+      183,
+      558
+    ],
+    "size": [
+      88,
+      145
+    ],
+    "stats": {
+      "green": 0.8249502699630576,
+      "autumn": 0.17050298380221654,
+      "floral": 0.005541346973572037,
+      "stone": 0.07615799943165671,
+      "terracotta": 0.0024154589371980675
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_30.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      198,
+      434,
+      275,
+      557
+    ],
+    "size": [
+      88,
+      140
+    ],
+    "stats": {
+      "green": 0.845,
+      "autumn": 0.12642857142857142,
+      "floral": 0.022285714285714287,
+      "stone": 0.08171428571428571,
+      "terracotta": 0.00042857142857142855
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_31.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      290,
+      433,
+      376,
+      558
+    ],
+    "size": [
+      88,
+      127
+    ],
+    "stats": {
+      "green": 0.8393106660456451,
+      "autumn": 0.21611551001397297,
+      "floral": 0.018164881229622728,
+      "stone": 0.07219375873311598,
+      "terracotta": 0.0004657661853749418
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_32.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      397,
+      432,
+      489,
+      560
+    ],
+    "size": [
+      88,
+      122
+    ],
+    "stats": {
+      "green": 0.8500602772754672,
+      "autumn": 0.05756479807112719,
+      "floral": 0.025617842073538274,
+      "stone": 0.060427968655816754,
+      "terracotta": 0.0006027727546714888
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_33.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      510,
+      436,
+      580,
+      559
+    ],
+    "size": [
+      88,
+      154
+    ],
+    "stats": {
+      "green": 0.9452070207020702,
+      "autumn": 0.30456795679567955,
+      "floral": 0.008325832583258325,
+      "stone": 0.04072907290729073,
+      "terracotta": 0.0001125112511251125
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_34.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      597,
+      426,
+      687,
+      556
+    ],
+    "size": [
+      88,
+      127
+    ],
+    "stats": {
+      "green": 0.8272128060263654,
+      "autumn": 0.019303201506591337,
+      "floral": 0.059792843691148775,
+      "stone": 0.08804143126177025,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_shrub_35.png",
+    "kind": "shrub",
+    "sheet": 1,
+    "sourceBox": [
+      697,
+      363,
+      769,
+      411
+    ],
+    "size": [
+      68,
+      46
+    ],
+    "stats": {
+      "green": 0.9717973231357553,
+      "autumn": 0.388623326959847,
+      "floral": 0.0004780114722753346,
+      "stone": 0.05592734225621415,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_36.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      699,
+      433,
+      780,
+      556
+    ],
+    "size": [
+      88,
+      133
+    ],
+    "stats": {
+      "green": 0.6108433734939759,
+      "autumn": 0.3581325301204819,
+      "floral": 0.00783132530120482,
+      "stone": 0.06701807228915663,
+      "terracotta": 0.01581325301204819
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_37.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      794,
+      429,
+      872,
+      557
+    ],
+    "size": [
+      88,
+      144
+    ],
+    "stats": {
+      "green": 0.9393242097614145,
+      "autumn": 0.14581567155141092,
+      "floral": 0.0142909046869323,
+      "stone": 0.04372047959307254,
+      "terracotta": 0.00024221872350732712
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_tree_38.png",
+    "kind": "tree",
+    "sheet": 1,
+    "sourceBox": [
+      891,
+      435,
+      972,
+      559
+    ],
+    "size": [
+      88,
+      134
+    ],
+    "stats": {
+      "green": 0.9487215313678916,
+      "autumn": 0.17647058823529413,
+      "floral": 0.020120162079083414,
+      "stone": 0.05910297610730753,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_39.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      27,
+      579,
+      108,
+      635
+    ],
+    "size": [
+      52,
+      36
+    ],
+    "stats": {
+      "green": 0.9652777777777778,
+      "autumn": 0.3109567901234568,
+      "floral": 0.0030864197530864196,
+      "stone": 0.08024691358024691,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_40.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      127,
+      578,
+      192,
+      629
+    ],
+    "size": [
+      52,
+      41
+    ],
+    "stats": {
+      "green": 0.9257390050468637,
+      "autumn": 0.09444844989185291,
+      "floral": 0.006488824801730353,
+      "stone": 0.110310021629416,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_41.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      211,
+      580,
+      275,
+      629
+    ],
+    "size": [
+      52,
+      40
+    ],
+    "stats": {
+      "green": 0.9466056445461479,
+      "autumn": 0.4088482074752098,
+      "floral": 0.012204424103737605,
+      "stone": 0.07017543859649122,
+      "terracotta": 0.0030511060259344014
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_42.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      294,
+      582,
+      357,
+      630
+    ],
+    "size": [
+      52,
+      40
+    ],
+    "stats": {
+      "green": 0.9679947746570868,
+      "autumn": 0.4513389941214892,
+      "floral": 0.007184846505551927,
+      "stone": 0.06662312214239059,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_43.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      377,
+      584,
+      449,
+      632
+    ],
+    "size": [
+      52,
+      35
+    ],
+    "stats": {
+      "green": 0.9511834319526628,
+      "autumn": 0.4393491124260355,
+      "floral": 0.009615384615384616,
+      "stone": 0.07914201183431953,
+      "terracotta": 0.0022189349112426036
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_44.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      471,
+      583,
+      536,
+      631
+    ],
+    "size": [
+      52,
+      39
+    ],
+    "stats": {
+      "green": 0.6235455167693361,
+      "autumn": 0.20670773442847365,
+      "floral": 0.12320328542094455,
+      "stone": 0.14784394250513347,
+      "terracotta": 0.008213552361396304
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_45.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      559,
+      579,
+      627,
+      631
+    ],
+    "size": [
+      52,
+      40
+    ],
+    "stats": {
+      "green": 0.9536340852130326,
+      "autumn": 0.4855889724310777,
+      "floral": 0.020050125313283207,
+      "stone": 0.08395989974937343,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_46.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      650,
+      580,
+      712,
+      632
+    ],
+    "size": [
+      52,
+      44
+    ],
+    "stats": {
+      "green": 0.9769959404600812,
+      "autumn": 0.34100135317997293,
+      "floral": 0.004736129905277402,
+      "stone": 0.05953991880920163,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_47.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      735,
+      579,
+      804,
+      634
+    ],
+    "size": [
+      52,
+      42
+    ],
+    "stats": {
+      "green": 0.960618846694796,
+      "autumn": 0.1540084388185654,
+      "floral": 0.029535864978902954,
+      "stone": 0.09634317862165963,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_48.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      826,
+      584,
+      884,
+      630
+    ],
+    "size": [
+      52,
+      41
+    ],
+    "stats": {
+      "green": 0.952063914780293,
+      "autumn": 0.13249001331557922,
+      "floral": 0.018641810918774968,
+      "stone": 0.07723035952063914,
+      "terracotta": 0.0
+    }
+  },
+  {
+    "file": "assets/mediterranean/nature_small_49.png",
+    "kind": "small",
+    "sheet": 1,
+    "sourceBox": [
+      905,
+      583,
+      978,
+      634
+    ],
+    "size": [
+      52,
+      37
+    ],
+    "stats": {
+      "green": 0.9823139277818718,
+      "autumn": 0.22918201915991157,
+      "floral": 0.01105379513633014,
+      "stone": 0.07442888725128961,
+      "terracotta": 0.0
+    }
+  }
+]

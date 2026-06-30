@@ -9,7 +9,8 @@ if (typeof WHEAT_CROPS_ENABLED === 'boolean' && WHEAT_CROPS_ENABLED && WHEAT_CRO
     wheatCropSpriteReady = true;
     if (typeof measureSpriteFoot === 'function') measureSpriteFoot(WHEAT_CROP_IMG);
     if (typeof debugInfo === 'function') debugInfo(`Sprite chargé : ${WHEAT_CROP_SPRITE}`);
-    if (typeof render === 'function') render();
+    if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+    else if (typeof render === 'function') render();
   };
   WHEAT_CROP_IMG.onerror = () => {
     if (typeof debugWarn === 'function'){
@@ -31,6 +32,8 @@ function cellShowsWheatCrop(cell, col, row){
   if (!(typeof WHEAT_CROPS_ENABLED === 'boolean' && WHEAT_CROPS_ENABLED)) return false;
   if (!cell || cell.terrain !== 'wheat') return false;
   if (cell.building || cell.monumentPart || cell.hasRoad) return false;
+  const lv = typeof cellLevel === 'function' ? cellLevel(col, row) : (cell.level || 1);
+  if (lv <= 0) return false;
   return wheatCropAtCell(col, row) !== null;
 }
 
@@ -42,14 +45,13 @@ function drawWheatCropOnCell(cx, cy, col, row, cell){
   const sizeMul = typeof WHEAT_CROP_SIZE === 'number'
     ? WHEAT_CROP_SIZE
     : (typeof GRASS_DECOR_SIZE === 'number' ? GRASS_DECOR_SIZE : 0.6);
-  let targetW = BUILDING_SPRITE_W * crop.scale * sizeMul;
-  if (typeof spriteDrawWidthForTile === 'function'){
-    targetW = spriteDrawWidthForTile(WHEAT_CROP_IMG, 1) * crop.scale * sizeMul;
-  }
+  const targetW = typeof natureDecorDrawWidth === 'function'
+    ? natureDecorDrawWidth(crop.scale, sizeMul)
+    : Math.round(BUILDING_SPRITE_W * crop.scale * sizeMul);
 
-  const opts = typeof natureDecorDrawOpts === 'function'
-    ? natureDecorDrawOpts()
-    : { lift: -5 };
+  const opts = typeof wheatCropDrawOpts === 'function'
+    ? wheatCropDrawOpts()
+    : { lift: 0, anchorCenter: true };
 
   if (typeof drawSpriteOnTile === 'function'){
     drawSpriteOnTile(cx, cy, WHEAT_CROP_IMG, targetW, opts);

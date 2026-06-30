@@ -25,7 +25,8 @@ if (typeof GRASS_DECOR_ENABLED === 'boolean' && GRASS_DECOR_ENABLED){
       grassDecorSpritesLoaded++;
       if (typeof measureSpriteFoot === 'function') measureSpriteFoot(img);
       if (typeof debugInfo === 'function') debugInfo(`Sprite chargé : ${path}`);
-      if (typeof render === 'function') render();
+      if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+      else if (typeof render === 'function') render();
     };
     img.onerror = () => {
       grassDecorSpritesLoaded++;
@@ -39,7 +40,9 @@ if (typeof GRASS_DECOR_ENABLED === 'boolean' && GRASS_DECOR_ENABLED){
 }
 
 function grassDecorPathIsGrass(path){
-  return !!path && (path.endsWith('grass00.png') || path.indexOf('/grass00.png') >= 0);
+  if (!path) return false;
+  if (path.endsWith('grass00.png') || path.indexOf('/grass00.png') >= 0) return true;
+  return /\/nature\/(grass_|sprout_|leaf_|moss_patch_)/.test(path);
 }
 
 function grassDecorPathIsRuin(path){
@@ -79,15 +82,17 @@ function grassDecorImageForCell(col, row){
 
 function cellShowsGrassDecor(cell, col, row){
   if (!(typeof GRASS_DECOR_ENABLED === 'boolean' && GRASS_DECOR_ENABLED)) return false;
-  if (!cell || cell.terrain !== 'grass') return false;
+  if (!cell || (cell.terrain !== 'grass' && cell.terrain !== 'hill')) return false;
   if (cell.building || cell.monumentPart || cell.hasRoad) return false;
+  const lv = typeof cellLevel === 'function' ? cellLevel(col, row) : (cell.level || 1);
+  if (lv <= 0) return false;
   return grassDecorAtCell(col, row) !== null;
 }
 
 function grassDecorDrawOpts(){
   return typeof natureDecorDrawOpts === 'function'
     ? natureDecorDrawOpts()
-    : { lift: -5 };
+    : { lift: -5, pixelated: false, natureDecor: true, smooth: true };
 }
 
 function grassDecorSizeForVariant(variant){
@@ -96,7 +101,14 @@ function grassDecorSizeForVariant(variant){
   if (path.indexOf('/ruins/') >= 0){
     return typeof GRASS_DECOR_RUINS_SIZE === 'number' ? GRASS_DECOR_RUINS_SIZE : 0.66;
   }
-  return typeof GRASS_DECOR_SIZE === 'number' ? GRASS_DECOR_SIZE : 0.6;
+  const base = typeof GRASS_DECOR_SIZE === 'number' ? GRASS_DECOR_SIZE : 0.6;
+  if (/\/nature\/bush_/.test(path)) return base * 1.22;
+  if (/\/nature\/plant_/.test(path)) return base * 1.12;
+  if (/\/nature\/(flower_|lavender|mushrooms)/.test(path)) return base * 1.05;
+  if (/\/nature\/(log_|stump_|branch_|sticks_)/.test(path)) return base * 0.92;
+  if (/\/nature\/(moss_patch_|flower_patch|sand_pile|dirt_pile|grass_mound)/.test(path)) return base * 0.78;
+  if (/\/nature\/(grass_|sprout_|leaf_)/.test(path)) return base * 0.88;
+  return base;
 }
 
 function drawGrassDecorOnCell(cx, cy, col, row, cell){
@@ -107,10 +119,9 @@ function drawGrassDecorOnCell(cx, cy, col, row, cell){
   if (!sprite) return;
 
   const sizeMul = grassDecorSizeForVariant(decor.variant);
-  let targetW = BUILDING_SPRITE_W * decor.scale * sizeMul;
-  if (typeof spriteDrawWidthForTile === 'function'){
-    targetW = spriteDrawWidthForTile(sprite, 1) * decor.scale * sizeMul;
-  }
+  const targetW = typeof natureDecorDrawWidth === 'function'
+    ? natureDecorDrawWidth(decor.scale, sizeMul)
+    : Math.round(BUILDING_SPRITE_W * decor.scale * sizeMul);
 
   const drawOpts = grassDecorDrawOpts();
   const anchorCenter = !!drawOpts.anchorCenter;
@@ -126,9 +137,15 @@ function drawGrassDecorOnCell(cx, cy, col, row, cell){
   const m = typeof measureSpriteFoot === 'function' ? measureSpriteFoot(sprite) : null;
   const footNx = m ? m.footNx : 0.5;
   const footNy = m ? m.footNy : 1;
+  const prevSmooth = ctx.imageSmoothingEnabled;
+  const prevQuality = ctx.imageSmoothingQuality;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = (typeof PERF !== 'undefined' && PERF.smoothing) ? PERF.smoothing : 'high';
   ctx.drawImage(
     sprite,
     cx - targetW * footNx, footY - targetH * footNy + (drawOpts.lift || 0),
     targetW, targetH
   );
+  ctx.imageSmoothingEnabled = prevSmooth;
+  ctx.imageSmoothingQuality = prevQuality;
 }

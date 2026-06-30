@@ -27,6 +27,7 @@ function makeEmptyCell(terrain, elevation){
     terrain: terrain || 'grass',
     building: null,
     hasRoad: false,
+    roadStairs: false,
     houseLevel: 0,
     population: 0,
     patrolBlock: false,
@@ -87,6 +88,28 @@ function tileCenter(col, row){
     x: OFFSET_X + (col - row) * (TILE_W / 2),
     y: OFFSET_Y + (col + row) * (TILE_H / 2) - elevOffset,
   };
+}
+
+/** Sommet visuel du losange (cap) — corrige le décalage des cubes PNG empilés. */
+function natureDecorTileNorth(col, row){
+  const anchor = (typeof usesLayeredTerrain === 'function' && usesLayeredTerrain()
+      && typeof tileSurfaceAnchor === 'function')
+    ? tileSurfaceAnchor(col, row)
+    : tileCenter(col, row);
+  if (typeof usesTexturedCubes === 'function' && usesTexturedCubes()
+      && typeof blockTopSpriteForCell === 'function'
+      && typeof terrainBlockMetrics === 'function'
+      && inBounds(col, row)){
+    const cell = grid[row][col];
+    const sprite = blockTopSpriteForCell(cell, false);
+    if (sprite){
+      const m = terrainBlockMetrics(sprite);
+      if (m && m.capBackOffset){
+        return { x: anchor.x, y: anchor.y - m.capBackOffset };
+      }
+    }
+  }
+  return anchor;
 }
 
 /** Centre du losange walkable (clics / surbrillance). */

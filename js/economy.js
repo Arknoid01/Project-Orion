@@ -64,6 +64,10 @@ function demolishRefundParts(type, godPatron){
   if (type === 'road'){
     return { gold: Math.floor(ROAD_COST * DEMOLISH_REFUND_RATE), resources: {} };
   }
+  if (type === 'stairs'){
+    const cost = typeof STAIR_COST === 'number' ? STAIR_COST : 8;
+    return { gold: Math.floor(cost * DEMOLISH_REFUND_RATE), resources: {} };
+  }
   if (type === 'grandTemple' && godPatron && typeof godByKey === 'function'){
     const god = godByKey(godPatron);
     if (!god) return { gold: 0, resources: {} };

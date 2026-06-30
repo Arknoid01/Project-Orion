@@ -11,6 +11,12 @@ function yieldFrame(){
   return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
+let terrainGenerationInProgress = false;
+
+function isTerrainGenerationInProgress(){
+  return terrainGenerationInProgress;
+}
+
 function showGenLoading(){
   const el = document.getElementById('genLoadingOverlay');
   if (el) el.classList.add('open');
@@ -22,6 +28,30 @@ function showGenLoading(){
 function hideGenLoading(){
   const el = document.getElementById('genLoadingOverlay');
   if (el) el.classList.remove('open');
+}
+
+/**
+ * Retourne une Promise qui se résout dès que tous les sprites de terrain sont
+ * chargés et bakés (areIsoTerrainReady() === true), avec un timeout de sécurité.
+ * Utilisé pour garder l'overlay "Génération du monde…" affiché jusqu'à ce que
+ * le premier rendu 3D complet soit possible.
+ */
+function waitForTerrainReady(timeoutMs){
+  timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 6000;
+  return new Promise(function(resolve){
+    if (typeof areIsoTerrainReady === 'function' && areIsoTerrainReady()){
+      resolve(); return;
+    }
+    const deadline = Date.now() + timeoutMs;
+    function tick(){
+      if (typeof areIsoTerrainReady === 'function' && areIsoTerrainReady()){
+        resolve(); return;
+      }
+      if (Date.now() >= deadline){ resolve(); return; }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
 }
 
 function reportGenProgress(pct, label){
@@ -81,6 +111,26 @@ function entryCorridorHalfWidth(){
 function isEntryCorridorCell(col, row){
   if (!mapEntryCorridorCells) return false;
   return mapEntryCorridorCells.has(`${col},${row}`);
+}
+
+function connectedLandEdgeSide(){
+  const side = typeof MAP_CONNECTED_LAND_EDGE === 'string' ? MAP_CONNECTED_LAND_EDGE : 'south';
+  return ['north', 'south', 'east', 'west'].includes(side) ? side : 'south';
+}
+
+function connectedLandEdgeDistance(col, row){
+  switch (connectedLandEdgeSide()){
+    case 'north': return row;
+    case 'east': return GRID_COLS - 1 - col;
+    case 'west': return col;
+    case 'south':
+    default: return GRID_ROWS - 1 - row;
+  }
+}
+
+function isConnectedLandEdgeCell(col, row){
+  const width = typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 0;
+  return width > 0 && connectedLandEdgeDistance(col, row) < width;
 }
 
 /** Chemin sinueux du bord sud vers l'intérieur (suit le relief existant). */
@@ -165,6 +215,30 @@ function carveLandBridgeHeights(heights, seed){
   }
 }
 
+/** Garantit qu'un côté de carte reste terrestre, avec une transition douce vers l'intérieur. */
+function carveConnectedLandEdgeHeights(heights, seed){
+  const width = typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 0;
+  if (width <= 0) return;
+
+  const fade = typeof MAP_CONNECTED_EDGE_FADE === 'number' ? MAP_CONNECTED_EDGE_FADE : 8;
+  const lift = typeof MAP_CONNECTED_EDGE_LIFT === 'number' ? MAP_CONNECTED_EDGE_LIFT : 0.32;
+  const maxDist = Math.max(width, width + fade);
+
+  for (let row = 0; row < GRID_ROWS; row++){
+    for (let col = 0; col < GRID_COLS; col++){
+      const dist = connectedLandEdgeDistance(col, row);
+      if (dist >= maxDist) continue;
+
+      const noise = typeof fbm === 'function'
+        ? fbm(col * 0.09 + 20, row * 0.09 + 14, seed + 88220, 2)
+        : mulberry32(hashSeed(col, row) ^ (seed + 88220))();
+      const t = dist < width ? 1 : 1 - (dist - width + 1) / Math.max(1, fade);
+      const target = lift + (noise - 0.5) * 0.035;
+      heights[row][col] = clamp01(Math.max(heights[row][col], lerp(MAP_WATER_THRESHOLD + 0.025, target, clamp01(t))));
+    }
+  }
+}
+
 function clampInt(v, min, max){
   return Math.max(min, Math.min(max, v));
 }
@@ -184,9 +258,27 @@ function maxHeightInRadius(heights, col, row, radius){
 function plainMarbleAt(col, row, height, slope, heights){
   if (height >= MAP_HILL_THRESHOLD || slope > 0.042) return false;
   if (isNearWater(heights, col, row)) return false;
-  if (maxHeightInRadius(heights, col, row, 5) < MAP_MARBLE_THRESHOLD - 0.04) return false;
-  const chance = typeof MAP_PLAIN_MARBLE_CHANCE === 'number' ? MAP_PLAIN_MARBLE_CHANCE : 0.028;
+  if (maxHeightInRadius(heights, col, row, 3) < MAP_MARBLE_THRESHOLD - 0.02) return false;
+  const chance = typeof MAP_PLAIN_MARBLE_CHANCE === 'number' ? MAP_PLAIN_MARBLE_CHANCE : 0.012;
   return mulberry32(hashSeed(col, row) ^ mapSeed ^ 0x4d415242)() < chance;
+}
+
+/** Bruit ridgé étroit — filons de marbre plutôt que des massifs continus. */
+function marbleVeinFactor(col, row, seed){
+  const mul = typeof MAP_MARBLE_VEIN_SCALE === 'number' ? MAP_MARBLE_VEIN_SCALE : 3.6;
+  const nx = col * MAP_NOISE_SCALE * mul + 19;
+  const ny = row * MAP_NOISE_SCALE * mul + 37;
+  const ridge = ridgedNoise(nx, ny, seed + 0x4d5242);
+  return ridge * ridge;
+}
+
+function isMarbleVeinCell(col, row, height, slope, heights){
+  if (height < MAP_MARBLE_THRESHOLD - 0.03) return false;
+  if (slope > MAP_ROCK_SLOPE * 0.72) return false;
+  if (!isLandEnoughForMountain(col, row, height)) return false;
+  if (isNearWater(heights, col, row)) return false;
+  const threshold = typeof MAP_MARBLE_VEIN_THRESHOLD === 'number' ? MAP_MARBLE_VEIN_THRESHOLD : 0.58;
+  return marbleVeinFactor(col, row, mapSeed) >= threshold;
 }
 
 function isMountainTerrain(terrain){
@@ -477,6 +569,7 @@ function generateHeightMap(seed){
   mapLandBridgePath = buildLandBridgePath(seed, heights);
   mapEntryCorridorCells = buildEntryCorridorCellSet(mapLandBridgePath, seed);
   carveLandBridgeHeights(heights, seed);
+  carveConnectedLandEdgeHeights(heights, seed);
   flattenPlayableCenter(heights);
   return heights;
 }
@@ -486,13 +579,30 @@ function flattenPlayableCenter(heights){
   const cy = Math.floor(GRID_ROWS / 2);
   const r = MAP_FLATTEN_RADIUS;
   const strength = typeof MAP_FLATTEN_STRENGTH === 'number' ? MAP_FLATTEN_STRENGTH : 0.48;
+  const edgeJitter = typeof MAP_FLATTEN_EDGE_JITTER === 'number' ? MAP_FLATTEN_EDGE_JITTER : 0;
+  const localVariation = typeof MAP_FLATTEN_LOCAL_VARIATION === 'number' ? MAP_FLATTEN_LOCAL_VARIATION : 0;
+  const seed = (typeof mapSeed === 'number' ? mapSeed : 0) + 33000;
+
   for (let row = 0; row < GRID_ROWS; row++){
     for (let col = 0; col < GRID_COLS; col++){
       const dx = col - cx, dy = row - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist >= r) continue;
-      const t = 1 - dist / r;
-      heights[row][col] = lerp(heights[row][col], MAP_PLAYABLE_ELEVATION, t * t * strength);
+      const edgeNoise = typeof fbm === 'function'
+        ? fbm(col * 0.18 + 12, row * 0.18 + 8, seed, 3)
+        : mulberry32(hashSeed(col, row) ^ seed)();
+      const notchNoise = typeof fbm === 'function'
+        ? fbm(col * 0.42 + 2, row * 0.42 + 4, seed + 91, 2)
+        : mulberry32(hashSeed(col + 19, row - 11) ^ seed)();
+      const localR = Math.max(4, r + (edgeNoise - 0.5) * edgeJitter);
+      if (dist >= localR) continue;
+
+      const t = 1 - dist / localR;
+      let localStrength = strength * (1 - localVariation * 0.5 + notchNoise * localVariation);
+      if (t < 0.32 && notchNoise < 0.32){
+        localStrength *= 0.35;
+      }
+      const target = MAP_PLAYABLE_ELEVATION + (edgeNoise - 0.5) * 0.018 * (1 - t);
+      heights[row][col] = lerp(heights[row][col], target, t * t * localStrength);
     }
   }
 }
@@ -506,10 +616,13 @@ function quantizeElevation(h){
 function applyCellHeight(cell, rawHeight){
   if (typeof usesTerrainBlocks === 'function' && usesTerrainBlocks()){
     cell.level = levelFromHeightAndTerrain(rawHeight, cell.terrain);
+    // Garantit level >= 1 pour tout terrain non-eau (évite le rendu eau par erreur).
+    if (cell.terrain !== 'water' && cell.level <= 0) cell.level = 1;
     cell.elevation = elevationFromLevel(cell.level);
   } else {
     cell.elevation = quantizeElevation(rawHeight);
     if (typeof syncCellLevelElevation === 'function') syncCellLevelElevation(cell);
+    if (cell.terrain !== 'water' && (cell.level || 0) <= 0) cell.level = 1;
   }
 }
 
@@ -611,15 +724,51 @@ function isNearWater(heights, col, row, threshold){
   return false;
 }
 
+function isNearWaterWithin(heights, col, row, maxDist, threshold){
+  threshold = threshold || MAP_WATER_THRESHOLD;
+  for (let dist = 1; dist <= maxDist; dist++){
+    for (let dr = -dist; dr <= dist; dr++){
+      for (let dc = -dist; dc <= dist; dc++){
+        if (Math.max(Math.abs(dr), Math.abs(dc)) !== dist) continue;
+        const nc = col + dc, nr = row + dr;
+        if (nc >= 0 && nc < GRID_COLS && nr >= 0 && nr < GRID_ROWS){
+          if (heights[nr][nc] < threshold) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function coastStyleNoise(col, row, seedOffset){
+  const seed = (typeof mapSeed === 'number' ? mapSeed : 0) + (seedOffset || 0);
+  if (typeof fbm === 'function'){
+    return fbm(col * 0.085 + 18, row * 0.085 + 31, seed, 3);
+  }
+  return mulberry32(hashSeed(col, row) ^ seed)();
+}
+
 function terrainFromMaps(height, moisture, slope, col, row, heights){
   if (height < MAP_WATER_THRESHOLD) return 'water';
 
   const nearWater = isNearWater(heights, col, row);
   const beachSlope = typeof MAP_COAST_BEACH_SLOPE === 'number' ? MAP_COAST_BEACH_SLOPE : 0.046;
+  const sandExtra = typeof MAP_SAND_BEACH_HEIGHT_EXTRA === 'number' ? MAP_SAND_BEACH_HEIGHT_EXTRA : 0.04;
+  const sandRing = typeof MAP_SAND_COAST_RING === 'number' ? MAP_SAND_COAST_RING : 0;
 
   if (nearWater){
-    if (slope > beachSlope * 1.35 || height > MAP_SAND_THRESHOLD + 0.08) return 'rock';
-    if (height < MAP_SAND_THRESHOLD + 0.04) return 'sand';
+    const coast = coastStyleNoise(col, row, 12000);
+    const cliffBias = coast > 0.66 || (coast > 0.54 && slope > beachSlope * 0.85);
+    if (slope > beachSlope * 1.25 || height > MAP_SAND_THRESHOLD + sandExtra + 0.025 || cliffBias) return 'rock';
+    if (height < MAP_SAND_THRESHOLD + sandExtra) return 'sand';
+  }
+
+  if (sandRing > 0
+      && isNearWaterWithin(heights, col, row, sandRing)
+      && height < MAP_SAND_THRESHOLD + sandExtra * 0.75
+      && slope < beachSlope * 1.1
+      && coastStyleNoise(col, row, 12000) < 0.72){
+    return 'sand';
   }
 
   if (plainMarbleAt(col, row, height, slope, heights)) return 'marble';
@@ -627,19 +776,20 @@ function terrainFromMaps(height, moisture, slope, col, row, heights){
   const canMountain = isLandEnoughForMountain(col, row, height);
 
   if (canMountain && height > MAP_MARBLE_THRESHOLD - 0.04){
-    return slope > MAP_ROCK_SLOPE * 0.62 ? 'rock' : 'marble';
+    if (isMarbleVeinCell(col, row, height, slope, heights)) return 'marble';
+    return 'rock';
   }
 
   if (canMountain && slope > MAP_ROCK_SLOPE) return 'rock';
 
   if (height > MAP_HILL_THRESHOLD){
     if (canMountain && height < MAP_MARBLE_THRESHOLD && slope < MAP_ROCK_SLOPE * 0.55){
-      return slope > MAP_ROCK_SLOPE * 0.42 ? 'rock' : 'marble';
+      return slope > MAP_ROCK_SLOPE * 0.42 ? 'rock' : 'hill';
     }
     return 'hill';
   }
 
-  const isPlain = height < MAP_HILL_THRESHOLD && slope < 0.048;
+  const isPlain = height < MAP_HILL_THRESHOLD + 0.06 && slope < 0.048;
 
   if (isPlain
       && moisture > MAP_FOREST_MOISTURE
@@ -663,6 +813,91 @@ function terrainFromMaps(height, moisture, slope, col, row, heights){
   }
 
   return 'grass';
+}
+
+function countNeighborTerrain(col, row, terrain){
+  let n = 0;
+  for (let dr = -1; dr <= 1; dr++){
+    for (let dc = -1; dc <= 1; dc++){
+      if (dr === 0 && dc === 0) continue;
+      const nr = row + dr, nc = col + dc;
+      if (nr < 0 || nr >= GRID_ROWS || nc < 0 || nc >= GRID_COLS) continue;
+      if (grid[nr][nc].terrain === terrain) n++;
+    }
+  }
+  return n;
+}
+
+/** Bosquets, champs et prairies boisées — rend la carte moins « tapis d'herbe ». */
+function enrichNaturalLandscape(heights, moisture){
+  if (!Array.isArray(grid) || grid.length === 0) return;
+
+  const forestSpread = typeof MAP_FOREST_SPREAD_CHANCE === 'number' ? MAP_FOREST_SPREAD_CHANCE : 0.32;
+  const wheatSpread = typeof MAP_WHEAT_SPREAD_CHANCE === 'number' ? MAP_WHEAT_SPREAD_CHANCE : 0.26;
+  const groveThreshold = typeof MAP_GROVE_NOISE_THRESHOLD === 'number' ? MAP_GROVE_NOISE_THRESHOLD : 0.58;
+  const scale = MAP_NOISE_SCALE * 2.4;
+
+  function canBecomeForest(col, row){
+    const h = heights[row][col];
+    const m = moisture[row][col];
+    return h >= MAP_FOREST_MIN_HEIGHT
+      && h <= MAP_FOREST_MAX_HEIGHT
+      && m > MAP_FOREST_MOISTURE - 0.06
+      && !isNearWater(heights, col, row);
+  }
+
+  function canBecomeWheat(col, row){
+    const h = heights[row][col];
+    const m = moisture[row][col];
+    return h >= MAP_WHEAT_MIN_HEIGHT
+      && h <= MAP_WHEAT_MAX_HEIGHT
+      && m > MAP_WHEAT_MOISTURE
+      && m < 0.74
+      && !isNearWater(heights, col, row);
+  }
+
+  for (let pass = 0; pass < 2; pass++){
+    const next = [];
+    for (let row = 0; row < GRID_ROWS; row++){
+      next[row] = [];
+      for (let col = 0; col < GRID_COLS; col++){
+        next[row][col] = grid[row][col].terrain;
+      }
+    }
+
+    for (let row = 0; row < GRID_ROWS; row++){
+      for (let col = 0; col < GRID_COLS; col++){
+        const cell = grid[row][col];
+        if (!cell || cell.terrain !== 'grass') continue;
+
+        const rng = mulberry32(hashSeed(col, row) ^ mapSeed ^ (pass * 0x9e3779b9));
+        const forestN = countNeighborTerrain(col, row, 'forest');
+        const wheatN = countNeighborTerrain(col, row, 'wheat');
+
+        if (forestN >= 2 && canBecomeForest(col, row) && rng() < forestSpread){
+          next[row][col] = 'forest';
+          continue;
+        }
+        if (wheatN >= 2 && canBecomeWheat(col, row) && rng() < wheatSpread){
+          next[row][col] = 'wheat';
+          continue;
+        }
+
+        if (pass === 0 && forestN === 0 && canBecomeForest(col, row)){
+          const grove = fbm(col * scale + 11, row * scale + 23, mapSeed + 12001, 3);
+          if (grove >= groveThreshold && rng() < 0.22){
+            next[row][col] = 'forest';
+          }
+        }
+      }
+    }
+
+    for (let row = 0; row < GRID_ROWS; row++){
+      for (let col = 0; col < GRID_COLS; col++){
+        grid[row][col].terrain = next[row][col];
+      }
+    }
+  }
 }
 
 /** Évite marbre/roche en eau ou en mer — les massifs restent à l'intérieur des terres. */
@@ -691,12 +926,68 @@ function polishMountainBiomes(heights){
   }
 }
 
+function countNeighborTerrains(col, row, predicate, radius){
+  let count = 0;
+  let total = 0;
+  for (let dr = -radius; dr <= radius; dr++){
+    for (let dc = -radius; dc <= radius; dc++){
+      if (dr === 0 && dc === 0) continue;
+      const nr = row + dr, nc = col + dc;
+      if (nr < 0 || nr >= GRID_ROWS || nc < 0 || nc >= GRID_COLS) continue;
+      total++;
+      const cell = grid[nr][nc];
+      if (cell && predicate(cell.terrain)) count++;
+    }
+  }
+  return { count, total };
+}
+
+/** Comble seulement les petits trous vraiment enfermés dans un massif roche/marbre. */
+function closeMountainHoles(heights, passes){
+  const n = typeof passes === 'number' ? passes : 1;
+  if (!Array.isArray(grid) || grid.length === 0) return;
+
+  for (let pass = 0; pass < n; pass++){
+    const changes = [];
+    for (let row = 1; row < GRID_ROWS - 1; row++){
+      for (let col = 1; col < GRID_COLS - 1; col++){
+        const cell = grid[row][col];
+        if (!cell || cell.terrain === 'water' || cell.terrain === 'sand' || isMountainTerrain(cell.terrain)) continue;
+
+        const h = heights[row][col];
+        const fillMinHeight = MAP_MARBLE_THRESHOLD - 0.06;
+        if (h < fillMinHeight || !isLandEnoughForMountain(col, row, h)) continue;
+
+        const near = countNeighborTerrains(col, row, isMountainTerrain, 1);
+        const broad = countNeighborTerrains(col, row, terrain => isMountainTerrain(terrain) || terrain === 'hill', 2);
+        const enclosedByRock = near.count >= 7;
+        const enclosedByMassif = near.count >= 6 && broad.count >= 17;
+
+        if (enclosedByRock || enclosedByMassif){
+          const slope = cell.slope || 0;
+          changes.push({
+            col,
+            row,
+            terrain: slope > MAP_ROCK_SLOPE * 0.72 ? 'rock' : 'marble',
+          });
+        }
+      }
+    }
+
+    changes.forEach(change => {
+      const cell = grid[change.row][change.col];
+      cell.terrain = change.terrain;
+      applyCellHeight(cell, heights[change.row][change.col]);
+    });
+  }
+}
+
 /** Regroupe les biomes voisins (évite le bruit « confetti »). */
 function smoothTerrainMap(passes){
   const n = typeof passes === 'number' ? passes : 0;
   if (n <= 0 || !Array.isArray(grid) || grid.length === 0) return;
 
-  const preserve = new Set(['water', 'sand', 'marble']);
+  const preserve = new Set(['water', 'sand']);
 
   for (let p = 0; p < n; p++){
     const next = [];
@@ -758,9 +1049,11 @@ function polishCoastBiomes(heights, slopes){
 
       const h = heights[row][col];
       const slope = slopes[row][col];
+      const coast = coastStyleNoise(col, row, 12000);
+      const cliffCoast = coast > 0.64 || (coast > 0.52 && slope > beachSlope * 0.8);
 
-      if (slope > beachSlope){
-        if (cell.terrain !== 'sand') cell.terrain = 'rock';
+      if (cliffCoast || slope > beachSlope * 1.18){
+        cell.terrain = 'rock';
       } else if (h < MAP_SAND_THRESHOLD + 0.05 && cell.terrain !== 'rock'){
         cell.terrain = 'sand';
       }
@@ -780,6 +1073,14 @@ function polishMapEdges(){
       const cell = grid[row][col];
       if (!cell) continue;
       if (isEntryCorridorCell(col, row)) continue;
+      if (isConnectedLandEdgeCell(col, row)){
+        if (cell.terrain === 'water') cell.terrain = 'sand';
+        if (cell.level <= 0){
+          cell.level = 1;
+          cell.elevation = elevationFromLevel(1);
+        }
+        continue;
+      }
 
       if (dist === 0){
         cell.terrain = 'water';
@@ -788,7 +1089,8 @@ function polishMapEdges(){
         continue;
       }
       if (dist === 1 && cell.terrain !== 'water'){
-        cell.terrain = 'sand';
+        const coast = coastStyleNoise(col, row, 14000);
+        cell.terrain = coast > 0.68 ? 'rock' : 'sand';
         cell.level = 1;
         cell.elevation = elevationFromLevel(1);
         continue;
@@ -798,7 +1100,8 @@ function polishMapEdges(){
           cell.level = 1;
           cell.elevation = elevationFromLevel(1);
         }
-        if (dist <= 2 && (cell.terrain === 'rock' || cell.terrain === 'marble' || cell.terrain === 'hill')){
+        const coast = coastStyleNoise(col, row, 14000);
+        if (dist <= 2 && coast < 0.66 && (cell.terrain === 'rock' || cell.terrain === 'marble' || cell.terrain === 'hill')){
           cell.terrain = 'sand';
         }
       }
@@ -832,6 +1135,10 @@ function syncAllCellHeights(heights){
 }
 
 async function generateProceduralMap(seed){
+  terrainGenerationInProgress = true;
+  if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
+  else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+
   mapSeed = (typeof seed === 'number') ? seed : Math.floor(Math.random() * 1e9);
   mapLandStyle = pickMapLandStyle(mapSeed);
   mapWalkerEntry = null;
@@ -862,6 +1169,7 @@ async function generateProceduralMap(seed){
         terrain,
         building: null,
         hasRoad: false,
+        roadStairs: false,
         houseLevel: 0,
         population: 0,
         patrolBlock: false,
@@ -879,12 +1187,14 @@ async function generateProceduralMap(seed){
   reportGenProgress(68, 'Lissage des biomes…');
   await yieldFrame();
   smoothTerrainMap(typeof MAP_BIOME_SMOOTH === 'number' ? MAP_BIOME_SMOOTH : 0);
+  enrichNaturalLandscape(heights, moisture);
   syncAllCellHeights(heights);
 
   reportGenProgress(78, 'Côtes et montagnes…');
   await yieldFrame();
   polishCoastBiomes(heights, slopes);
   polishMountainBiomes(heights);
+  closeMountainHoles(heights, 1);
   syncAllCellHeights(heights);
 
   reportGenProgress(88, 'Bords de carte…');
@@ -899,6 +1209,10 @@ async function generateProceduralMap(seed){
 
   reportGenProgress(100, 'Finalisation…');
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
+  terrainGenerationInProgress = false;
+  if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
+  else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof render === 'function') render();
   debugInfo('Carte procédurale générée', {
     seed: mapSeed,
     size: `${GRID_COLS}×${GRID_ROWS}`,

@@ -420,6 +420,26 @@ function drawLegoBrick(targetCtx, src, cx, cy, opts){
   return true;
 }
 
+/** Fallback plat quand les sprites ne sont pas encore chargés — couleur selon biome, pas eau. */
+function drawFlatFallback(targetCtx, cx, cy, cell){
+  const c = targetCtx || ctx;
+  const terrain = (cell && cell.terrain) || 'grass';
+  const colorMap = typeof TERRAIN_COLORS === 'object' ? TERRAIN_COLORS : {};
+  const color = colorMap[terrain] || colorMap['grass'] || '#6a8c4a';
+  if (typeof drawFlatDiamond === 'function'){
+    drawFlatDiamond(c, cx, cy, color);
+  } else {
+    c.beginPath();
+    c.moveTo(cx, cy);
+    c.lineTo(cx + TILE_W / 2, cy + TILE_H / 2);
+    c.lineTo(cx, cy + TILE_H);
+    c.lineTo(cx - TILE_W / 2, cy + TILE_H / 2);
+    c.closePath();
+    c.fillStyle = color;
+    c.fill();
+  }
+}
+
 function drawWaterFlat(targetCtx, cx, cy, col, row){
   const c = targetCtx || ctx;
   const shaded = typeof terrainMicroShade === 'function'
@@ -569,7 +589,7 @@ function drawIsoTerrainCell(targetCtx, col, row, cx, cy, cell){
   }
 
   if (!drawLegoStack(targetCtx, col, row, cx, cy, cell)){
-    drawWaterFlat(targetCtx, cx, cy, col, row);
+    drawFlatFallback(targetCtx, cx, cy, cell);
   }
   if (typeof usesTexturedCubes === 'function' && usesTexturedCubes()){
     if (!(typeof usesFullFaceCubes === 'function' && usesFullFaceCubes())){

@@ -240,7 +240,9 @@ function drawPolisCapFill(c, cx, cy, base, col, row, cell, level){
   const v = capTileVary(col, row);
   const elevS = capElevShade(col, row);
   let color = base;
-  if (level >= 3 && typeof TERRAIN_COLORS === 'object'){
+  if (cell.terrain === 'marble'){
+    color = colorMix(base, '#ffffff', 0.18);
+  } else if (level >= 3 && typeof TERRAIN_COLORS === 'object'){
     color = colorMix(base, TERRAIN_COLORS.rock || '#8a8580', 0.32);
   } else if (level >= 2 && typeof TERRAIN_COLORS === 'object'){
     color = colorMix(base, TERRAIN_COLORS.hill || '#6d9348', 0.22);
@@ -304,9 +306,10 @@ function drawCapNoise(c, cx, cy, cell, col, row, base){
       c.stroke();
     }
   } else if (terrain === 'marble' || terrain === 'rock'){
-    c.strokeStyle = terrain === 'marble' ? 'rgba(86,82,76,0.22)' : 'rgba(40,38,36,0.24)';
+    c.strokeStyle = terrain === 'marble' ? 'rgba(112,104,96,0.22)' : 'rgba(40,38,36,0.24)';
     c.lineWidth = 1;
-    for (let i = 0; i < 8; i++){
+    const veinCount = terrain === 'marble' ? 10 : 8;
+    for (let i = 0; i < veinCount; i++){
       const px = cx + (rng() - 0.5) * TILE_W * 0.78;
       const py = cy + TILE_H / 2 + (rng() - 0.5) * TILE_H * 0.58;
       if (!diamondContainsLocal(px - cx, py - (cy + TILE_H / 2))) continue;

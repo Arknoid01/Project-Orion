@@ -210,6 +210,52 @@ function drawTerrainCell(targetCtx, col, row, cx, cy, cell){
   }
 }
 
+function terrainTintNoise(col, row, seed, scale, octaves){
+  if (typeof fbm === 'function'){
+    return fbm(col * scale + 3.1, row * scale + 7.7, seed, octaves || 3);
+  }
+  return mulberry32(hashSeed(col, row) ^ seed)();
+}
+
+function terrainVariationTint(cell, col, row){
+  if (!cell || cell.hasRoad) return null;
+  const terrain = cell.terrain;
+  if (terrain === 'water'){
+    const n = terrainTintNoise(col, row, 9101, 0.055, 3);
+    if (n > 0.62) return { color: 'rgba(80, 210, 220, 0.035)', mode: 'screen' };
+    if (n < 0.28) return { color: 'rgba(20, 100, 130, 0.025)', mode: 'multiply' };
+    return null;
+  }
+  if (terrain === 'marble' || terrain === 'rock'){
+    const n = terrainTintNoise(col, row, 9107, 0.075, 3);
+    if (n > 0.58) return { color: 'rgba(238, 222, 190, 0.045)', mode: 'soft-light' };
+    return null;
+  }
+  if (terrain !== 'grass' && terrain !== 'hill' && terrain !== 'sand' && terrain !== 'forest' && terrain !== 'wheat'){
+    return null;
+  }
+
+  const dry = terrainTintNoise(col, row, 9113, 0.045, 3);
+  const green = terrainTintNoise(col, row, 9127, 0.062, 3);
+  const rocky = terrainTintNoise(col, row, 9139, 0.085, 2);
+
+  if (rocky > 0.72 && terrain !== 'wheat') return { color: 'rgba(190, 178, 145, 0.055)', mode: 'soft-light' };
+  if (dry > 0.64) return { color: 'rgba(220, 188, 112, 0.05)', mode: 'soft-light' };
+  if (green > 0.68 && terrain !== 'sand') return { color: 'rgba(104, 150, 82, 0.045)', mode: 'soft-light' };
+  if (dry < 0.24 && terrain === 'sand') return { color: 'rgba(154, 144, 86, 0.04)', mode: 'soft-light' };
+  return null;
+}
+
+function drawTerrainTintVariation(targetCtx, col, row, cx, cy, cell){
+  const tint = terrainVariationTint(cell, col, row);
+  if (!tint) return;
+  const c = targetCtx || ctx;
+  c.save();
+  c.globalCompositeOperation = tint.mode || 'soft-light';
+  drawDiamondOn(c, cx, cy, tint.color, 'rgba(0,0,0,0)');
+  c.restore();
+}
+
 function terrainVariantImage(terrain, col, row){
   const list = TERRAIN_VARIANT_IMAGES[terrain] || [];
   const ready = list.filter(img => img.complete && img.naturalWidth > 0);
@@ -410,6 +456,8 @@ let terrainLayerCacheScale = 1;
 function invalidateTerrainLayerCache(){
   terrainLayerCache = null;
   terrainLayerCacheVersion = -1;
+  invalidateVisibleTilesCache();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
 }
 
 function terrainCacheScaleFactor(){
@@ -419,9 +467,49 @@ function terrainCacheScaleFactor(){
   return 1;
 }
 
+function drawStaticTileDecor(targetCtx, col, row, cell){
+  const { x, y } = tileCenter(col, row);
+  const decorNorth = typeof natureDecorTileNorth === 'function'
+    ? natureDecorTileNorth(col, row)
+    : { x, y };
+  const prevOverride = _spriteDrawContextOverride;
+  _spriteDrawContextOverride = targetCtx || null;
+  try {
+    if (typeof cellShowsWheatCrop === 'function' && cellShowsWheatCrop(cell, col, row)){
+      if (typeof drawWheatCropOnCell === 'function') drawWheatCropOnCell(decorNorth.x, decorNorth.y, col, row, cell);
+    }
+    if (typeof cellShowsMediterraneanDecor === 'function' && cellShowsMediterraneanDecor(cell, col, row)){
+      if (typeof drawMediterraneanDecorOnCell === 'function') drawMediterraneanDecorOnCell(decorNorth.x, decorNorth.y, col, row, cell);
+    }
+    if (typeof cellShowsGrassDecor === 'function' && cellShowsGrassDecor(cell, col, row)){
+      if (typeof drawGrassDecorOnCell === 'function') drawGrassDecorOnCell(decorNorth.x, decorNorth.y, col, row, cell);
+    }
+    if (typeof cellShowsRockDecor === 'function' && cellShowsRockDecor(cell, col, row)){
+      if (typeof drawRockDecorOnCell === 'function') drawRockDecorOnCell(decorNorth.x, decorNorth.y, col, row, cell);
+    }
+    if (typeof cellShowsForestTree === 'function' && cellShowsForestTree(cell, col, row)){
+      if (typeof drawForestTreeOnCell === 'function') drawForestTreeOnCell(decorNorth.x, decorNorth.y, col, row, cell);
+    }
+    if (typeof cellShowsScatterTree === 'function' && cellShowsScatterTree(cell, col, row)){
+      if (typeof drawScatterTreeOnCell === 'function') drawScatterTreeOnCell(decorNorth.x, decorNorth.y, col, row, cell);
+    }
+  } finally {
+    _spriteDrawContextOverride = prevOverride;
+  }
+}
+
+function drawStaticDecorLayer(targetCtx, drawOrder){
+  drawOrder.forEach(({ col, row }) => {
+    drawStaticTileDecor(targetCtx, col, row, grid[row][col]);
+  });
+}
+
 function ensureTerrainLayerCache(){
   const dataVer = typeof terrainDataVersion === 'number' ? terrainDataVersion : 0;
   const scale = terrainCacheScaleFactor();
+  if (typeof isTerrainGenerationInProgress === 'function' && isTerrainGenerationInProgress()){
+    return null;
+  }
   if (terrainLayerCache
       && terrainLayerCacheVersion === dataVer
       && terrainLayerCacheScale === scale){
@@ -468,13 +556,23 @@ function ensureTerrainLayerCache(){
           drawLayeredTerrainCliffs(tctx, col, row, grid[row][col]);
         });
       }
+      drawOrder.forEach(({ col, row }) => {
+        const cell = grid[row][col];
+        const { x, y } = tileCenter(col, row);
+        drawTerrainTintVariation(tctx, col, row, x, y, cell);
+      });
     } else {
       drawOrder.forEach(({ col, row }) => {
         const cell = grid[row][col];
         const { x, y } = tileCenter(col, row);
         drawTerrainCell(tctx, col, row, x, y, cell);
+        drawTerrainTintVariation(tctx, col, row, x, y, cell);
       });
     }
+
+    // Décors immobiles (blé, herbe, rochers, arbres) : coûteux si redessinés à chaque frame.
+    // Ils sont invalidés avec le cache terrain quand une route/bâtiment modifie une case.
+    drawStaticDecorLayer(tctx, drawOrder);
 
     terrainLayerCache = c;
     terrainLayerCacheVersion = dataVer;
@@ -566,29 +664,103 @@ function spriteDrawWidthForTile(sprite, tileSpan, targetBaseW){
 }
 
 // cx,cy = sommet nord (tileCenter). footAt: 'south' (bâtiments) ou 'center' (arbres).
+// opts.pixelated : nearest-neighbor + snap pixel device (décors nature, petits sprites).
+// opts.smooth    : supersampling + lissage haute qualité (nature decor).
+let _spriteSmoothCanvas = null;
+let _spriteDrawContextOverride = null;
+
+function getSpriteSmoothCanvas(w, h){
+  if (!_spriteSmoothCanvas) _spriteSmoothCanvas = document.createElement('canvas');
+  if (_spriteSmoothCanvas.width < w) _spriteSmoothCanvas.width = w;
+  if (_spriteSmoothCanvas.height < h) _spriteSmoothCanvas.height = h;
+  return _spriteSmoothCanvas;
+}
+
+function snapSpriteDrawRect(x, y, w, h){
+  const dpr = typeof getRenderDpr === 'function' ? getRenderDpr() : 1;
+  return {
+    x: Math.round(x * dpr) / dpr,
+    y: Math.round(y * dpr) / dpr,
+    w: Math.max(1, Math.round(w * dpr) / dpr),
+    h: Math.max(1, Math.round(h * dpr) / dpr),
+  };
+}
+
 function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
   opts = opts || {};
+  const outCtx = opts.targetCtx || _spriteDrawContextOverride || ctx;
   const srcW = sprite.naturalWidth || sprite.width;
   const srcH = sprite.naturalHeight || sprite.height;
   if (!srcW || !srcH) return;
   targetW = targetW || BUILDING_SPRITE_W;
+  const pixelated = opts.pixelated === true
+    || (typeof NATURE_SPRITE_PIXELATED === 'boolean' && NATURE_SPRITE_PIXELATED && opts.natureDecor === true);
+  const smooth = !pixelated && (
+    opts.smooth === true
+    || (opts.natureDecor === true && typeof NATURE_SPRITE_PIXELATED === 'boolean' && !NATURE_SPRITE_PIXELATED)
+  );
+  let targetH = srcH * (targetW / srcW);
+  if (pixelated){
+    targetW = Math.max(1, Math.round(targetW));
+    targetH = Math.max(1, Math.round(targetH));
+  }
   const m = measureSpriteFoot(sprite);
   const footNx = m ? m.footNx : 0.5;
   const footNy = m ? m.footNy : 1;
-  const scale = targetW / srcW;
-  const targetH = srcH * scale;
   const lift = opts.lift != null ? opts.lift : 0;
   let footY;
   if (opts.cyIsFoot) footY = cy;
   else if (opts.anchorCenter) footY = cy + TILE_H / 2;
   else footY = cy + TILE_H;
-  ctx.drawImage(
-    sprite,
-    cx - targetW * footNx,
-    footY - targetH * footNy + lift,
-    targetW,
-    targetH
-  );
+
+  let dx = cx - targetW * footNx;
+  let dy = footY - targetH * footNy + lift;
+  let dw = targetW;
+  let dh = targetH;
+
+  const prevSmooth = outCtx.imageSmoothingEnabled;
+  const prevQuality = outCtx.imageSmoothingQuality;
+  if (pixelated){
+    outCtx.imageSmoothingEnabled = false;
+    if (outCtx === ctx){
+      const snapped = snapSpriteDrawRect(dx, dy, dw, dh);
+      dx = snapped.x;
+      dy = snapped.y;
+      dw = snapped.w;
+      dh = snapped.h;
+    }
+    outCtx.drawImage(sprite, dx, dy, dw, dh);
+    outCtx.imageSmoothingEnabled = prevSmooth;
+    outCtx.imageSmoothingQuality = prevQuality;
+    return;
+  }
+
+  const quality = smooth && typeof NATURE_SPRITE_SMOOTHING === 'string'
+    ? NATURE_SPRITE_SMOOTHING
+    : (typeof PERF !== 'undefined' && PERF.smoothing ? PERF.smoothing : 'high');
+  outCtx.imageSmoothingEnabled = true;
+  outCtx.imageSmoothingQuality = quality;
+
+  const ss = smooth && typeof NATURE_SPRITE_SUPERSAMPLE === 'number' && NATURE_SPRITE_SUPERSAMPLE > 1
+    ? NATURE_SPRITE_SUPERSAMPLE
+    : 1;
+  if (ss > 1){
+    const sw = Math.max(1, Math.ceil(dw * ss));
+    const sh = Math.max(1, Math.ceil(dh * ss));
+    const sc = getSpriteSmoothCanvas(sw, sh);
+    const sctx = sc.getContext('2d');
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, sw, sh);
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = quality;
+    sctx.drawImage(sprite, 0, 0, sw, sh);
+    outCtx.drawImage(sc, 0, 0, sw, sh, dx, dy, dw, dh);
+  } else {
+    outCtx.drawImage(sprite, dx, dy, dw, dh);
+  }
+
+  outCtx.imageSmoothingEnabled = prevSmooth;
+  outCtx.imageSmoothingQuality = prevQuality;
 }
 
 function buildingDrawWidth(def, sprite){
@@ -856,7 +1028,7 @@ function drawRoad(cx, cy, elevation, col, row){
   ctx.lineTo(cx, cy + TILE_H * 0.4);
   ctx.lineTo(cx - TILE_W * 0.4, cy);
   ctx.closePath();
-  ctx.fillStyle = '#9c8868';
+  ctx.fillStyle = '#8f8780';
   ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,0.25)';
   ctx.stroke();
@@ -886,10 +1058,18 @@ const SERVICE_COLORS = {
   fire:     '#a05a3a',
 };
 
-function drawWalkers(now){
+function _posInView(x, y, bounds){
+  if (!bounds) return true;
+  const pad = 32;
+  return x >= bounds.left - pad && x <= bounds.right + pad
+      && y >= bounds.top - pad && y <= bounds.bottom + pad;
+}
+
+function drawWalkers(now, viewBounds){
   walkers.forEach(w => {
     if (w.path.length <= 1) return;
     const { x, y } = getWalkerScreenPos(w, now);
+    if (!_posInView(x, y, viewBounds)) return;
     const roleColor = SERVICE_COLORS[w.serviceType] || '#e8c468';
     const spriteId = 'walker_' + w.serviceType;
     const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(w) : null;
@@ -925,27 +1105,32 @@ function drawAgentToken(x, y, icon, ringColor){
   ctx.fillText(icon, x, y - 7);
 }
 
-function drawCreatures(now){
+function drawCreatures(now, viewBounds){
   if (typeof monster !== 'undefined' && monster){
     const { x, y } = getCreatureScreenPos(monster, now);
-    const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(monster) : null;
-    const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(monster, now);
-    const drew = (typeof drawCharacterSprite === 'function')
-      && drawCharacterSprite('monster_' + monster.typeKey, x, y,
-        iso ? iso.facing : (monster.facing || 'down'), now, undefined, iso ? iso.mirrorX : monster.mirrorX, moving);
-    if (!drew) drawAgentToken(x, y, monster.icon, 'rgba(150,30,30,0.92)');
+    if (_posInView(x, y, viewBounds)){
+      const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(monster) : null;
+      const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(monster, now);
+      const drew = (typeof drawCharacterSprite === 'function')
+        && drawCharacterSprite('monster_' + monster.typeKey, x, y,
+          iso ? iso.facing : (monster.facing || 'down'), now, undefined, iso ? iso.mirrorX : monster.mirrorX, moving);
+      if (!drew) drawAgentToken(x, y, monster.icon, 'rgba(150,30,30,0.92)');
+    }
   }
   if (typeof hero !== 'undefined' && hero){
     const { x, y } = getCreatureScreenPos(hero, now);
-    const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(hero) : null;
-    const drew = hero.typeKey && (typeof drawCharacterSprite === 'function')
-      && drawCharacterSprite('hero_' + hero.typeKey, x, y,
-        iso ? iso.facing : (hero.facing || 'down'), now, undefined, iso ? iso.mirrorX : hero.mirrorX);
-    if (!drew) drawAgentToken(x, y, hero.icon || '🦸', 'rgba(60,110,200,0.92)');
+    if (_posInView(x, y, viewBounds)){
+      const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(hero) : null;
+      const drew = hero.typeKey && (typeof drawCharacterSprite === 'function')
+        && drawCharacterSprite('hero_' + hero.typeKey, x, y,
+          iso ? iso.facing : (hero.facing || 'down'), now, undefined, iso ? iso.mirrorX : hero.mirrorX);
+      if (!drew) drawAgentToken(x, y, hero.icon || '🦸', 'rgba(60,110,200,0.92)');
+    }
   }
   if (typeof godAgents !== 'undefined'){
     godAgents.forEach(agent => {
       const { x, y } = getCreatureScreenPos(agent, now);
+      if (!_posInView(x, y, viewBounds)) return;
       const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(agent) : null;
       const drew = (typeof drawCharacterSprite === 'function')
         && drawCharacterSprite('god_' + agent.godKey, x, y,
@@ -956,6 +1141,7 @@ function drawCreatures(now){
   if (typeof migrants !== 'undefined'){
     migrants.forEach(m => {
       const { x, y } = getMigrantsScreenPos(m, now);
+      if (!_posInView(x, y, viewBounds)) return;
       const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(m) : null;
       const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(m, now);
       const drew = (typeof drawCharacterSprite === 'function')
@@ -970,6 +1156,7 @@ function drawCreatures(now){
   if (typeof getMilitarySoldiers === 'function'){
     getMilitarySoldiers().forEach(s => {
       const { x, y } = getMilitarySoldierScreenPos(s, now);
+      if (!_posInView(x, y, viewBounds)) return;
       const friendly = s.side === 'friendly';
       drawAgentToken(x, y, friendly ? '🛡️' : '⚔️', friendly ? 'rgba(60,110,200,0.92)' : 'rgba(150,30,30,0.92)');
     });
@@ -1006,6 +1193,37 @@ function drawHouseStatusIcons(cx, cy, col, row, cell){
   });
 }
 
+/* ===================== TUILES VISIBLES (cache par viewport) ===================== */
+// Évite d'itérer 14 400 tuiles × 2 passes à chaque frame : on ne refiltre que
+// quand le viewport a changé (scroll ou zoom différent).
+let _visibleTilesCache   = null;
+let _visibleTilesBounds  = null;
+
+function _boundsKey(b){
+  if (!b) return 'null';
+  return `${b.left | 0},${b.top | 0},${b.right | 0},${b.bottom | 0}`;
+}
+
+function getVisibleDrawOrder(drawOrder, viewBounds){
+  const key = _boundsKey(viewBounds);
+  const prevKey = _boundsKey(_visibleTilesBounds);
+  if (_visibleTilesCache && key === prevKey) return _visibleTilesCache;
+  if (!viewBounds){
+    _visibleTilesCache = drawOrder;
+    _visibleTilesBounds = null;
+    return drawOrder;
+  }
+  _visibleTilesCache  = drawOrder.filter(({ col, row }) => isTileInView(col, row, viewBounds));
+  _visibleTilesBounds = viewBounds;
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+  return _visibleTilesCache;
+}
+
+function invalidateVisibleTilesCache(){
+  _visibleTilesCache  = null;
+  _visibleTilesBounds = null;
+}
+
 /* ===================== RENDU PRINCIPAL ===================== */
 function render(now){
   now = now || performance.now();
@@ -1038,8 +1256,9 @@ function render(now){
     }
   }
 
-  drawOrder.forEach(({ col, row }) => {
-      if (!isTileInView(col, row, viewBounds)) return;
+  const visibleTiles = getVisibleDrawOrder(drawOrder, viewBounds);
+
+  visibleTiles.forEach(({ col, row }) => {
       const cell = grid[row][col];
       const { x, y } = tileCenter(col, row);
       if (!terrainCache){
@@ -1048,38 +1267,35 @@ function render(now){
         } else {
           drawTerrainTile(x, y, cell.terrain, cell.elevation, col, row, cell.slope);
         }
+        drawTerrainTintVariation(ctx, col, row, x, y, cell);
       }
       if (cell.beauty){
         const alpha = Math.min(0.4, (cell.beauty / BEAUTY_THRESHOLD) * 0.4);
         drawTileShape(x, y, `rgba(214,175,70,${alpha})`, 'rgba(0,0,0,0)');
       }
       if (cell.hasRoad && cell.patrolBlock) drawPatrolBlock(x, y);
-      if (typeof cellShowsWheatCrop === 'function' && cellShowsWheatCrop(cell, col, row)){
-        if (typeof drawWheatCropOnCell === 'function') drawWheatCropOnCell(x, y, col, row, cell);
-      }
-      if (typeof cellShowsGrassDecor === 'function' && cellShowsGrassDecor(cell, col, row)){
-        if (typeof drawGrassDecorOnCell === 'function') drawGrassDecorOnCell(x, y, col, row, cell);
-      }
-      if (typeof cellShowsForestTree === 'function' && cellShowsForestTree(cell, col, row)){
-        if (typeof drawForestTreeOnCell === 'function') drawForestTreeOnCell(x, y, col, row, cell);
+      if (!terrainCache){
+        drawStaticTileDecor(ctx, col, row, cell);
       }
       if (cell.building){
         if (cell.monumentPart) return; // seule l'ancre dessine le monument
         drawBuilding(x, y, cell.building, col, row);
       }
+      if (cell.hasRoad && cell.roadStairs && typeof drawStairsOverlay === 'function'){
+        drawStairsOverlay(x, y, col, row);
+      }
   });
 
   // Icônes de statut après tous les bâtiments (profondeur iso), cases visibles seulement.
-  drawOrder.forEach(({ col, row }) => {
-    if (!isTileInView(col, row, viewBounds)) return;
+  visibleTiles.forEach(({ col, row }) => {
     const cell = grid[row][col];
     if (cell.building !== 'maison') return;
     const { x, y } = tileCenter(col, row);
     drawHouseStatusIcons(x, y, col, row, cell);
   });
 
-  drawWalkers(now);
-  drawCreatures(now);
+  drawWalkers(now, viewBounds);
+  drawCreatures(now, viewBounds);
 
   // surbrillance de la/les case(s) survolée(s) — zone 2 clics, monument 2×2, ou case unique
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){
@@ -1114,6 +1330,9 @@ function render(now){
       color = canPlace(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (roadMode){
       color = canPlaceRoad(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
+    } else if (typeof stairsMode !== 'undefined' && stairsMode){
+      color = (typeof canPlaceStairs === 'function' && canPlaceStairs(hoverTile.col, hoverTile.row))
+        ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (blockMode){
       color = canToggleBlock(hoverTile.col, hoverTile.row) ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.45)';
     } else if (demolishMode){
@@ -1130,4 +1349,27 @@ function render(now){
   }
 
   ctx.restore();
+
+  if (typeof MEDITERRANEAN_COLOR_GRADE_ENABLED === 'boolean' && MEDITERRANEAN_COLOR_GRADE_ENABLED){
+    applyMediterraneanWarmGrade(ctx, canvas.width / dpr, canvas.height / dpr);
+  }
+}
+
+function applyMediterraneanWarmGrade(targetCtx, width, height){
+  if (!targetCtx || width <= 0 || height <= 0) return;
+  const multiply = typeof MEDITERRANEAN_WARM_MULTIPLY === 'string'
+    ? MEDITERRANEAN_WARM_MULTIPLY
+    : 'rgba(255, 238, 210, 0.10)';
+  const highlight = typeof MEDITERRANEAN_WARM_HIGHLIGHT === 'string'
+    ? MEDITERRANEAN_WARM_HIGHLIGHT
+    : 'rgba(255, 210, 130, 0.06)';
+
+  targetCtx.save();
+  targetCtx.globalCompositeOperation = 'multiply';
+  targetCtx.fillStyle = multiply;
+  targetCtx.fillRect(0, 0, width, height);
+  targetCtx.globalCompositeOperation = 'soft-light';
+  targetCtx.fillStyle = highlight;
+  targetCtx.fillRect(0, 0, width, height);
+  targetCtx.restore();
 }

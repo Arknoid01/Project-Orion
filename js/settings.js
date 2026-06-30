@@ -34,10 +34,12 @@ const PERF_LEVEL = getPerfLevel();
 // bug de rendu en triangle avant qu'on identifie la vraie cause ailleurs — on ne
 // reprend pas ce risque), qualité de lissage, et densité des décors (arbres,
 // blé, touffes d'herbe) qui coûtent du temps de dessin à chaque frame.
+// decorDensity : multiplicateur appliqué à FOREST_TREE_DENSITY, WHEAT_CROP_DENSITY
+// et GRASS_DECOR_CHANCE pour réduire le nombre de drawImage() par frame en mobile.
 const PERF_PRESETS = {
-  faible: { dprCap: 1.5, cacheScale: 2, smoothing: 'high' },
-  normal: { dprCap: 1,   cacheScale: 1, smoothing: 'high' },
-  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low' },
+  faible: { dprCap: 1.5,  cacheScale: 2, smoothing: 'high', decorDensity: 1.0 },
+  normal: { dprCap: 1,    cacheScale: 1, smoothing: 'high', decorDensity: 0.85 },
+  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorDensity: 0.3 },
 };
 
 const PERF = PERF_PRESETS[PERF_LEVEL] || PERF_PRESETS.normal;

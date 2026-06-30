@@ -38,6 +38,7 @@ function closeDrawerIfMobile(){
 let selectedBuilding = null; // clé de BUILDING_DEFS
 let demolishMode = false;
 let roadMode = false;
+let stairsMode = false;
 let blockMode = false; // pose/retrait de borne de blocage de patrouille
 let hoverTile = null;
 let inspectedTile = null; // { col, row } de la dernière case cliquée, pour rafraîchir l'inspecteur à chaque tick
@@ -122,6 +123,7 @@ function placeCellBuilding(col, row, key){
       cell.population = HOUSE_LEVELS[0].population;
     }
   }
+  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
 }
 
 function confirmZonePlacement(c1, r1, c2, r2){
@@ -225,6 +227,7 @@ function selectBuilding(key){
   demolishMode = false;
   roadMode = false;
   blockMode = false;
+  stairsMode = false;
   clearZonePlacementStart();
   selectedBuilding = (selectedBuilding === key) ? null : key;
   refreshButtonStates();
@@ -277,10 +280,40 @@ function buildingCostSummary(key){
   return t('build.cost') + ' : 🪙 ' + def.cost + ' dr.';
 }
 
+function selectStairsMode(){
+  selectedBuilding = null;
+  demolishMode = false;
+  roadMode = false;
+  blockMode = false;
+  clearZonePlacementStart();
+  stairsMode = !stairsMode;
+  refreshButtonStates();
+  render();
+  closeDrawerIfMobile();
+  updateSelectedBuildPill();
+  updateStairsBuildInfo();
+}
+
+function updateStairsBuildInfo(){
+  if (!stairsMode) return;
+  const cost = typeof STAIR_COST === 'number' ? STAIR_COST : 8;
+  const hint = t('stairs.hint');
+  const costLine = t('build.cost') + ' : 🪙 ' + cost + ' dr. / ' + t('stairs.perTile');
+  ['catalogBuildInfoText', 'buildInfoText'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = hint;
+  });
+  ['catalogBuildInfoCost', 'buildInfoCost'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = costLine;
+  });
+}
+
 function selectRoadMode(){
   selectedBuilding = null;
   demolishMode = false;
   blockMode = false;
+  stairsMode = false;
   clearZonePlacementStart();
   roadMode = !roadMode;
   refreshButtonStates();
@@ -294,6 +327,7 @@ function selectBlockMode(){
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
+  stairsMode = false;
   clearZonePlacementStart();
   blockMode = !blockMode;
   refreshButtonStates();
@@ -306,6 +340,7 @@ function selectDemolishMode(){
   selectedBuilding = null;
   roadMode = false;
   blockMode = false;
+  stairsMode = false;
   clearZonePlacementStart();
   demolishMode = !demolishMode;
   refreshButtonStates();
@@ -342,6 +377,9 @@ function updateSelectedBuildPill(){
   } else if (roadMode){
     nameEl.textContent = t('action.road');
     pill.classList.add('show');
+  } else if (stairsMode){
+    nameEl.textContent = t('action.stairs');
+    pill.classList.add('show');
   } else if (blockMode){
     nameEl.textContent = t('action.block');
     pill.classList.add('show');
@@ -361,6 +399,7 @@ function cancelSelection(){
   roadMode = false;
   blockMode = false;
   demolishMode = false;
+  stairsMode = false;
   clearZonePlacementStart();
   refreshButtonStates();
   render();
@@ -408,6 +447,8 @@ function refreshButtonStates(){
   if (demolishBtn) demolishBtn.classList.toggle('active', demolishMode);
   if (roadBtn) roadBtn.classList.toggle('active', roadMode);
   if (blockBtn) blockBtn.classList.toggle('active', blockMode);
+  const stairsBtn = document.getElementById('stairsBtn');
+  if (stairsBtn) stairsBtn.classList.toggle('active', stairsMode);
 }
 
 // Grise les actions dont le coût dépasse le trésor (rafraîchi à chaque tick).
@@ -422,13 +463,15 @@ function refreshAffordability(){
   });
   const roadBtn = document.getElementById('roadBtn');
   if (roadBtn) roadBtn.classList.toggle('unaffordable', !canAfford(ROAD_COST));
+  const stairsBtn = document.getElementById('stairsBtn');
+  if (stairsBtn) stairsBtn.classList.toggle('unaffordable', !canAfford(typeof STAIR_COST === 'number' ? STAIR_COST : 8));
 }
 
 /* ===================== CATALOGUE DE CONSTRUCTION (quickBuild) ===================== */
 const QUICK_BUILD_SECTIONS = [
   { labelKey: 'catalog.housing', items: [{ kind: 'building', key: 'maison' }] },
   { labelKey: 'catalog.tools', items: [
-    { kind: 'road' }, { kind: 'block' }, { kind: 'demolish' },
+    { kind: 'road' }, { kind: 'stairs' }, { kind: 'block' }, { kind: 'demolish' },
   ]},
   { labelKey: 'catalog.production', items: [
     { kind: 'building', key: 'farm' }, { kind: 'building', key: 'quarry' },
@@ -466,6 +509,9 @@ const QUICK_BUILD_SECTIONS = [
 function quickBuildCardHtml(item){
   if (item.kind === 'road'){
     return `<button class="card" onclick="callGameAction('selectRoadMode')">🛣️<span>${t('catalog.roadShort')}</span></button>`;
+  }
+  if (item.kind === 'stairs'){
+    return `<button class="card" onclick="callGameAction('selectStairsMode')">🪜<span>${t('catalog.stairsShort')}</span></button>`;
   }
   if (item.kind === 'block'){
     return `<button class="card" onclick="callGameAction('selectBlockMode')">🚧<span>${t('catalog.block')}</span></button>`;
@@ -610,7 +656,8 @@ function buildingInspectorHtml(type, col, row){
 
 // --- Case sans bâtiment : route ou terrain libre ---
 function tileInspectorHtml(cell){
-  const title = cell.hasRoad ? `🛣️ ${t('inspector.tileTitleRoad')}` : t('inspector.tileTitleEmpty');
+  const title = cell.roadStairs ? `🪜 ${t('inspector.tileTitleStairs')}`
+    : (cell.hasRoad ? `🛣️ ${t('inspector.tileTitleRoad')}` : t('inspector.tileTitleEmpty'));
   let html = `<p><strong>${title}</strong></p>`;
   html += `<p>🧱 ${t('inspector.terrain')} : ${t('terrainName.' + cell.terrain)}</p>`;
   if (cell.beauty) html += `<p>🎨 ${t('inspector.beauty')} : ${Math.round(cell.beauty)} / ${BEAUTY_THRESHOLD}</p>`;
@@ -705,7 +752,8 @@ canvas.addEventListener('mousemove', (e) => {
       const cell = grid[row][col];
       const buildingLabel = cell.building ? t(BUILDING_DEFS[cell.building].name) : t('info.empty');
       let text = t('info.tile', { col, row, terrain: t('terrainName.' + cell.terrain), building: buildingLabel });
-      if (cell.hasRoad) text += ` — ${t('info.hasRoad')}`;
+      if (cell.roadStairs) text += ` — ${t('info.hasStairs')}`;
+      else if (cell.hasRoad) text += ` — ${t('info.hasRoad')}`;
       if (cell.beauty) text += ` — ${t('info.beauty', { n: Math.round(cell.beauty) })}`;
       info.textContent = text;
     } else {
@@ -748,11 +796,13 @@ canvas.addEventListener('click', (e) => {
         cell.building = null;
         cell.houseLevel = 0;
         cell.population = 0;
+        if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
       }
     } else if (cell.hasRoad){
-      debugInfo('Route supprimée', { col, row });
-      notifyDemolishRefund('road');
+      debugInfo(cell.roadStairs ? 'Escalier supprimé' : 'Route supprimée', { col, row });
+      notifyDemolishRefund(cell.roadStairs ? 'stairs' : 'road');
       cell.hasRoad = false;
+      cell.roadStairs = false;
       cell.patrolBlock = false;
       if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
     }
@@ -762,6 +812,18 @@ canvas.addEventListener('click', (e) => {
       cell.patrolBlock = !cell.patrolBlock;
       debugInfo(cell.patrolBlock ? 'Borne de blocage posée' : 'Borne de blocage retirée', { col, row });
       recomputeAllWalkers();
+    }
+  } else if (stairsMode){
+    if (typeof canPlaceStairs === 'function' && canPlaceStairs(col, row)){
+      const cost = typeof STAIR_COST === 'number' ? STAIR_COST : 8;
+      if (!spend(cost)){
+        showNotification(t('economy.cantAfford'), 'bad');
+      } else {
+        if (typeof placeStairs === 'function') placeStairs(col, row);
+        debugInfo('Escalier posé', { col, row });
+        showNotification(t('stairs.placed', { cost }), 'good');
+        recomputeAllWalkers();
+      }
     }
   } else if (supportsZonePlacement()){
     handleZonePlacementClick(col, row);
@@ -777,7 +839,7 @@ canvas.addEventListener('click', (e) => {
       placeCellBuilding(col, row, selectedBuilding);
       recomputeAllWalkers();
     }
-  } else if (!demolishMode && !roadMode && !blockMode && !selectedBuilding){
+  } else if (!demolishMode && !roadMode && !blockMode && !stairsMode && !selectedBuilding){
     // Aucun mode actif : on inspecte ce qui a été tapé -- un marcheur en mouvement
     // s'il est sous le doigt, sinon la case (ouvre l'observateur, nouvelle UI).
     const now = performance.now();

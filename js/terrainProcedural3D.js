@@ -25,8 +25,8 @@ function procShade(hex, amount){
 }
 
 const _BIOME_CUBE = {
-  grass: '#83bd72', wheat: '#c9b84a', forest: '#5a9a48', hill: '#7aad62',
-  sand: '#e8d4a8', rock: '#9aa5ab', marble: '#d8d4cc', water: '#5fb6d9',
+  grass: '#b8a856', wheat: '#d4a840', forest: '#6a8a48', hill: '#a8a050',
+  sand: '#e8c878', rock: '#c4b8a0', marble: '#e8e2d4', water: '#52b8c4',
   dirt: '#9a7a52', stone: '#8d8878',
 };
 

@@ -53,6 +53,8 @@ function industryFactor(resource){
 }
 
 function tick(){
+  if (typeof isGamePaused === 'function' && isGamePaused()) return;
+  if (!grid || !grid.length) return;
   DEBUG.tickCount++;
   lastTickTimestamp = performance.now();
   tickMythology();

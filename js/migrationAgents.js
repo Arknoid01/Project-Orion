@@ -36,6 +36,7 @@ function destroyHouseAt(col, row){
   cell.building = null;
   cell.houseLevel = 0;
   cell.population = 0;
+  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
   if (typeof recomputeAllWalkers === 'function') recomputeAllWalkers();
   if (typeof recomputeBeauty === 'function') recomputeBeauty();
 }

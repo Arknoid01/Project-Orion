@@ -1,0 +1,647 @@
+[
+  {
+    "file": "assets/grass/nature/bush_green.png",
+    "name": "bush_green",
+    "category": "plant",
+    "sourceBox": [
+      776,
+      81,
+      872,
+      199
+    ],
+    "size": [
+      76,
+      88
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_white_flowers.png",
+    "name": "bush_white_flowers",
+    "category": "bush",
+    "sourceBox": [
+      876,
+      79,
+      947,
+      199
+    ],
+    "size": [
+      76,
+      109
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_purple_flowers.png",
+    "name": "bush_purple_flowers",
+    "category": "plant",
+    "sourceBox": [
+      953,
+      82,
+      1011,
+      199
+    ],
+    "size": [
+      76,
+      138
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_berries.png",
+    "name": "bush_berries",
+    "category": "plant",
+    "sourceBox": [
+      10,
+      244,
+      111,
+      325
+    ],
+    "size": [
+      76,
+      61
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_yellow_flowers.png",
+    "name": "bush_yellow_flowers",
+    "category": "plant",
+    "sourceBox": [
+      120,
+      241,
+      216,
+      324
+    ],
+    "size": [
+      76,
+      66
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_pink_flowers.png",
+    "name": "bush_pink_flowers",
+    "category": "plant",
+    "sourceBox": [
+      225,
+      237,
+      315,
+      324
+    ],
+    "size": [
+      76,
+      73
+    ]
+  },
+  {
+    "file": "assets/grass/nature/plant_magenta.png",
+    "name": "plant_magenta",
+    "category": "plant",
+    "sourceBox": [
+      324,
+      247,
+      410,
+      324
+    ],
+    "size": [
+      76,
+      68
+    ]
+  },
+  {
+    "file": "assets/grass/nature/plant_teal_spike.png",
+    "name": "plant_teal_spike",
+    "category": "plant",
+    "sourceBox": [
+      417,
+      242,
+      510,
+      323
+    ],
+    "size": [
+      76,
+      66
+    ]
+  },
+  {
+    "file": "assets/grass/nature/plant_green_spike.png",
+    "name": "plant_green_spike",
+    "category": "plant",
+    "sourceBox": [
+      519,
+      246,
+      606,
+      323
+    ],
+    "size": [
+      76,
+      67
+    ]
+  },
+  {
+    "file": "assets/grass/nature/plant_curl.png",
+    "name": "plant_curl",
+    "category": "plant",
+    "sourceBox": [
+      617,
+      234,
+      745,
+      328
+    ],
+    "size": [
+      76,
+      53
+    ]
+  },
+  {
+    "file": "assets/grass/nature/grass_spike_sm.png",
+    "name": "grass_spike_sm",
+    "category": "plant",
+    "sourceBox": [
+      745,
+      225,
+      851,
+      327
+    ],
+    "size": [
+      76,
+      66
+    ]
+  },
+  {
+    "file": "assets/grass/nature/grass_spike_md.png",
+    "name": "grass_spike_md",
+    "category": "plant",
+    "sourceBox": [
+      853,
+      233,
+      933,
+      325
+    ],
+    "size": [
+      76,
+      81
+    ]
+  },
+  {
+    "file": "assets/grass/nature/flower_pink.png",
+    "name": "flower_pink",
+    "category": "plant",
+    "sourceBox": [
+      941,
+      226,
+      1011,
+      324
+    ],
+    "size": [
+      76,
+      106
+    ]
+  },
+  {
+    "file": "assets/grass/nature/grass_tall.png",
+    "name": "grass_tall",
+    "category": "flower",
+    "sourceBox": [
+      13,
+      358,
+      99,
+      425
+    ],
+    "size": [
+      76,
+      59
+    ]
+  },
+  {
+    "file": "assets/grass/nature/wheat_golden.png",
+    "name": "wheat_golden",
+    "category": "flower",
+    "sourceBox": [
+      111,
+      359,
+      194,
+      426
+    ],
+    "size": [
+      76,
+      61
+    ]
+  },
+  {
+    "file": "assets/grass/nature/lavender.png",
+    "name": "lavender",
+    "category": "flower",
+    "sourceBox": [
+      207,
+      367,
+      261,
+      425
+    ],
+    "size": [
+      76,
+      82
+    ]
+  },
+  {
+    "file": "assets/grass/nature/flower_bluebells.png",
+    "name": "flower_bluebells",
+    "category": "flower",
+    "sourceBox": [
+      275,
+      361,
+      329,
+      426
+    ],
+    "size": [
+      76,
+      91
+    ]
+  },
+  {
+    "file": "assets/grass/nature/mushrooms.png",
+    "name": "mushrooms",
+    "category": "plant",
+    "sourceBox": [
+      338,
+      342,
+      428,
+      428
+    ],
+    "size": [
+      76,
+      73
+    ]
+  },
+  {
+    "file": "assets/grass/nature/leaf_cluster.png",
+    "name": "leaf_cluster",
+    "category": "plant",
+    "sourceBox": [
+      436,
+      345,
+      498,
+      427
+    ],
+    "size": [
+      76,
+      100
+    ]
+  },
+  {
+    "file": "assets/grass/nature/sprout_sm.png",
+    "name": "sprout_sm",
+    "category": "plant",
+    "sourceBox": [
+      510,
+      351,
+      582,
+      427
+    ],
+    "size": [
+      76,
+      80
+    ]
+  },
+  {
+    "file": "assets/grass/nature/sprout_md.png",
+    "name": "sprout_md",
+    "category": "flower",
+    "sourceBox": [
+      600,
+      359,
+      686,
+      426
+    ],
+    "size": [
+      76,
+      59
+    ]
+  },
+  {
+    "file": "assets/grass/nature/sprout_xs.png",
+    "name": "sprout_xs",
+    "category": "flower",
+    "sourceBox": [
+      703,
+      373,
+      770,
+      424
+    ],
+    "size": [
+      76,
+      58
+    ]
+  },
+  {
+    "file": "assets/grass/nature/branch_mossy.png",
+    "name": "branch_mossy",
+    "category": "flower",
+    "sourceBox": [
+      782,
+      363,
+      847,
+      423
+    ],
+    "size": [
+      76,
+      70
+    ]
+  },
+  {
+    "file": "assets/grass/nature/stump_mossy.png",
+    "name": "stump_mossy",
+    "category": "flower",
+    "sourceBox": [
+      862,
+      356,
+      919,
+      424
+    ],
+    "size": [
+      76,
+      90
+    ]
+  },
+  {
+    "file": "assets/grass/nature/log_hollow.png",
+    "name": "log_hollow",
+    "category": "flower",
+    "sourceBox": [
+      943,
+      361,
+      1000,
+      423
+    ],
+    "size": [
+      76,
+      83
+    ]
+  },
+  {
+    "file": "assets/grass/nature/log_plain.png",
+    "name": "log_plain",
+    "category": "plant",
+    "sourceBox": [
+      16,
+      447,
+      148,
+      517
+    ],
+    "size": [
+      76,
+      41
+    ]
+  },
+  {
+    "file": "assets/grass/nature/log_bundle.png",
+    "name": "log_bundle",
+    "category": "plant",
+    "sourceBox": [
+      156,
+      456,
+      257,
+      525
+    ],
+    "size": [
+      76,
+      52
+    ]
+  },
+  {
+    "file": "assets/grass/nature/sticks_pile.png",
+    "name": "sticks_pile",
+    "category": "flower",
+    "sourceBox": [
+      273,
+      467,
+      365,
+      524
+    ],
+    "size": [
+      76,
+      47
+    ]
+  },
+  {
+    "file": "assets/grass/nature/stump_log.png",
+    "name": "stump_log",
+    "category": "plant",
+    "sourceBox": [
+      379,
+      457,
+      482,
+      527
+    ],
+    "size": [
+      76,
+      52
+    ]
+  },
+  {
+    "file": "assets/grass/nature/log_vertical.png",
+    "name": "log_vertical",
+    "category": "plant",
+    "sourceBox": [
+      496,
+      452,
+      611,
+      525
+    ],
+    "size": [
+      76,
+      48
+    ]
+  },
+  {
+    "file": "assets/grass/nature/moss_mound.png",
+    "name": "moss_mound",
+    "category": "flower",
+    "sourceBox": [
+      625,
+      456,
+      720,
+      523
+    ],
+    "size": [
+      76,
+      54
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_dense.png",
+    "name": "bush_dense",
+    "category": "flower",
+    "sourceBox": [
+      732,
+      453,
+      827,
+      521
+    ],
+    "size": [
+      76,
+      53
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_autumn_orange.png",
+    "name": "bush_autumn_orange",
+    "category": "flower",
+    "sourceBox": [
+      830,
+      465,
+      891,
+      526
+    ],
+    "size": [
+      76,
+      69
+    ]
+  },
+  {
+    "file": "assets/grass/nature/bush_autumn_red.png",
+    "name": "bush_autumn_red",
+    "category": "plant",
+    "sourceBox": [
+      901,
+      448,
+      1010,
+      525
+    ],
+    "size": [
+      76,
+      54
+    ]
+  },
+  {
+    "file": "assets/grass/nature/flower_patch.png",
+    "name": "flower_patch",
+    "category": "plant",
+    "sourceBox": [
+      12,
+      553,
+      118,
+      625
+    ],
+    "size": [
+      76,
+      52
+    ]
+  },
+  {
+    "file": "assets/grass/nature/moss_patch_sm.png",
+    "name": "moss_patch_sm",
+    "category": "plant",
+    "sourceBox": [
+      129,
+      554,
+      236,
+      629
+    ],
+    "size": [
+      76,
+      53
+    ]
+  },
+  {
+    "file": "assets/grass/nature/moss_patch_md.png",
+    "name": "moss_patch_md",
+    "category": "flower",
+    "sourceBox": [
+      247,
+      567,
+      345,
+      628
+    ],
+    "size": [
+      76,
+      48
+    ]
+  },
+  {
+    "file": "assets/grass/nature/moss_patch_lg.png",
+    "name": "moss_patch_lg",
+    "category": "flower",
+    "sourceBox": [
+      357,
+      565,
+      450,
+      624
+    ],
+    "size": [
+      76,
+      49
+    ]
+  },
+  {
+    "file": "assets/grass/nature/sand_pile.png",
+    "name": "sand_pile",
+    "category": "flower",
+    "sourceBox": [
+      465,
+      569,
+      548,
+      626
+    ],
+    "size": [
+      76,
+      52
+    ]
+  },
+  {
+    "file": "assets/grass/nature/dirt_pile.png",
+    "name": "dirt_pile",
+    "category": "plant",
+    "sourceBox": [
+      562,
+      553,
+      659,
+      626
+    ],
+    "size": [
+      76,
+      57
+    ]
+  },
+  {
+    "file": "assets/grass/nature/grass_mound.png",
+    "name": "grass_mound",
+    "category": "plant",
+    "sourceBox": [
+      673,
+      545,
+      770,
+      627
+    ],
+    "size": [
+      76,
+      64
+    ]
+  },
+  {
+    "file": "assets/grass/nature/sand_pile_alt.png",
+    "name": "sand_pile_alt",
+    "category": "flower",
+    "sourceBox": [
+      782,
+      570,
+      886,
+      626
+    ],
+    "size": [
+      76,
+      41
+    ]
+  },
+  {
+    "file": "assets/grass/nature/dirt_pile_alt.png",
+    "name": "dirt_pile_alt",
+    "category": "flower",
+    "sourceBox": [
+      897,
+      570,
+      1004,
+      625
+    ],
+    "size": [
+      76,
+      39
+    ]
+  }
+]

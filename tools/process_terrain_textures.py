@@ -64,7 +64,7 @@ ISO_ATLAS_MAP = {
     "water":  (0, 2),  # eau claire
     "wheat":  (3, 1),  # pelouse quadrillée → champs de blé doré
     "forest": (1, 3),  # hautes herbes → assombri
-    "road":   (1, 0),  # planches claires (plus plat, s’aligne mieux que les pavés)
+    "road":   (1, 1),  # pavés pierre (voie romaine / agora)
 }
 
 
@@ -113,6 +113,19 @@ def enhance_square(im):
     rgb = rgb.filter(ImageFilter.GaussianBlur(0.4))
     out = rgb.convert("RGBA")
     # Conserve l'alpha d'origine si présent
+    if im.getextrema()[3][0] < 255:
+        out.putalpha(im.split()[3])
+    return out
+
+
+def make_road_cobble_cell(paver_cell):
+    """Route = pavés pierre légèrement patinés (distinct du marbre carrière en jeu)."""
+    im = paver_cell.convert("RGBA")
+    rgb = im.convert("RGB")
+    rgb = ImageEnhance.Color(rgb).enhance(0.90)
+    rgb = ImageEnhance.Contrast(rgb).enhance(1.06)
+    rgb = ImageEnhance.Brightness(rgb).enhance(0.96)
+    out = rgb.convert("RGBA")
     if im.getextrema()[3][0] < 255:
         out.putalpha(im.split()[3])
     return out
@@ -458,9 +471,9 @@ def export_from_iso_atlas(atlas_path):
 
     road_cell = cells.get(ISO_ATLAS_MAP["road"])
     if road_cell is not None:
-        road = iso_atlas_cell_to_tile(road_cell, out_w, canvas_h)
+        road = iso_atlas_cell_to_tile(make_road_cobble_cell(road_cell), out_w, canvas_h)
         road.save(os.path.join(OUT_DIR, ROAD_OUT))
-        print(f"  OK  {ROAD_OUT} ({out_w}×{canvas_h}) <- atlas{ISO_ATLAS_MAP['road']}")
+        print(f"  OK  {ROAD_OUT} ({out_w}×{canvas_h}) <- atlas{ISO_ATLAS_MAP['road']} (pavés)")
 
     print(f"\n{len(exported)} tuiles + route exportées.")
 
@@ -480,7 +493,12 @@ def export_tiles(mapping):
         tile.save(out_path)
         print(f"  OK  {out_name} ({out_w}×{out_h}) <- {os.path.basename(src)}")
 
-    if "rock" in mapping:
+    if "marble" in mapping:
+        square = enhance_square(load_square(mapping["marble"]))
+        road = make_iso_tile(square, out_w, out_h)
+        road.save(os.path.join(OUT_DIR, ROAD_OUT))
+        print(f"  OK  {ROAD_OUT} ({out_w}×{out_h}) <- {os.path.basename(mapping['marble'])} (pavés)")
+    elif "rock" in mapping:
         square = enhance_square(load_square(mapping["rock"]))
         road = make_iso_tile(square, out_w, out_h)
         road.save(os.path.join(OUT_DIR, ROAD_OUT))

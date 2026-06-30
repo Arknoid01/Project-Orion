@@ -161,6 +161,7 @@ function placeMonument(anchorCol, anchorRow, type, godKey){
   if (typeof onGodMonumentBuilt === 'function') onGodMonumentBuilt(godKey);
   spawnGodAgent(godKey, anchorCol, anchorRow, false);
   debugInfo('Temple monumental construit', { col: anchorCol, row: anchorRow, god: godKey });
+  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
   recomputeAllWalkers();
   recomputeBeauty();
   return true;
@@ -179,6 +180,7 @@ function demolishMonument(anchorCol, anchorRow){
       cell.godPatron = null;
     }
   }
+  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
   if (typeof onGodMonumentDemolished === 'function') onGodMonumentDemolished(patron);
   recomputeAllWalkers();
 }

@@ -27,14 +27,22 @@ function showMainMenu(){
   const el = document.getElementById('mainMenuOverlay');
   if (el) el.classList.add('open');
   showHomeScreen();
+  if (typeof setGamePaused === 'function') setGamePaused(true);
 }
 
 function hideMainMenu(){
   const el = document.getElementById('mainMenuOverlay');
   if (el) el.classList.remove('open');
+  if (typeof setGamePaused === 'function') setGamePaused(false);
 }
 
 function returnToMainMenu(){
+  if (typeof grid !== 'undefined' && grid.length && typeof saveGame === 'function'){
+    saveGame({ silent: true });
+    if (typeof showNotification === 'function' && typeof t === 'function'){
+      showNotification(t('save.saved'), 'good');
+    }
+  }
   showMainMenu();
   if (typeof closePanels === 'function') closePanels();
 }

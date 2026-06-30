@@ -10,7 +10,13 @@ function tileKey(col, row){ return `${col},${row}`; }
 function roadNeighbors(col, row){
   const candidates = [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]];
   return candidates
-    .filter(([c, r]) => inBounds(c, r) && grid[r][c].hasRoad && !grid[r][c].patrolBlock)
+    .filter(([c, r]) => {
+      if (!inBounds(c, r)) return false;
+      if (typeof roadTileConnects === 'function'){
+        return roadTileConnects(col, row, c, r);
+      }
+      return grid[r][c].hasRoad && !grid[r][c].patrolBlock;
+    })
     .map(([c, r]) => ({ col: c, row: r }));
 }
 

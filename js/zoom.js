@@ -43,6 +43,9 @@ function setZoom(value, anchorScreenX, anchorScreenY){
   const ratio = newZoom / oldZoom;
   wrap.scrollLeft = contentX * ratio - (anchorScreenX - wrapRect.left);
   wrap.scrollTop = contentY * ratio - (anchorScreenY - wrapRect.top);
+
+  if (typeof invalidateVisibleTilesCache === 'function') invalidateVisibleTilesCache();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
 }
 
 function zoomIn(){ setZoom(zoomLevel + ZOOM_STEP); }
@@ -113,3 +116,14 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', (e) => {
   if (e.touches.length < 2) pinchStartDistance = null;
 });
+
+/* ---- Scroll (pan) : invalide le cache tuiles visibles ---- */
+(function(){
+  const wrap = document.getElementById('canvasWrap');
+  if (wrap){
+    wrap.addEventListener('scroll', () => {
+      if (typeof invalidateVisibleTilesCache === 'function') invalidateVisibleTilesCache();
+      if (typeof markRenderDirty === 'function') markRenderDirty();
+    }, { passive: true });
+  }
+})();

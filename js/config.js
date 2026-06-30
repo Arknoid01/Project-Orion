@@ -33,7 +33,7 @@ const TERRAIN_FACE_ROW_FRAC = 38 / 88;    // ligne face iso dans le PNG (export 
 /* ===================== ZOOM ===================== */
 const ZOOM_DEFAULT = 0.55;
 const ZOOM_MIN = 0.35;
-const ZOOM_MAX = 2.5;
+const ZOOM_MAX = 0.80;  // ZOOM_MIN + 3 × ZOOM_STEP : 3 clics « + » depuis la vue la plus éloignée
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
@@ -42,53 +42,120 @@ const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 p
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
 // Sprites iso « Isometric Asset - Lite » — affichés comme des bâtiments sur le terrain
 // forest, masqués dès qu'une route ou un bâtiment occupe la case (pas de blocage de pose).
-const FOREST_TREES_ENABLED = true;
-const FOREST_TREE_SPRITE = 'assets/trees/tree.png';
+const FOREST_TREES_ENABLED = false;
+const FOREST_TREE_SPRITE = 'assets/trees/tree_green.png?v=5';
 const FOREST_TREE_SPRITES = [
-  'assets/trees/tree.png',
-  'assets/trees/tree2.png',
+  'assets/trees/tree_green.png?v=5',
+  'assets/trees/tree_flower.png?v=5',
+  'assets/trees/tree_pine_dark.png?v=5',
+  'assets/trees/tree_autumn.png?v=5',
+  'assets/trees/tree_teal.png?v=5',
+  'assets/trees/tree_purple.png?v=5',
+  'assets/trees/tree_cedar.png?v=5',
 ];
-const FOREST_TREE_DENSITY = 1; // arbre sur chaque case forêt libre (densité indépendante du niveau de perf : ça ne pèse pas assez pour valoir la perte visuelle)
-const FOREST_TREE_SIZE = 1.1;     // +10 % vs largeur tuile de base (BUILDING_SPRITE_W)
+// Densité modulée par PERF.decorDensity (settings.js). Les forêts restent denses ;
+// les petits props herbe/roche utilisent MAP_SMALL_DECOR_DENSITY_MULT en plus.
+const MAP_SMALL_DECOR_DENSITY_MULT = 0.88;
+const FOREST_TREE_DENSITY = (typeof PERF !== 'undefined' && PERF.decorDensity != null)
+  ? Math.min(1, 0.55 + PERF.decorDensity * 0.45)
+  : 1;
+const FOREST_TREE_SIZE = 0.62;
+
+/* ===================== ARBRES ÉPARPILLÉS (prairies / collines) ===================== */
+const SCATTER_TREES_ENABLED = false;
+const SCATTER_TREE_DENSITY = (typeof PERF !== 'undefined' && PERF.decorDensity != null)
+  ? PERF.decorDensity * 0.15
+  : 0.15;
+const SCATTER_TREE_SIZE = 0.50;
+const SCATTER_TREE_TERRAINS = ['grass', 'hill'];
 
 /* ===================== DÉCOR HERBE (tufts, cailloux, souches…) ===================== */
-const GRASS_DECOR_ENABLED = true;
-const GRASS_DECOR_SPRITES = [
-  'assets/grass/grass00.png',
-  'assets/grass/rockPath00.png',
-  'assets/grass/trunk00.png',
-  'assets/grass/rockPile00.png',
-  'assets/grass/bush00.png',
-  'assets/grass/ruins/arch01.png',
-  'assets/grass/ruins/arch02.png',
-  'assets/grass/ruins/arch03.png',
-  'assets/grass/ruins/arch04.png',
-  'assets/grass/ruins/arch05.png',
-  'assets/grass/ruins/arch06.png',
-  'assets/grass/ruins/pillar04.png',
-  'assets/grass/ruins/ruin01.png',
-  'assets/grass/ruins/wall01.png',
-];
-const GRASS_DECOR_CHANCE = 1 / 6; // 1 chance sur 6 qu'un décor apparaisse sur une case herbe libre
-const GRASS_DECOR_GRASS_KEEP = 0.7;  // touffes grass00 : −30 %
-const GRASS_DECOR_RUINS_KEEP = 0.5;  // ruines : −50 %
+// Liste des sprites : js/grassDecorSprites.js (généré via tools/gen_grass_decor_config.py)
+const GRASS_DECOR_ENABLED = false;
+const GRASS_DECOR_CHANCE = (((typeof PERF !== 'undefined' && PERF.decorDensity != null) ? PERF.decorDensity : 1) / 3.5) * MAP_SMALL_DECOR_DENSITY_MULT;
+const GRASS_DECOR_GRASS_KEEP = 0.82;  // petites touffes / mousses
+const GRASS_DECOR_RUINS_KEEP = 0.32; // ruines : rares mais visibles
 const GRASS_DECOR_SIZE = 0.6;     // 60 % de la largeur tuile (petits props)
 const GRASS_DECOR_RUINS_SIZE = 0.66; // ruines : +10 % vs GRASS_DECOR_SIZE
-// false = bas du losange ; true = centre. lift = remontée en px (négatif = plus haut).
-const GRASS_DECOR_ANCHOR_CENTER = false;
-const NATURE_DECOR_LIFT = -5;
+
+/* ===================== DÉCOR ROCHE / MARBRE ===================== */
+// Petits amas rocheux tirés sur les cases libres de terrain rock/marble.
+// Liste des sprites : js/rockDecorSprites.js.
+const ROCK_DECOR_ENABLED = false;
+const ROCK_DECOR_CHANCE = (((typeof PERF !== 'undefined' && PERF.decorDensity != null) ? PERF.decorDensity : 1) / 2.8) * MAP_SMALL_DECOR_DENSITY_MULT;
+const ROCK_DECOR_SIZE = 0.72;
+const ROCK_DECOR_ANCHOR_CENTER = true;
+const ROCK_DECOR_LIFT = 0;
+
+// Positionnement des décors nature — lift en px (positif = vers le bas, négatif = vers le haut).
+// Ancrage : anchorCenter=true → équateur du losange (cy + TILE_H/2) ; false → pointe sud (cy + TILE_H).
+const NATURE_DECOR_LIFT = -5;          // lift par défaut petits décors herbe/rochers
+const GRASS_DECOR_ANCHOR_CENTER = true; // centré dans le losange pour herbe/ruines
+const GRASS_DECOR_LIFT = 0;            // lift supplémentaire pour herbe/ruines (px)
+const FOREST_TREE_ANCHOR_CENTER = true; // arbres centrés dans le losange
+const FOREST_TREE_LIFT = 0;            // arbres : pas de décalage supplémentaire
+const WHEAT_CROP_ANCHOR_CENTER = true;  // blé centré dans le losange
+const WHEAT_CROP_LIFT = 0;             // blé : pas de décalage
+// false = lissage bilinéaire (plus doux) ; true = pixels nets (pixel art)
+const NATURE_SPRITE_PIXELATED = false;
+// Lissage forcé pour herbe / arbres / blé (indépendant du preset perf mobile).
+const NATURE_SPRITE_SMOOTHING = 'high';
+const NATURE_SPRITE_SUPERSAMPLE = 2; // rendu 2× puis downscale → bords plus doux
+
+function natureDecorDrawWidth(scale, sizeMul){
+  return BUILDING_SPRITE_W * scale * sizeMul;
+}
 
 function natureDecorDrawOpts(){
-  if (typeof GRASS_DECOR_ANCHOR_CENTER === 'boolean' && GRASS_DECOR_ANCHOR_CENTER){
-    return { lift: 0, anchorCenter: true };
-  }
-  return { lift: typeof NATURE_DECOR_LIFT === 'number' ? NATURE_DECOR_LIFT : -5 };
+  // Décors herbe / ruines / rochers
+  const anchor = typeof GRASS_DECOR_ANCHOR_CENTER === 'boolean' ? GRASS_DECOR_ANCHOR_CENTER : true;
+  const lift   = typeof GRASS_DECOR_LIFT === 'number' ? GRASS_DECOR_LIFT : 0;
+  const base = {
+    pixelated: NATURE_SPRITE_PIXELATED,
+    natureDecor: true,
+    smooth: !NATURE_SPRITE_PIXELATED,
+  };
+  return anchor ? { ...base, lift, anchorCenter: true } : { ...base, lift: typeof NATURE_DECOR_LIFT === 'number' ? NATURE_DECOR_LIFT : -5 };
 }
+
+function forestTreeDrawOpts(){
+  const anchor = typeof FOREST_TREE_ANCHOR_CENTER === 'boolean' ? FOREST_TREE_ANCHOR_CENTER : true;
+  const lift   = typeof FOREST_TREE_LIFT === 'number' ? FOREST_TREE_LIFT : 0;
+  const base = {
+    pixelated: NATURE_SPRITE_PIXELATED,
+    natureDecor: true,
+    smooth: !NATURE_SPRITE_PIXELATED,
+  };
+  return anchor ? { ...base, lift, anchorCenter: true } : { ...base, lift };
+}
+
+function wheatCropDrawOpts(){
+  const anchor = typeof WHEAT_CROP_ANCHOR_CENTER === 'boolean' ? WHEAT_CROP_ANCHOR_CENTER : true;
+  const lift   = typeof WHEAT_CROP_LIFT === 'number' ? WHEAT_CROP_LIFT : 0;
+  const base = {
+    pixelated: NATURE_SPRITE_PIXELATED,
+    natureDecor: true,
+    smooth: !NATURE_SPRITE_PIXELATED,
+  };
+  return anchor ? { ...base, lift, anchorCenter: true } : { ...base, lift };
+}
+
+/* ===================== DÉCOR MÉDITERRANÉEN (planche nature triée) ===================== */
+const MEDITERRANEAN_DECOR_ENABLED = true;
+const MEDITERRANEAN_TREE_DENSITY = 1;
+const MEDITERRANEAN_PROP_DENSITY = 1;
+const MEDITERRANEAN_TREE_SIZE = 0.79;
+const MEDITERRANEAN_PROP_SIZE = 0.47;
+
+/* ===================== TEINTE CHAUDE (rendu) ===================== */
+const MEDITERRANEAN_COLOR_GRADE_ENABLED = true;
+const MEDITERRANEAN_WARM_MULTIPLY = 'rgba(255, 238, 210, 0.14)';
+const MEDITERRANEAN_WARM_HIGHLIGHT = 'rgba(255, 210, 130, 0.09)';
 
 /* ===================== OVERLAY BLÉ (épis sur terrain wheat) ===================== */
 const WHEAT_CROPS_ENABLED = true;
 const WHEAT_CROP_SPRITE = 'assets/wheat/wheat_crop.png';
-const WHEAT_CROP_DENSITY = 1;   // 1 = 100 % des cases blé libres (indépendant du niveau de perf)
+const WHEAT_CROP_DENSITY = (typeof PERF !== 'undefined' && PERF.decorDensity != null) ? PERF.decorDensity : 1;
 const WHEAT_CROP_SIZE = 0.4;    // 0.6 × 0.67 (−33 %)
 
 /* ===================== DEFINITIONS BATIMENTS ===================== */
@@ -228,17 +295,17 @@ const WORLD_CITY_NAMES = [
   'Chios', 'Cumes', 'Tarente', 'Massalia', 'Olynthe', 'Abdère', 'Égine', 'Phocée', 'Cyrène',
 ];
 
-// Couleurs de repli, utilisées tant que le sprite de terrain n'est pas chargé.
+// Couleurs de repli — palette méditerranéenne (herbe sèche, eau turquoise, calcaire).
 const TERRAIN_COLORS = {
-  grass:  '#7ea24c',
-  wheat:  '#d4b35c',
-  marble: '#cfcac0',
-  water:  '#3f7ea6',
-  sand:   '#d4c4a0',
-  forest: '#4a6b38',
-  rock:   '#8a8580',
-  hill:   '#6d9348',
-  road:   '#9c8868',
+  grass:  '#b8a856',
+  wheat:  '#d4a840',
+  marble: '#e8e2d4',
+  water:  '#52b8c4',
+  sand:   '#e8c878',
+  forest: '#6a8a48',
+  rock:   '#c4b8a0',
+  hill:   '#a8a050',
+  road:   '#c4a868',
 };
 
 const TERRAIN_SPRITES = {
@@ -252,7 +319,7 @@ const TERRAIN_SPRITES = {
   hill:   'assets/tiles/hill.png',
 };
 
-const ROAD_SPRITE_PATH = 'assets/tiles/road.png';
+const ROAD_SPRITE_PATH = 'assets/tiles/road.png?v=6';
 
 // Variantes depuis tiles_pretes.zip (losanges iso du pack nature)
 const TERRAIN_TILE_VARIANTS = {
@@ -299,7 +366,7 @@ const TERRAIN_PROCEDURAL_CAPS = false;
 const TERRAIN_POLIS_CLIFF_WALLS = false;
 const TERRAIN_PROCEDURAL_3D = false;
 const TERRAIN_CAP_DEPTH_RIM = false;
-const TERRAIN_CAP_DETAIL_DENSITY = 1.0;
+const TERRAIN_CAP_DETAIL_DENSITY = 1.35;
 const TERRAIN_CAP_EDGE_FEATHER = true;
 const TERRAIN_CONTACT_SHADOW = true;
 // Texture de sommet selon la hauteur de pile (biomes listés dans TERRAIN_LEVEL_CAP_BIOMES)
@@ -321,6 +388,7 @@ const TERRAIN_BLOCK_SPRITES = {
   grass:  'assets/tiles/blocks/grass.png',
   dirt:   'assets/tiles/blocks/dirt.png',
   stone:  'assets/tiles/blocks/stone.png',
+  marble: 'assets/tiles/blocks/marble.png',
   sand:   'assets/tiles/blocks/sand.png',
   forest: 'assets/tiles/blocks/forest.png',
 };
@@ -339,8 +407,7 @@ const TERRAIN_BLOCK_LEVEL_FILL = {
 };
 // Teintes dérivées (base PNG + overlay) — blé = herbe jaune clair
 const TERRAIN_BLOCK_TINTS = {
-  wheat:  { base: 'grass', color: 'rgba(255, 238, 155, 0.58)' },
-  marble: { base: 'stone', color: 'rgba(245, 242, 235, 0.40)' },
+  wheat:  { base: 'grass', color: 'rgba(255, 222, 80, 0.50)' },
 };
 
 // Falaises auto (tools/extract_cliffs_from_nature_pack.py) — parois seules 64×48
@@ -426,9 +493,10 @@ const NEED_ICONS = {
 // Marchés : 1 unité/bien/maison/jour. Croissance/émigration : 1 tirage/jour.
 // Impôts/entretien/production : chaque tick (~1 s). Commerce/armée : chaque mois.
 // Cité de départ type (~20 hab., 4 services + 1 ferme) : +8 à +15 dr./jour net.
-const STARTING_TREASURY = 1650;
+const STARTING_TREASURY = 2650;
 const TAX_PER_POP = 0.25;        // conservé pour compatibilité (non utilisé : voir TAX_BASE_PER_POP)
 const ROAD_COST = 4;             // coût de pose d'une case de route (pas un BUILDING_DEFS)
+const STAIR_COST = 8;            // escalier : relie deux niveaux de route voisins (±1)
 const DEMOLISH_REFUND_RATE = 0.5; // fraction du coût de construction remboursée à la démolition
 
 /* ===================== IMPOTS (BUREAU DES IMPOTS) ===================== */
@@ -439,7 +507,7 @@ const DEMOLISH_REFUND_RATE = 0.5; // fraction du coût de construction rembours�
 //   - collecte    : proportionnelle directe au taux (voir taxCollectionRate)
 //   - efficacité  : pénalise la production si le taux est haut (voir taxes.js)
 //   - croissance  : ralentit l'évolution des maisons si le taux est haut (voir houses.js)
-const TAX_BASE_PER_POP = 0.42;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
+const TAX_BASE_PER_POP = 0.48;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
 const TAX_RATE_DEFAULT = 0.45;    // taux neutre au démarrage
 const TAX_EFFICIENCY_AT_ZERO = 1.12;
 const TAX_EFFICIENCY_AT_MAX  = 0.72;
@@ -468,35 +536,42 @@ const INVASION_MIN_DAY = 10;
 /* ===================== GENERATION DE CARTE PROCEDURALE ===================== */
 // Style : 'mixed' (aléatoire), 'continent' (terre continue), 'island' (île + couloir vers le bord sud).
 const MAP_LAND_STYLE = 'mixed';
-const MAP_ISLAND_CHANCE = 0.30;
-const MAP_LAND_BASE_BIAS = 0.06;           // relève les plaines → moins de cases eau
+const MAP_ISLAND_CHANCE = 0.42;            // quelques cartes îles, mais majorité jouable terrestre
+const MAP_LAND_BASE_BIAS = 0.048;          // petit cran d'eau en plus sans archipel
 const MAP_NOISE_SCALE = 0.021;             // ~ moitié pour conserver la taille des reliefs à 120×120
 const MAP_HEIGHT_OCTAVES = 6;
-const MAP_RIDGE_STRENGTH = 0.52;           // crêtes plus marquées
-const MAP_DETAIL_STRENGTH = 0.07;
-const MAP_RANGE_STRENGTH = 0.24;           // chaînes montagneuses à grande échelle
-const MAP_RANGE_SCALE_MUL = 0.46;
-const MAP_MOUNTAIN_CENTER_BOOST = 0.08;    // léger renfort central (massifs via bruit ridgé)
+const MAP_RIDGE_STRENGTH = 0.56;           // relief visible, mais moins envahissant
+const MAP_DETAIL_STRENGTH = 0.075;
+const MAP_RANGE_STRENGTH = 0.24;           // chaînes montagneuses localisées
+const MAP_RANGE_SCALE_MUL = 0.44;
+const MAP_MOUNTAIN_CENTER_BOOST = 0.07;    // massifs présents sans remplir le centre
 const MAP_DOMAIN_WARP = 0.40;
-const MAP_ISLAND_STRENGTH = 0.88;
-const MAP_ISLAND_RADIUS = 0.48;            // île plus large (moins d'océan autour)
+const MAP_ISLAND_STRENGTH = 0.92;
+const MAP_ISLAND_RADIUS = 0.47;            // île plus large, moins noyée
 const MAP_VALLEY_STRENGTH = 0.10;
 const MAP_HEIGHT_SMOOTH_PASSES = 1;
-const MAP_WATER_THRESHOLD = 0.20;          // légèrement abaissé (plus de terre jouable)
-const MAP_SAND_THRESHOLD = 0.33;
-const MAP_MARBLE_THRESHOLD = 0.62;         // marbre un peu plus bas → massifs plus larges
+const MAP_WATER_THRESHOLD = 0.215;         // +5/6 % d'eau environ selon la seed
+const MAP_SAND_THRESHOLD = 0.36;           // plages plus larges (ocre côtier)
+const MAP_SAND_BEACH_HEIGHT_EXTRA = 0.08;  // bande sable élargie près de l'eau
+const MAP_SAND_COAST_RING = 2;             // sable jusqu'à N cases de la côte (terrain bas)
+const MAP_MARBLE_THRESHOLD = 0.64;         // marbre réservé aux crêtes (filons via bruit ridgé)
 const MAP_HILL_THRESHOLD = 0.44;
-const MAP_HILL_MAX = 0.64;
-const MAP_ROCK_SLOPE = 0.088;
+const MAP_HILL_MAX = 0.66;
+const MAP_ROCK_SLOPE = 0.092;
+const MAP_MARBLE_VEIN_THRESHOLD = 0.58;    // seuil du bruit ridgé — plus haut = filons plus étroits
+const MAP_MARBLE_VEIN_SCALE = 3.6;         // fréquence des filons (plus haut = veines plus petites)
 const MAP_COAST_BEACH_SLOPE = 0.046;
-const MAP_FOREST_MOISTURE = 0.52;
-const MAP_FOREST_MIN_HEIGHT = 0.26;        // forêts de plaine et pied de montagne
-const MAP_FOREST_MAX_HEIGHT = 0.50;        // pas de forêt en altitude
-const MAP_FOREST_MAX_SLOPE = 0.048;
-const MAP_WHEAT_MOISTURE = 0.46;
-const MAP_WHEAT_MIN_HEIGHT = 0.26;
-const MAP_WHEAT_MAX_HEIGHT = 0.42;         // plaines uniquement
-const MAP_PLAIN_MARBLE_CHANCE = 0.028;     // carrières isolées en plaine près des monts
+const MAP_FOREST_MOISTURE = 0.74;          // plus élevé → moins de forêt
+const MAP_FOREST_MIN_HEIGHT = 0.28;
+const MAP_FOREST_MAX_HEIGHT = 0.40;        // bande de maquis plus étroite
+const MAP_FOREST_MAX_SLOPE = 0.042;
+const MAP_WHEAT_MOISTURE = 0.40;
+const MAP_WHEAT_MIN_HEIGHT = 0.24;
+const MAP_WHEAT_MAX_HEIGHT = 0.44;
+const MAP_PLAIN_MARBLE_CHANCE = 0.014;
+const MAP_FOREST_SPREAD_CHANCE = 0.32;     // extension organique des bosquets
+const MAP_WHEAT_SPREAD_CHANCE = 0.26;      // extension des champs
+const MAP_GROVE_NOISE_THRESHOLD = 0.58;    // bosquets isolés sur prairie
 const MAP_RAIN_SHADOW = 0.26;
 const MAP_RAIN_SHADOW_STEPS = 20;
 const MAP_WIND_X = 0.62;
@@ -505,16 +580,22 @@ const MAP_BIOME_SMOOTH = 2;
 const MAP_BIOME_SMOOTH_MAJORITY = 6;
 const MAP_FLATTEN_RADIUS = 12;
 const MAP_FLATTEN_STRENGTH = 0.34;
+const MAP_FLATTEN_EDGE_JITTER = 2.8;       // casse le contour trop circulaire du plateau
+const MAP_FLATTEN_LOCAL_VARIATION = 0.34;  // petites irrégularités sur les bords
 const MAP_PLAYABLE_ELEVATION = 0.36;
 const MAP_EDGE_BORDER_WIDTH = 4;           // défaut (île) — voir MAP_*_EDGE_BORDER
-const MAP_CONTINENT_EDGE_BORDER = 0;       // continent : pas d'anneau d'eau forcé
-const MAP_ISLAND_EDGE_BORDER = 3;
-const MAP_EDGE_WATER_LEVEL = 0.06;
+const MAP_CONTINENT_EDGE_BORDER = 1;       // légère respiration sur les bords, sans noyer la carte
+const MAP_ISLAND_EDGE_BORDER = 4;
+const MAP_EDGE_WATER_LEVEL = 0.055;
+const MAP_CONNECTED_LAND_EDGE = 'south';   // côté toujours relié à la terre : north/south/east/west
+const MAP_CONNECTED_EDGE_LAND_WIDTH = 3;   // bande garantie sans eau
+const MAP_CONNECTED_EDGE_FADE = 10;        // transition douce vers l'intérieur
+const MAP_CONNECTED_EDGE_LIFT = 0.32;      // hauteur minimale de la bande connectée
 const MAP_ENTRY_CORRIDOR_WIDTH = 4;        // largeur moyenne de l'isthme d'accès
 const MAP_LAND_BRIDGE_LIFT = 0.34;
 const MAP_LAND_BRIDGE_WIND = 0.38;         // sinuosité du chemin d'accès
-const MAP_MOUNTAIN_MIN_LAND = 0.28;        // masque île min. pour les massifs
-const MAP_MOUNTAIN_MIN_HEIGHT = 0.27;      // pas de montagne sous ce seuil (eau/littoral)
+const MAP_MOUNTAIN_MIN_LAND = 0.30;        // évite les massifs sur les bords d'île
+const MAP_MOUNTAIN_MIN_HEIGHT = 0.30;      // montagnes réservées aux vraies hauteurs
 
 /* ===================== MAINTENANCE (INCENDIES / MALADIES) ===================== */
 // Voir maintenance.js. Premiers chiffres, pas encore équilibrés en conditions réelles

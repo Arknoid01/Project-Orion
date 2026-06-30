@@ -43,5 +43,8 @@ if (loadGame()){
 }
 
 setInterval(tick, 1000);
-setInterval(() => saveGame({ silent: true }), 10000);
+setInterval(() => {
+  if (typeof isGamePaused === 'function' && isGamePaused()) return;
+  saveGame({ silent: true });
+}, 10000);
 startRenderLoop();

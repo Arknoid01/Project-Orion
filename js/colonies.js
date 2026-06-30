@@ -159,6 +159,7 @@ async function resetColonyLocalState(colonyDef){
   selectedBuilding = null;
   demolishMode = false;
   roadMode = false;
+  stairsMode = false;
   blockMode = false;
   if (typeof clearZonePlacementStart === 'function') clearZonePlacementStart();
   favor = 50;
@@ -252,9 +253,11 @@ async function launchColony(colonyId){
     else console.error(err);
     return;
   }
+  if (typeof centerMapView === 'function') centerMapView();
+  if (typeof waitForTerrainReady === 'function') await waitForTerrainReady();
+  if (typeof render === 'function') render();
   if (typeof hideGenLoading === 'function') hideGenLoading();
   if (typeof closePanels === 'function') closePanels();
-  if (typeof centerMapView === 'function') centerMapView();
   showNotification(t('colony.started', { name: t(def.nameKey) }), 'good');
   debugInfo('Colonie lancée', { colonyId });
   refreshColonyUI();

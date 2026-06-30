@@ -7,7 +7,10 @@ function terrainBlockMaxLevel(){
 /** Niveau entier 0–MAX à partir de la hauteur bruit + biome. */
 function levelFromHeightAndTerrain(h, terrain){
   const maxL = terrainBlockMaxLevel();
-  if (terrain === 'water' || h < MAP_WATER_THRESHOLD) return 0;
+  if (terrain === 'water') return 0;
+  // Terrain non-eau dont la hauteur a été légèrement rabaissée sous le seuil par
+  // le lissage : on garantit au moins le niveau 1 pour éviter un rendu eau par erreur.
+  if (h < MAP_WATER_THRESHOLD) return terrain === 'sand' ? 1 : 1;
 
   if (terrain === 'sand' || terrain === 'wheat') return 1;
 
