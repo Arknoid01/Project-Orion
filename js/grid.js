@@ -115,7 +115,19 @@ function pointInIsoCell(mx, my, col, row){
   if (hw <= 0 || hh <= 0) return false;
   const dx = Math.abs(mx - foot.x) / hw;
   const dy = Math.abs(my - foot.y) / hh;
-  return dx + dy <= 1.02;
+  if (dx + dy <= 1.02) return true;
+
+  // Les décors hauts (arbres sur case forêt) débordent visuellement vers le haut
+  // de leur case, au-delà du losange plat — un clic sur le feuillage visible
+  // atterrissait donc sur la case voisine derrière. On élargit la zone cliquable
+  // vers le haut spécifiquement pour les cases forêt, pour suivre la zone visuelle
+  // réelle du sprite plutôt que la seule empreinte au sol.
+  if (Array.isArray(grid) && grid[row] && grid[row][col] && grid[row][col].terrain === 'forest'){
+    const liftedFootY = foot.y - TILE_H * 1.6;
+    const dyLifted = Math.abs(my - liftedFootY) / hh;
+    if (dx + dyLifted <= 1.02) return true;
+  }
+  return false;
 }
 
 function screenToTile(mx, my){
@@ -128,6 +140,33 @@ function screenToTile(mx, my){
 
 function pickTileAtWorld(mx, my){
   const approx = screenToTile(mx, my);
+
+  // Passe prioritaire : un feuillage d'arbre visible à l'écran occulte ce qu'il y a
+  // derrière. Si le point cliqué tombe dans la zone élargie (feuillage) d'une case
+  // forêt, elle gagne directement, même si une case voisine matche aussi le test au
+  // sol classique (sinon le tri par profondeur favorise systématiquement la voisine
+  // plus proche de la caméra, qui n'est pourtant pas ce qui est visuellement cliqué).
+  for (let dr = -2; dr <= 2; dr++){
+    for (let dc = -2; dc <= 2; dc++){
+      const c = approx.col + dc;
+      const r = approx.row + dr;
+      if (!inBounds(c, r)) continue;
+      if (!grid[r] || !grid[r][c] || grid[r][c].terrain !== 'forest') continue;
+      if (pointInIsoCell(mx, my, c, r)){
+        // pointInIsoCell renvoie true soit pour le test au sol normal, soit pour la
+        // zone feuillage élargie : on revérifie ici que c'est bien la zone élargie
+        // (au-dessus du losange normal) qui matche, pour ne pas voler la priorité
+        // aux vrais clics au sol sur une case forêt adjacente non concernée.
+        const foot = tilePickPoint(c, r);
+        const hw = TILE_W / 2, hh = TILE_H / 2;
+        const dxN = Math.abs(mx - foot.x) / hw;
+        const dyN = Math.abs(my - foot.y) / hh;
+        const normalHit = (dxN + dyN) <= 1.02;
+        if (!normalHit) return { col: c, row: r }; // zone feuillage uniquement -> priorité immédiate
+      }
+    }
+  }
+
   const hits = [];
   for (let dr = -2; dr <= 2; dr++){
     for (let dc = -2; dc <= 2; dc++){
