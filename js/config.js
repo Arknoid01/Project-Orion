@@ -31,10 +31,10 @@ const TERRAIN_CANVAS_H = 88;              // hauteur export normalisée (assets/
 const TERRAIN_FACE_ROW_FRAC = 38 / 88;    // ligne face iso dans le PNG (export normalisé)
 
 /* ===================== ZOOM ===================== */
-const ZOOM_DEFAULT = 0.55;
-const ZOOM_MIN = 0.35;
-const ZOOM_MAX = 0.80;  // ZOOM_MIN + 3 × ZOOM_STEP : 3 clics « + » depuis la vue la plus éloignée
-const ZOOM_STEP = 0.15;
+const ZOOM_DEFAULT = 0.28;
+const ZOOM_MIN = 0.18;
+const ZOOM_MAX = 0.55;
+const ZOOM_STEP = 0.10;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
 const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
