@@ -629,9 +629,11 @@ function drawDiamondOn(c, cx, cy, fillColor, strokeColor){
   c.closePath();
   c.fillStyle = fillColor;
   c.fill();
-  c.strokeStyle = strokeColor || 'rgba(0,0,0,0.15)';
-  c.lineWidth = 1;
-  c.stroke();
+  if (strokeColor && strokeColor !== 'rgba(0,0,0,0)'){
+    c.strokeStyle = strokeColor;
+    c.lineWidth = 1;
+    c.stroke();
+  }
 }
 
 function drawDiamond(cx, cy, fillColor, strokeColor){
