@@ -1383,16 +1383,14 @@ h2{
    phases suivantes. Voir UI_MIGRATION_NOTES.md à la racine du projet. */
 .map::before, .map::after{ content:none !important; } /* sinon dessinés par-dessus le vrai canvas */
 #canvasWrap{
-  position:absolute;
+  position:fixed;
   inset:0;
-  overflow:auto;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
+  overflow:hidden;
   background:linear-gradient(135deg,#17364a,#0b2134);
 }
 #canvasWrap canvas{
   display:block;
-  touch-action:pan-x pan-y; /* le pincement est intercepté par zoom.js, le reste reste natif */
+  touch-action:none;
   cursor:pointer;
 }
 #notification{
@@ -2289,9 +2287,10 @@ h2{
 <script src="js/rockDecor.js?v=2"></script>
 <script src="js/wheatCrops.js?v=5"></script>
 <script src="js/mediterraneanDecor.js?v=6"></script>
+<script src="js/camera.js"></script>
+<script src="js/zoom.js?v=3"></script>
 <script src="js/flatRenderer.js"></script>
-<script src="js/render.js?v=29"></script>
-<script src="js/zoom.js?v=2"></script>
+<script src="js/render.js?v=30"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
 <script src="js/migrationAgents.js?v=3"></script>
