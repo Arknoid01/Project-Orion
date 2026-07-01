@@ -47,6 +47,8 @@ let terrainDataVersion = 0;
 function bumpTerrainVersion(){
   terrainDataVersion++;
   if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof invalidatePixiTerrain === 'function') invalidatePixiTerrain();
+  if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
 }
 
 function invalidateMapDrawOrder(){ mapDrawOrder = null; }
