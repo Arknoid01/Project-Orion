@@ -65,6 +65,8 @@ window.initPixiRenderer = async function(){
 
     if (typeof initCamera === 'function') initCamera();
     if (typeof initZoom   === 'function') initZoom();
+    // Réattacher les listeners clic/hover sur le nouveau canvas Pixi
+    if (typeof initCanvasListeners === 'function') initCanvasListeners();
 
     console.log('[Pixi] OK —', app.renderer.type === 1 ? 'WebGL' : 'Canvas fallback');
     return true;

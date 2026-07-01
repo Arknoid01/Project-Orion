@@ -740,7 +740,9 @@ document.addEventListener('keydown', (e) => {
 
 // canvas existe toujours (render.js le crée avant ui.js dans l'ordre de chargement),
 // donc pas besoin de garde ici -- mais infoBar (à l'intérieur du handler) si.
-canvas.addEventListener('mousemove', (e) => {
+function initCanvasListeners(){
+const _c = document.getElementById('gameCanvas') || canvas;
+_c.addEventListener('mousemove', (e) => {
   const pick = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
   const { mx, my } = pick(e.clientX, e.clientY);
   const { col, row } = pickTileAtWorld(mx, my);
@@ -764,14 +766,14 @@ canvas.addEventListener('mousemove', (e) => {
   // Le rendu est géré par requestAnimationFrame (loop.js) — pas de render() ici.
 });
 
-canvas.addEventListener('contextmenu', (e) => {
+_c.addEventListener('contextmenu', (e) => {
   if (!zonePlacementStart) return;
   e.preventDefault();
   clearZonePlacementStart();
   render();
 });
 
-canvas.addEventListener('click', (e) => {
+_c.addEventListener('click', (e) => {
   const pick = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
   const { mx, my } = pick(e.clientX, e.clientY);
   const { col, row } = pickTileAtWorld(mx, my);
@@ -857,3 +859,8 @@ canvas.addEventListener('click', (e) => {
   updateResourceBar();
   if (typeof renderHud === 'function') renderHud();
 });
+} // fin initCanvasListeners
+
+// Appel immédiat pour le mode Canvas2D normal (sans Pixi)
+// En mode Pixi, initCanvasListeners() sera rappelé après remplacement du canvas
+initCanvasListeners();
