@@ -1,9 +1,34 @@
-/* ===================== FLAT TERRAIN RENDERER (mode viewport) =====================
- * Rendu terrain style Zeus/Pharaoh : losanges plats + décalage Y pour l'élévation.
- * Canvas = taille écran (pas carte entière) → jamais de dépassement GPU mobile.
- * Rebake uniquement quand la caméra sort de la zone couverte ou que les données changent.
- * ================================================================================ */
+/* ===================== FLAT TERRAIN RENDERER ===================== */
 
+/* --- Textures seamless par terrain --- */
+const FLAT_TERRAIN_TEXTURES = {};
+
+const FLAT_TEXTURE_SOURCES = {
+  grass:  'assets/textures/flat/game/grass_top.png',
+  wheat:  'assets/textures/flat/game/sand_top.png',
+  forest: 'assets/textures/flat/game/forest_top.png',
+  hill:   'assets/textures/flat/game/grass_top.png',
+  sand:   'assets/textures/flat/game/sand.png',
+  water:  null,
+  rock:   'assets/textures/flat/game/stone.png',
+  marble: 'assets/textures/flat/game/stone.png',
+  dirt:   'assets/textures/flat/game/dirt.png',
+};
+
+function initFlatTextures(){
+  Object.entries(FLAT_TEXTURE_SOURCES).forEach(([terrain, src]) => {
+    if (!src) return;
+    const img = new Image();
+    img.onload = () => {
+      FLAT_TERRAIN_TEXTURES[terrain] = img;
+      invalidateFlatMapCanvas();
+      if (typeof markRenderDirty === 'function') markRenderDirty();
+    };
+    img.src = src;
+  });
+}
+
+/* --- Couleurs de fallback --- */
 const FLAT_TERRAIN_COLORS = {
   grass:  '#7db648',
   wheat:  '#c9a83c',
@@ -15,24 +40,20 @@ const FLAT_TERRAIN_COLORS = {
   marble: '#ddd8c8',
 };
 
-/* Pixels de décalage vertical par niveau d'élévation (proportionnel à TILE_H) */
 const FLAT_ELEV_STEP_PX = typeof TILE_H !== 'undefined' ? Math.round(TILE_H * 0.19) : 12;
 
-/* Cache viewport du flat renderer */
-let _flatCanvas    = null;
-let _flatVersion   = -1;
-let _flatCamX      = -1e9;
-let _flatCamY      = -1e9;
-let _flatZoom      = -1;
+let _flatCanvas  = null;
+let _flatVersion = -1;
+let _flatCamX    = -1e9;
+let _flatCamY    = -1e9;
+let _flatZoom    = -1;
 
-/* ------------------------------------------------------------------ */
 function flatElevOffset(cell){
   if (!cell || cell.terrain === 'water') return 0;
   const level = typeof cell.level === 'number' ? cell.level : 1;
   return Math.max(0, level - 1) * FLAT_ELEV_STEP_PX;
 }
 
-/* Losange plat couleur unie */
 function _drawDiamond(ctx, cx, cy, elev, color){
   const hw = TILE_W / 2, hh = TILE_H / 2;
   const ty = cy - elev;
@@ -46,7 +67,6 @@ function _drawDiamond(ctx, cx, cy, elev, color){
   ctx.fill();
 }
 
-/* Losange avec texture seamless */
 function _drawDiamondTextured(ctx, cx, cy, elev, tex){
   const hw = TILE_W / 2, hh = TILE_H / 2;
   const ty = cy - elev;
@@ -67,12 +87,11 @@ function _drawDiamondTextured(ctx, cx, cy, elev, tex){
   ctx.restore();
 }
 
-/* Bord sombre sous une tuile surélevée (illusion de falaise) */
 function _drawCliffEdge(ctx, cx, cy, elev){
   if (elev <= 0) return;
   const hw = TILE_W / 2, hh = TILE_H / 2;
   const ty  = cy - elev;
-  const ty0 = cy;          // position sans élévation
+  const ty0 = cy;
   ctx.beginPath();
   ctx.moveTo(cx - hw, ty  + hh);
   ctx.lineTo(cx,      ty  + TILE_H);
@@ -85,13 +104,10 @@ function _drawCliffEdge(ctx, cx, cy, elev){
   ctx.fill();
 }
 
-/* Dessine une tuile dans ctx */
 function drawFlatTile(ctx, cx, cy, cell){
   const elev  = flatElevOffset(cell);
   const color = FLAT_TERRAIN_COLORS[cell.terrain] || '#888';
-  const tex   = (typeof FLAT_TERRAIN_TEXTURES !== 'undefined')
-    ? FLAT_TERRAIN_TEXTURES[cell.terrain]
-    : null;
+  const tex   = FLAT_TERRAIN_TEXTURES[cell.terrain] || null;
 
   if (elev > 0) _drawCliffEdge(ctx, cx, cy, elev);
 
@@ -102,9 +118,6 @@ function drawFlatTile(ctx, cx, cy, cell){
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Construit le canvas viewport (rebake si nécessaire)                */
-/* ------------------------------------------------------------------ */
 function buildFlatMapCanvas(){
   if (!Array.isArray(grid) || grid.length === 0) return null;
   if (typeof isTerrainGenerationInProgress === 'function' && isTerrainGenerationInProgress()) return null;
@@ -115,12 +128,10 @@ function buildFlatMapCanvas(){
   const camX    = (typeof camera !== 'undefined') ? camera.x : 0;
   const camY    = (typeof camera !== 'undefined') ? camera.y : 0;
 
-  /* Marge autour du viewport (en pixels-monde) pour éviter les pop-ins */
-  const PAD = TILE_W * 3;
-  const vwW = canvas.width  / dpr / zoom;
-  const vhW = canvas.height / dpr / zoom;
+  const PAD  = TILE_W * 3;
+  const vwW  = canvas.width  / dpr / zoom;
+  const vhW  = canvas.height / dpr / zoom;
 
-  /* Est-ce que la caméra est encore dans la zone couverte par le cache ? */
   const inZone = _flatCanvas
     && _flatVersion === dataVer
     && _flatZoom    === zoom
@@ -131,7 +142,6 @@ function buildFlatMapCanvas(){
 
   if (inZone) return _flatCanvas;
 
-  /* Zone à bake (viewport + marge) */
   const bakeL = Math.max(0, camX - PAD);
   const bakeT = Math.max(0, camY - PAD);
   const bakeR = Math.min(WORLD_WIDTH,  camX + vwW + PAD);
@@ -147,12 +157,9 @@ function buildFlatMapCanvas(){
 
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = (typeof PERF !== 'undefined') ? PERF.smoothing : 'high';
-
-  /* Transform : coord-monde → pixel-canvas */
   const scale = dpr * zoom;
   ctx.setTransform(scale, 0, 0, scale, -bakeL * scale, -bakeT * scale);
 
-  /* Bounds pour le culling */
   const bounds = {
     left:   bakeL - TILE_W,
     top:    bakeT - TILE_H * 3,
@@ -179,9 +186,6 @@ function buildFlatMapCanvas(){
   _flatCamY    = bakeT;
   _flatZoom    = zoom;
 
-  if (typeof debugInfo === 'function'){
-    debugInfo(`[flat] Bake ${c.width}×${c.height}px (${visible.length} tuiles)`);
-  }
   return _flatCanvas;
 }
 

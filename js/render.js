@@ -7,6 +7,7 @@ ctx.imageSmoothingQuality = PERF.smoothing;
 // Initialiser la caméra et le zoom maintenant que canvas est défini
 if (typeof initCamera === 'function') initCamera();
 if (typeof initZoom   === 'function') initZoom();
+if (typeof initFlatTextures === 'function') initFlatTextures();
 
 /* ===================== METRIQUES PIED SPRITE (bbox alpha) ===================== */
 // Les PNG bâtiments/maisons font 144 px mais la base occupe ~2 tuiles export (128 px = 1 tuile).
