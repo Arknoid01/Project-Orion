@@ -331,6 +331,7 @@ const TERRAIN_TILE_VARIANTS = {
 
 // Sol : cubes texturés PNG (simple) OU calques procéduraux (legacy)
 const TERRAIN_TEXTURED_CUBES = true;     // piles de blocs PNG — approche simple
+const TERRAIN_FLAT_MODE = true;          // rendu plat style Zeus/Pharaoh (remplace tout le pipeline 3D)
 const TERRAIN_CUBE_FULL_FACES = true;    // chaque niveau = cube entier (cap + parois), empilés
 const TERRAIN_BLOCK_SIDE_H = 32;         // hauteur paroi uniforme (alignement empilement)
 

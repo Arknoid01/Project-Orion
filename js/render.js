@@ -452,17 +452,11 @@ function drawTerrainWithRelief(targetCtx, img, cx, cy, elevation, terrain){
 let terrainLayerCache = null;
 let terrainLayerCacheVersion = -1;
 let terrainLayerCacheScale = 1;
-// Viewport du dernier bake (pour détecter si on a bougé hors du cache)
-let _terrainCameraX = -1;
-let _terrainCameraY = -1;
-let _terrainZoom    = -1;
 
 function invalidateTerrainLayerCache(){
   terrainLayerCache = null;
   terrainLayerCacheVersion = -1;
-  _terrainCameraX = -1;
-  _terrainCameraY = -1;
-  _terrainZoom    = -1;
+  if (typeof invalidateFlatMapCanvas === 'function') invalidateFlatMapCanvas();
   invalidateVisibleTilesCache();
   if (typeof markRenderDirty === 'function') markRenderDirty();
 }
@@ -472,119 +466,6 @@ function terrainCacheScaleFactor(){
     return Math.max(0.4, Math.min(3, TERRAIN_CACHE_SCALE));
   }
   return 1;
-}
-
-/**
- * Retourne un canvas déjà rendu de la portion visible du terrain.
- * VIEWPORT MODE : le canvas fait la taille de l'écran (pas de la carte entière).
- * On rebake quand : données changent (bumpTerrainVersion), caméra/zoom changent,
- * ou si la caméra a dépassé la marge du bake précédent.
- */
-function ensureTerrainLayerCache(){
-  const dataVer = typeof terrainDataVersion === 'number' ? terrainDataVersion : 0;
-  const dpr     = getRenderDpr();
-
-  if (typeof isTerrainGenerationInProgress === 'function' && isTerrainGenerationInProgress()){
-    return null;
-  }
-  if (!Array.isArray(grid) || grid.length === 0) return null;
-
-  const spritesReady = typeof areIsoTerrainReady === 'function'
-    ? areIsoTerrainReady()
-    : (typeof areBlockSpritesReady === 'function' && areBlockSpritesReady());
-  if (!spritesReady) return null;
-
-  // Marge autour du viewport pour éviter les pop-ins au scroll (en tuiles)
-  const PAD_TILES = 4;
-  const padPx = PAD_TILES * TILE_W;
-  const vwWorld = canvas.width  / dpr / zoomLevel;
-  const vhWorld = canvas.height / dpr / zoomLevel;
-
-  // Zone bake (en pixels-monde, avec marge)
-  const bakeLeft   = Math.max(0, camera.x - padPx);
-  const bakeTop    = Math.max(0, camera.y - padPx);
-  const bakeRight  = Math.min(WORLD_WIDTH,  camera.x + vwWorld + padPx);
-  const bakeBottom = Math.min(WORLD_HEIGHT, camera.y + vhWorld + padPx);
-  const bakeW = bakeRight  - bakeLeft;
-  const bakeH = bakeBottom - bakeTop;
-
-  // Rebake si données ou zoom ont changé, ou si la caméra est sortie du cache précédent
-  const cameraOutside = terrainLayerCache && (
-    camera.x < _terrainCameraX + padPx / 2 ||
-    camera.y < _terrainCameraY + padPx / 2 ||
-    camera.x + vwWorld > _terrainCameraX + (terrainLayerCache.width  / dpr / _terrainZoom) - padPx / 2 ||
-    camera.y + vhWorld > _terrainCameraY + (terrainLayerCache.height / dpr / _terrainZoom) - padPx / 2
-  );
-
-  if (terrainLayerCache
-      && terrainLayerCacheVersion === dataVer
-      && _terrainZoom === zoomLevel
-      && !cameraOutside){
-    return terrainLayerCache;
-  }
-
-  try {
-    const scale = dpr * zoomLevel;
-    const c = document.createElement('canvas');
-    c.width  = Math.round(bakeW * scale);
-    c.height = Math.round(bakeH * scale);
-    const tctx = c.getContext('2d', { willReadFrequently: false });
-    if (!tctx) return null;
-    tctx.imageSmoothingEnabled = true;
-    tctx.imageSmoothingQuality = typeof PERF !== 'undefined' ? PERF.smoothing : 'high';
-    // Transform : tuile au monde (wx,wy) → pixel cache = (wx - bakeLeft, wy - bakeTop) * scale
-    tctx.setTransform(scale, 0, 0, scale, -bakeLeft * scale, -bakeTop * scale);
-
-    const bounds = {
-      left:   bakeLeft   - TILE_W,
-      top:    bakeTop    - TILE_H,
-      right:  bakeRight  + TILE_W,
-      bottom: bakeBottom + TILE_H,
-    };
-    const drawOrder = getMapDrawOrder();
-    const visOrder  = getVisibleDrawOrder(drawOrder, bounds);
-
-    const layered = typeof usesLayeredTerrain === 'function' && usesLayeredTerrain();
-    if (layered
-        && typeof drawLayeredTerrainGeometry === 'function'
-        && typeof drawLayeredTerrainCliffs   === 'function'
-        && typeof drawLayeredTerrainTextures === 'function'){
-      const cubeMode = typeof usesTexturedCubes === 'function' && usesTexturedCubes();
-      visOrder.forEach(({ col, row }) => drawLayeredTerrainGeometry(tctx, col, row, grid[row][col]));
-      if (!cubeMode){
-        visOrder.forEach(({ col, row }) => drawLayeredTerrainTextures(tctx, col, row, grid[row][col]));
-      }
-      if (!(typeof usesPolisInlineCliffs === 'function' && usesPolisInlineCliffs())){
-        visOrder.forEach(({ col, row }) => drawLayeredTerrainCliffs(tctx, col, row, grid[row][col]));
-      }
-      visOrder.forEach(({ col, row }) => {
-        const cell = grid[row][col];
-        const { x, y } = tileCenter(col, row);
-        drawTerrainTintVariation(tctx, col, row, x, y, cell);
-      });
-    } else {
-      visOrder.forEach(({ col, row }) => {
-        const cell = grid[row][col];
-        const { x, y } = tileCenter(col, row);
-        drawTerrainCell(tctx, col, row, x, y, cell);
-        drawTerrainTintVariation(tctx, col, row, x, y, cell);
-      });
-    }
-    drawStaticDecorLayer(tctx, visOrder);
-
-    terrainLayerCache      = c;
-    terrainLayerCacheVersion = dataVer;
-    terrainLayerCacheScale = scale;
-    _terrainCameraX        = bakeLeft;
-    _terrainCameraY        = bakeTop;
-    _terrainZoom           = zoomLevel;
-    return terrainLayerCache;
-  } catch (err){
-    if (typeof debugWarn === 'function') debugWarn(`Cache terrain impossible : ${err.message}`);
-    terrainLayerCache = null;
-    terrainLayerCacheVersion = -1;
-    return null;
-  }
 }
 
 function drawStaticTileDecor(targetCtx, col, row, cell){
@@ -625,6 +506,12 @@ function drawStaticDecorLayer(targetCtx, drawOrder){
 }
 
 function ensureTerrainLayerCache(){
+  // ---- MODE FLAT (style Zeus/Pharaoh) --------------------------------
+  if (typeof TERRAIN_FLAT_MODE === 'boolean' && TERRAIN_FLAT_MODE){
+    if (typeof isTerrainGenerationInProgress === 'function' && isTerrainGenerationInProgress()) return null;
+    return typeof buildFlatMapCanvas === 'function' ? buildFlatMapCanvas() : null;
+  }
+  // ---- MODE CUBES (pipeline original) --------------------------------
   const dataVer = typeof terrainDataVersion === 'number' ? terrainDataVersion : 0;
   const scale = terrainCacheScaleFactor();
   if (typeof isTerrainGenerationInProgress === 'function' && isTerrainGenerationInProgress()){
@@ -1353,10 +1240,7 @@ function render(now){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const dpr = getRenderDpr();
-  // world_coord → canvas_pixel : scale = zoomLevel*dpr, translation = -camera * zoomLevel*dpr
-  // (camera.x/y sont en pixels-monde non zoomés)
-  const scale = dpr * zoomLevel;
-  ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   ctx.save();
   if (typeof applyMapViewTransform === 'function') applyMapViewTransform(ctx);
@@ -1367,15 +1251,16 @@ function render(now){
     : getVisibleWorldBounds();
   const terrainCache = ensureTerrainLayerCache();
   if (terrainCache){
-    // En mode viewport, le cache est déjà dimensionné sur la zone visible.
-    // On le dessine à sa position monde (_terrainCameraX/Y).
-    // Le transform ctx inclut déjà zoom+caméra, donc on dessine en coords-monde.
-    ctx.drawImage(terrainCache,
-      0, 0, terrainCache.width, terrainCache.height,
-      _terrainCameraX, _terrainCameraY,
-      terrainCache.width / (getRenderDpr() * zoomLevel),
-      terrainCache.height / (getRenderDpr() * zoomLevel)
-    );
+    const cs = terrainLayerCacheScale || 1;
+    if (viewBounds){
+      const sx = Math.max(0, Math.floor(viewBounds.left));
+      const sy = Math.max(0, Math.floor(viewBounds.top));
+      const sw = Math.min(WORLD_WIDTH - sx, Math.ceil(viewBounds.right - viewBounds.left));
+      const sh = Math.min(WORLD_HEIGHT - sy, Math.ceil(viewBounds.bottom - viewBounds.top));
+      ctx.drawImage(terrainCache, sx * cs, sy * cs, sw * cs, sh * cs, sx, sy, sw, sh);
+    } else {
+      ctx.drawImage(terrainCache, 0, 0, terrainCache.width, terrainCache.height, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    }
   }
 
   const visibleTiles = getVisibleDrawOrder(drawOrder, viewBounds);
@@ -1473,8 +1358,7 @@ function render(now){
   ctx.restore();
 
   if (typeof MEDITERRANEAN_COLOR_GRADE_ENABLED === 'boolean' && MEDITERRANEAN_COLOR_GRADE_ENABLED){
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset : le grading doit couvrir tout le canvas écran
-    applyMediterraneanWarmGrade(ctx, canvas.width, canvas.height);
+    applyMediterraneanWarmGrade(ctx, canvas.width / dpr, canvas.height / dpr);
   }
 }
 
