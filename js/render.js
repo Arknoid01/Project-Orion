@@ -1248,7 +1248,7 @@ function render(now){
   const drawOrder = getMapDrawOrder();
   const viewBounds = (typeof isMapViewTransformed === 'function' && isMapViewTransformed())
     ? null
-    : getVisibleWorldBounds();
+    : (typeof getVisibleWorldBounds === 'function' ? getVisibleWorldBounds() : null);
   const terrainCache = ensureTerrainLayerCache();
   if (terrainCache){
     const cs = terrainLayerCacheScale || 1;
