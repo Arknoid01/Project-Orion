@@ -42,9 +42,9 @@ function centerCameraOn(wx, wy){
 
 /** Convertit un clic écran (clientX/Y) en coordonnées monde. */
 function clientToWorld(clientX, clientY){
-  const rect = canvas.getBoundingClientRect();
-  // pixels CSS écran → pixels monde : diviser par zoom (qui est appliqué par le transform)
-  // puis ajouter l'offset de caméra (en pixels-monde)
+  // On récupère le canvas actuel (peut avoir été remplacé par Pixi)
+  const c = document.getElementById('gameCanvas') || canvas;
+  const rect = c.getBoundingClientRect();
   return {
     mx: (clientX - rect.left) / zoomLevel + camera.x,
     my: (clientY - rect.top)  / zoomLevel + camera.y,

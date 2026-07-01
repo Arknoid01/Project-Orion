@@ -181,8 +181,9 @@ window._buildTerrain = function(bakeL, bakeT, bakeR, bakeB){
     const tex = window._terrainTextures[cell.terrain];
     const pts = [cx,ty, cx+hw,ty+hh, cx,ty+TILE_H+1, cx-hw,ty+hh];
     if (tex){
-      const m = new PIXI.Matrix(); m.translate(cx-hw, ty);
-      g.poly(pts); g.fill({texture:tex, matrix:m});
+      // Pixi v8 : on utilise le pattern sans matrix pour éviter les incompatibilités
+      g.poly(pts);
+      g.fill({ texture: tex });
     } else {
       g.poly(pts); g.fill({color: _PIXI_TERRAIN_COLORS[cell.terrain]||0x888888});
     }
