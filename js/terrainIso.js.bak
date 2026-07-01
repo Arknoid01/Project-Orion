@@ -4,8 +4,6 @@
 const TERRAIN_BLOCK_IMAGES = {};
 const TERRAIN_BLOCK_TINTED_IMAGES = {};
 const TERRAIN_BLOCK_BAKED = {};   // id → HTMLCanvasElement (losange + parois)
-const TERRAIN_BLOCK_NATURE_BAKED = {}; // gabarit PNG nature (alignement hybride Comfy)
-const TERRAIN_BLOCK_NATURE_CAP = {};   // cap nature (clone)
 const TERRAIN_BLOCK_CAP = {};     // id → HTMLCanvasElement (losange seul, empilement)
 const CLIFF_IMAGES = {};
 
@@ -20,18 +18,6 @@ function usesCleanBlockWalls(){
   return typeof TERRAIN_BLOCK_CLEAN_WALLS === 'boolean' && TERRAIN_BLOCK_CLEAN_WALLS;
 }
 
-function capBackOffsetFromImage(image, isoW){
-  if (!image || typeof detectTopDiamondGeometry !== 'function'
-      || typeof trimTransparentCanvas !== 'function'){
-    return 0;
-  }
-  const trimmed = trimTransparentCanvas(image);
-  const geo = detectTopDiamondGeometry(trimmed.canvas);
-  if (!geo || !geo.diamondWidth) return 0;
-  const scale = isoW / geo.diamondWidth;
-  return Math.max(0, Math.round(geo.topY * scale));
-}
-
 function bakeBlockAsset(id, source){
   if (!usesCleanBlockWalls()
       || typeof bakeTerrainBlockFromImage !== 'function'
@@ -40,9 +26,6 @@ function bakeBlockAsset(id, source){
     return;
   }
   const { w, h } = terrainBlockIsoSize();
-  if (source && source.naturalWidth && !(source instanceof HTMLCanvasElement)){
-    source._capBackOffsetPx = capBackOffsetFromImage(source, w);
-  }
   let baked;
   if (source instanceof HTMLCanvasElement){
     baked = bakeTerrainBlockFromCanvas(source, w, h, id);
@@ -50,25 +33,7 @@ function bakeBlockAsset(id, source){
     baked = bakeTerrainBlockFromImage(source, w, h, id);
   }
   if (baked && baked.canvas){
-    const capH = baked.diamondH || h;
-    baked.canvas._capH = capH;
-    baked.canvas._sideH = baked.sideH;
-    baked.canvas._totalH = capH + baked.sideH;
-    baked.canvas._capBackOffsetPx = 0;
-    baked.canvas._stackStepPx = typeof LEGO_BRICK_STEP === 'number' ? LEGO_BRICK_STEP : capH;
-    baked.canvas._drawW = w;
-    baked.canvas._drawH = capH + baked.sideH;
-    if (baked.capCanvas){
-      baked.capCanvas._capH = capH;
-      baked.capCanvas._stackStepPx = typeof LEGO_BRICK_STEP === 'number' ? LEGO_BRICK_STEP : capH;
-    }
     TERRAIN_BLOCK_BAKED[id] = baked.canvas;
-    if (typeof cloneBlockCanvas === 'function'){
-      TERRAIN_BLOCK_NATURE_BAKED[id] = cloneBlockCanvas(baked.canvas);
-      if (baked.capCanvas) TERRAIN_BLOCK_NATURE_CAP[id] = cloneBlockCanvas(baked.capCanvas);
-    } else {
-      TERRAIN_BLOCK_NATURE_BAKED[id] = baked.canvas;
-    }
     if (baked.capCanvas) TERRAIN_BLOCK_CAP[id] = baked.capCanvas;
     if (typeof debugInfo === 'function'){
       debugInfo(`Bloc bake ${id} (${baked.canvas.width}x${baked.canvas.height}${baked.procedural ? ', proc' : ''})`);
@@ -87,48 +52,23 @@ function blockDrawSource(id, fallbackImg, walls){
   return fallbackImg;
 }
 
-function initTerrainIsoBlockSprites(){
-  if (typeof TERRAIN_BLOCK_SPRITES !== 'object' || !TERRAIN_BLOCK_SPRITES) return;
-  Object.entries(TERRAIN_BLOCK_SPRITES).forEach(([id, path]) => {
-    if (TERRAIN_BLOCK_IMAGES[id]) return;
-    const img = new Image();
-    const onReady = () => {
-      // img.decode() garantit que l'image est ENTIEREMENT décodée/rasterisée avant
-      // qu'on lise ses pixels (getImageData dans bakeBlockAsset). Sur certains GPU
-      // mobiles (Adreno notamment), 'onload' seul peut se déclencher avant la fin
-      // du décodage GPU, ce qui fait lire un buffer partiel et casse la détection
-      // de la forme du losange (symptôme : tuiles en triangle au lieu de losange).
-      const proceed = () => {
+function initTerrainIsoAssets(){
+  if (typeof TERRAIN_BLOCK_SPRITES === 'object' && TERRAIN_BLOCK_SPRITES){
+    Object.entries(TERRAIN_BLOCK_SPRITES).forEach(([id, path]) => {
+      const img = new Image();
+      img.onload = () => {
         bakeBlockAsset(id, img);
-        if (typeof buildTintedBlockSprites === 'function') buildTintedBlockSprites();
+        buildTintedBlockSprites();
         bumpTerrainVersion();
         if (typeof debugInfo === 'function') debugInfo(`Sprite bloc terrain charge : ${path}`);
         if (typeof render === 'function') render();
       };
-      if (typeof img.decode === 'function'){
-        img.decode().then(proceed).catch(proceed);
-      } else {
-        proceed();
-      }
-    };
-    img.onload = onReady;
-    img.onerror = () => {
-      if (typeof debugWarn === 'function') debugWarn(`Sprite bloc introuvable : ${path}`);
-    };
-    img.src = path;
-    TERRAIN_BLOCK_IMAGES[id] = img;
-  });
-}
-
-function initTerrainIsoAssets(){
-  if (typeof usesFlatBlockFaces === 'function' && usesFlatBlockFaces()
-      && typeof initFlatFaceTextures === 'function'){
-    initFlatFaceTextures();
-  } else {
-    initTerrainIsoBlockSprites();
-    if (typeof initHybridFlatBlockTextures === 'function'){
-      initHybridFlatBlockTextures();
-    }
+      img.onerror = () => {
+        if (typeof debugWarn === 'function') debugWarn(`Sprite bloc introuvable : ${path}`);
+      };
+      img.src = path;
+      TERRAIN_BLOCK_IMAGES[id] = img;
+    });
   }
   if (typeof CLIFF_SPRITES === 'object' && CLIFF_SPRITES){
     Object.entries(CLIFF_SPRITES).forEach(([id, path]) => {
@@ -147,38 +87,6 @@ function initTerrainIsoAssets(){
 }
 
 function buildTintedBlockSprites(){
-  if (typeof usesFlatBlockFaces === 'function' && usesFlatBlockFaces()){
-    if (typeof rebakeAllBlocksFromFlatFaces === 'function') rebakeAllBlocksFromFlatFaces();
-    return;
-  }
-  if (typeof usesHybridFlatBlocks === 'function' && usesHybridFlatBlocks()){
-    const flatKeys = typeof hybridFlatBlockKeys === 'function' ? hybridFlatBlockKeys() : [];
-    if (typeof TERRAIN_BLOCK_TINTS === 'object'){
-      Object.entries(TERRAIN_BLOCK_TINTS).forEach(([id, spec]) => {
-        if (!spec || !spec.base || !spec.color) return;
-        if (flatKeys.includes(spec.base)
-            && typeof rebakeTintBlockFromFlatFaces === 'function'
-            && TERRAIN_BLOCK_BAKED[spec.base]){
-          rebakeTintBlockFromFlatFaces(id);
-          return;
-        }
-        const base = TERRAIN_BLOCK_IMAGES[spec.base];
-        if (!base || !base.complete || !base.naturalWidth) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = base.naturalWidth;
-        canvas.height = base.naturalHeight;
-        const tctx = canvas.getContext('2d');
-        tctx.drawImage(base, 0, 0);
-        tctx.globalCompositeOperation = 'source-atop';
-        tctx.fillStyle = spec.color;
-        tctx.fillRect(0, 0, canvas.width, canvas.height);
-        bakeBlockAsset(id, canvas);
-        TERRAIN_BLOCK_TINTED_IMAGES[id] = canvas;
-      });
-    }
-    bumpTerrainVersion();
-    return;
-  }
   if (typeof TERRAIN_BLOCK_TINTS !== 'object' || !TERRAIN_BLOCK_TINTS) return;
   Object.entries(TERRAIN_BLOCK_TINTS).forEach(([id, spec]) => {
     if (!spec || !spec.base || !spec.color) return;
@@ -202,18 +110,8 @@ function buildTintedBlockSprites(){
 
 function requiredBlockSpriteKeys(){
   const keys = new Set(['grass', 'dirt', 'stone']);
-  if (typeof usesFlatBlockFaces === 'function' && usesFlatBlockFaces()
-      && typeof TERRAIN_BLOCK_FACES === 'object'){
-    Object.keys(TERRAIN_BLOCK_FACES).forEach(k => keys.add(k));
-  }
   if (typeof TERRAIN_BLOCK_SPRITES === 'object'){
     Object.keys(TERRAIN_BLOCK_SPRITES).forEach(k => keys.add(k));
-  }
-  if (typeof TERRAIN_BLOCK_TINTS === 'object' && TERRAIN_BLOCK_TINTS){
-    // IMPORTANT : sans ça, le cache de terrain peut se construire AVANT que la
-    // teinte (blé, marbre) soit prête, et retombe alors sur la couleur brute de
-    // sa base (blé -> herbe non teintée) de façon permanente (cf. bug confirmé).
-    Object.keys(TERRAIN_BLOCK_TINTS).forEach(k => keys.add(k));
   }
   if (typeof TERRAIN_BLOCK_FILL_MAP === 'object'){
     Object.values(TERRAIN_BLOCK_FILL_MAP).forEach(k => keys.add(k));
@@ -233,34 +131,15 @@ function requiredBlockSpriteKeys(){
 
 function isBlockKeyReady(key){
   if (usesCleanBlockWalls()){
-    if (typeof usesFullFaceCubes === 'function' && usesFullFaceCubes()){
-      // IMPORTANT : ne PAS appeler rebakeTintBlockFromFlatFaces ici. Cette fonction
-      // est prévue pour le mode "textures plates" (usesFlatBlockFaces), pas pour le
-      // mode cube plein actif ici. Si elle se déclenche quand même (ex: appelée avant
-      // que buildTintedBlockSprites ait fini son propre bake), elle peut écraser un
-      // bake correct (blé/marbre teintés via détection de losange) par un résultat
-      // différent et incorrect -> sol "blé" qui s'affiche comme de l'herbe non teintée.
-      // On attend simplement que buildTintedBlockSprites (appelé après chaque sprite
-      // de base chargé) ait fait son travail, sans court-circuit concurrent.
-      return !!TERRAIN_BLOCK_BAKED[key];
-    }
-    // IMPORTANT : ne JAMAIS retomber sur img.complete ici. Le bake (TERRAIN_BLOCK_BAKED)
-    // est requis dès lors que usesCleanBlockWalls() est actif ; comme le bake se fait
-    // maintenant après img.decode() (asynchrone), img.complete peut devenir vrai AVANT
-    // que le bake soit terminé. Accepter img.complete seul faisait construire le cache
-    // de terrain avec un sprite non-baké -> rendu en triangle au lieu du losange complet.
-    return !!TERRAIN_BLOCK_BAKED[key];
+    if (TERRAIN_BLOCK_BAKED[key]) return true;
+    const img = TERRAIN_BLOCK_TINTED_IMAGES[key] || TERRAIN_BLOCK_IMAGES[key];
+    return img && ((img.complete && img.naturalWidth > 0) || img.width > 0);
   }
   const img = TERRAIN_BLOCK_IMAGES[key];
   return img && img.complete && img.naturalWidth > 0;
 }
 
-function areCoreBlockSpritesReady(){
-  return ['grass', 'dirt', 'stone'].every(k => isBlockKeyReady(k));
-}
-
 function areBlockSpritesReady(){
-  if (!areCoreBlockSpritesReady()) return false;
   return requiredBlockSpriteKeys().every(isBlockKeyReady);
 }
 
@@ -349,79 +228,15 @@ function drawLegoCapTexture(targetCtx, src, cx, cy){
 /**
  * Ancrage legacy — préférer drawLegoCapTexture pour le calque 2.
  */
-function terrainBlockMetrics(src){
-  const drawW = typeof TERRAIN_BLOCK_DRAW_W === 'number' ? TERRAIN_BLOCK_DRAW_W : TILE_W;
-  const ref = (typeof TERRAIN_BLOCK_NATURE_BAKED === 'object' && TERRAIN_BLOCK_NATURE_BAKED.dirt)
-    || (typeof TERRAIN_BLOCK_NATURE_BAKED === 'object' && TERRAIN_BLOCK_NATURE_BAKED.grass)
-    || (typeof TERRAIN_BLOCK_BAKED === 'object' && TERRAIN_BLOCK_BAKED.dirt);
-  if (ref && ref._drawW && ref._drawH){
-    return {
-      drawW: ref._drawW,
-      drawH: ref._drawH,
-      capH: ref._capH || TILE_H,
-      sideH: ref._sideH || (typeof TERRAIN_BLOCK_SIDE_H === 'number' ? TERRAIN_BLOCK_SIDE_H : 16),
-      capBackOffset: ref._capBackOffsetPx || 0,
-      stackStep: typeof LEGO_BRICK_STEP === 'number'
-        ? LEGO_BRICK_STEP
-        : (ref._stackStepPx || ref._capH || TILE_H),
-    };
-  }
-  if (src && src._drawW && src._drawH){
-    return {
-      drawW: src._drawW,
-      drawH: src._drawH,
-      capH: src._capH || TILE_H,
-      sideH: src._sideH || (typeof TERRAIN_BLOCK_SIDE_H === 'number' ? TERRAIN_BLOCK_SIDE_H : 16),
-      capBackOffset: src._capBackOffsetPx || 0,
-      stackStep: typeof LEGO_BRICK_STEP === 'number'
-        ? LEGO_BRICK_STEP
-        : (src._stackStepPx || src._capH || TILE_H),
-    };
-  }
-  const rawOff = src && src._capBackOffsetPx ? src._capBackOffsetPx : 0;
-  const capH = TILE_H;
-  const sideH = (src && src._sideH)
-    || (typeof TERRAIN_BLOCK_SIDE_H === 'number' ? TERRAIN_BLOCK_SIDE_H : null)
-    || (typeof TERRAIN_BLOCK_SIDE_WALL_MAX === 'number' ? TERRAIN_BLOCK_SIDE_WALL_MAX : 16);
-  return {
-    drawW,
-    drawH: capH + sideH,
-    capH,
-    sideH,
-    capBackOffset: rawOff,
-    stackStep: capH,
-  };
-}
-
-function cubeStackStepForCell(cell){
-  if (typeof blockTopSpriteForCell === 'function'){
-    const src = blockTopSpriteForCell(cell, true);
-    if (src){
-      const m = terrainBlockMetrics(src);
-      if (m.stackStep > 0) return m.stackStep;
-    }
-  }
-  return typeof legoBrickStep === 'function' ? legoBrickStep() : TILE_H;
-}
-
 function drawLegoBrick(targetCtx, src, cx, cy, opts){
   if (!src) return false;
   opts = opts || {};
   const c = targetCtx || ctx;
+  const drawW = typeof TERRAIN_BLOCK_DRAW_W === 'number' ? TERRAIN_BLOCK_DRAW_W : TILE_W;
   const srcW = src.width || src.naturalWidth;
   const srcH = src.height || src.naturalHeight;
   if (!srcW || !srcH) return false;
 
-  const fullFaces = typeof usesFullFaceCubes === 'function' && usesFullFaceCubes();
-  const m = terrainBlockMetrics(src);
-
-  if (opts.walls && fullFaces){
-    const drawY = cy - m.capBackOffset;
-    c.drawImage(src, 0, 0, srcW, srcH, cx - m.drawW / 2, drawY, m.drawW, m.drawH);
-    return true;
-  }
-
-  const drawW = m.drawW;
   const isoH = TILE_H;
   let sy = 0;
   let sh = srcH;
@@ -431,29 +246,8 @@ function drawLegoBrick(targetCtx, src, cx, cy, opts){
   }
 
   const drawH = sh * (drawW / srcW);
-  const drawY = cy - (fullFaces ? m.capBackOffset : 0);
-  c.drawImage(src, 0, sy, srcW, sh, cx - drawW / 2, drawY, drawW, drawH);
+  c.drawImage(src, 0, sy, srcW, sh, cx - drawW / 2, cy, drawW, drawH);
   return true;
-}
-
-/** Fallback plat quand les sprites ne sont pas encore chargés — couleur selon biome, pas eau. */
-function drawFlatFallback(targetCtx, cx, cy, cell){
-  const c = targetCtx || ctx;
-  const terrain = (cell && cell.terrain) || 'grass';
-  const colorMap = typeof TERRAIN_COLORS === 'object' ? TERRAIN_COLORS : {};
-  const color = colorMap[terrain] || colorMap['grass'] || '#6a8c4a';
-  if (typeof drawFlatDiamond === 'function'){
-    drawFlatDiamond(c, cx, cy, color);
-  } else {
-    c.beginPath();
-    c.moveTo(cx, cy);
-    c.lineTo(cx + TILE_W / 2, cy + TILE_H / 2);
-    c.lineTo(cx, cy + TILE_H);
-    c.lineTo(cx - TILE_W / 2, cy + TILE_H / 2);
-    c.closePath();
-    c.fillStyle = color;
-    c.fill();
-  }
 }
 
 function drawWaterFlat(targetCtx, cx, cy, col, row){
@@ -478,12 +272,8 @@ function drawWaterFlat(targetCtx, cx, cy, col, row){
   }
 }
 
-/** Pile de briques : PNG texturés (simple) ou cubes procéduraux (legacy). */
+/** Pile de briques : PNG (legacy) ou cubes procéduraux (Aster Bay). */
 function drawLegoStack(targetCtx, col, row, cx, cy, cell, topMode){
-  if (typeof usesTexturedCubes === 'function' && usesTexturedCubes()
-      && typeof drawTexturedCubeStack === 'function'){
-    return drawTexturedCubeStack(targetCtx, col, row, cell, topMode);
-  }
   if (typeof usesProceduralTerrain3D === 'function' && usesProceduralTerrain3D()
       && typeof drawProceduralStack === 'function'){
     return drawProceduralStack(targetCtx, col, row, cx, cy, cell, topMode);
@@ -514,11 +304,9 @@ function drawLegoStack(targetCtx, col, row, cx, cy, cell, topMode){
 }
 
 function neighborTerrainLevel(nc, nr){
-  // Eau / hors carte = niveau 0. Important : sinon les falaises/berges ne sont
-  // jamais dessinées contre la mer et le sol semble flotter.
-  if (!inBounds(nc, nr)) return 0;
+  if (!inBounds(nc, nr)) return -1;
   const c = grid[nr][nc];
-  if (!c || c.terrain === 'water') return 0;
+  if (c.terrain === 'water') return -1;
   return typeof cellLevel === 'function' ? cellLevel(nc, nr) : (c.level || 1);
 }
 
@@ -532,6 +320,7 @@ function cliffEdgeState(col, row){
 
   function dropToward(nc, nr){
     const nl = neighborTerrainLevel(nc, nr);
+    if (nl < 0) return 0;
     return Math.max(0, lv - nl);
   }
 
@@ -605,13 +394,9 @@ function drawIsoTerrainCell(targetCtx, col, row, cx, cy, cell){
   }
 
   if (!drawLegoStack(targetCtx, col, row, cx, cy, cell)){
-    drawFlatFallback(targetCtx, cx, cy, cell);
+    drawWaterFlat(targetCtx, cx, cy, col, row);
   }
-  if (typeof usesTexturedCubes === 'function' && usesTexturedCubes()){
-    if (!(typeof usesFullFaceCubes === 'function' && usesFullFaceCubes())){
-      drawCellCliff(targetCtx, col, row, cx, cy);
-    }
-  } else if (typeof usesProceduralTerrain3D === 'function' && usesProceduralTerrain3D()
+  if (typeof usesProceduralTerrain3D === 'function' && usesProceduralTerrain3D()
       && typeof drawProceduralCliffFaces === 'function'){
     drawProceduralCliffFaces(targetCtx, col, row, cx, cy, cell);
   } else {
