@@ -1240,7 +1240,13 @@ function render(now){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const dpr = getRenderDpr();
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const scale = dpr * zoomLevel;
+  if (typeof TERRAIN_FLAT_MODE === 'boolean' && TERRAIN_FLAT_MODE){
+    // Mode flat+viewport : zoom+caméra dans le transform
+    ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale);
+  } else {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 
   ctx.save();
   if (typeof applyMapViewTransform === 'function') applyMapViewTransform(ctx);
@@ -1251,6 +1257,16 @@ function render(now){
     : (typeof getVisibleWorldBounds === 'function' ? getVisibleWorldBounds() : null);
   const terrainCache = ensureTerrainLayerCache();
   if (terrainCache){
+    if (typeof TERRAIN_FLAT_MODE === 'boolean' && TERRAIN_FLAT_MODE){
+      // Flat mode : cache viewport positionné à (_flatCamX, _flatCamY)
+      const dpr  = getRenderDpr();
+      ctx.drawImage(terrainCache,
+        0, 0, terrainCache.width, terrainCache.height,
+        _flatCamX, _flatCamY,
+        terrainCache.width  / (dpr * zoomLevel),
+        terrainCache.height / (dpr * zoomLevel)
+      );
+    } else {
     const cs = terrainLayerCacheScale || 1;
     if (viewBounds){
       const sx = Math.max(0, Math.floor(viewBounds.left));
@@ -1261,6 +1277,7 @@ function render(now){
     } else {
       ctx.drawImage(terrainCache, 0, 0, terrainCache.width, terrainCache.height, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     }
+    } // fin else mode cubes
   }
 
   const visibleTiles = getVisibleDrawOrder(drawOrder, viewBounds);

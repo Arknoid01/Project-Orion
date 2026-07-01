@@ -5,16 +5,16 @@
 const DEVICE_REDUCE_CANVAS_LOAD = PERF_LEVEL !== 'faible';
 
 /* ===================== CONFIG GRILLE / VUE (ISO FIXE) ===================== */
-const GRID_COLS = 120;
-const GRID_ROWS = 120;
+const GRID_COLS = 60;
+const GRID_ROWS = 60;
 
-const TILE_W = 64;
-const TILE_H = 32;
-const OFFSET_X = 3872;
+const TILE_W = 128;
+const TILE_H = 64;
+const OFFSET_X = (GRID_COLS + GRID_ROWS) * TILE_W / 2;  // 7680
 const OFFSET_Y = 80;
-const WORLD_WIDTH = 7808;
-const WORLD_HEIGHT = 3960;
-const ELEVATION_PIXELS = 26; // décalage vertical des entités (bâtiments, unités)
+const WORLD_WIDTH  = (GRID_COLS + GRID_ROWS) * TILE_W;       // 15360
+const WORLD_HEIGHT = (GRID_COLS + GRID_ROWS) * TILE_H + 400; // 7880
+const ELEVATION_PIXELS = 52; // décalage vertical des entités — proportionnel à TILE_H×2
 // Relief visuel des tuiles 3D (blocs atlas) — le relief est dans le sprite, pas via étirement.
 const TERRAIN_ELEV_BASELINE = 0.28;       // sous ce niveau : ombre de relief minimale
 const TERRAIN_BLOCK_HEIGHT_PER_ELEV = 24; // socle procédural optionnel (TERRAIN_USE_BASE_BLOCK)
