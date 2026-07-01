@@ -37,7 +37,7 @@ const ZOOM_MAX = 1.20;      // très proche, détail d'un bâtiment
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
-const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
+const BUILDING_SPRITE_W = TILE_W - 4; // largeur cible à l'écran — proportionnel à TILE_W
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
 // Sprites iso « Isometric Asset - Lite » — affichés comme des bâtiments sur le terrain
