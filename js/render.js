@@ -1307,6 +1307,10 @@ function render(now){
       if (cell.hasRoad && cell.patrolBlock) drawPatrolBlock(x, y);
       if (!terrainCache){
         drawStaticTileDecor(ctx, col, row, cell);
+      } else if (typeof TERRAIN_FLAT_MODE === 'boolean' && TERRAIN_FLAT_MODE){
+        // En mode flat, les décors (arbres, buissons, blé) sont dessinés
+        // par-dessus le cache terrain — ils sont trop hauts pour être baked dedans.
+        drawStaticTileDecor(ctx, col, row, cell);
       }
       if (cell.building){
         if (cell.monumentPart) return; // seule l'ancre dessine le monument

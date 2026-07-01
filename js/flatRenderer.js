@@ -1,7 +1,7 @@
 /* ===================== FLAT TERRAIN RENDERER ===================== */
 
-/* --- Textures seamless par terrain --- */
 const FLAT_TERRAIN_TEXTURES = {};
+const FLAT_TERRAIN_PATTERNS = {}; // patterns createPattern (seamless sans joints)
 
 const FLAT_TEXTURE_SOURCES = {
   grass:  'assets/textures/flat/game/grass_top.png',
@@ -21,6 +21,9 @@ function initFlatTextures(){
     const img = new Image();
     img.onload = () => {
       FLAT_TERRAIN_TEXTURES[terrain] = img;
+      // On ne peut creer le pattern qu'une fois qu'on a un ctx disponible
+      // On le cree a la demande dans _getPattern()
+      FLAT_TERRAIN_PATTERNS[terrain] = null; // reset
       invalidateFlatMapCanvas();
       if (typeof markRenderDirty === 'function') markRenderDirty();
     };
@@ -28,7 +31,16 @@ function initFlatTextures(){
   });
 }
 
-/* --- Couleurs de fallback --- */
+/** Retourne (ou cree) le CanvasPattern pour un terrain donne. */
+function _getPattern(ctx, terrain){
+  const img = FLAT_TERRAIN_TEXTURES[terrain];
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  if (!FLAT_TERRAIN_PATTERNS[terrain]){
+    FLAT_TERRAIN_PATTERNS[terrain] = ctx.createPattern(img, 'repeat');
+  }
+  return FLAT_TERRAIN_PATTERNS[terrain];
+}
+
 const FLAT_TERRAIN_COLORS = {
   grass:  '#7db648',
   wheat:  '#c9a83c',
@@ -54,8 +66,10 @@ function flatElevOffset(cell){
   return Math.max(0, level - 1) * FLAT_ELEV_STEP_PX;
 }
 
-function _drawDiamond(ctx, cx, cy, elev, color){
-  const hw = TILE_W / 2 + 1, hh = TILE_H / 2 + 0.5;
+/** Trace le chemin du losange (avec 1px de debordement pour eviter les joints anti-aliasing). */
+function _diamondPath(ctx, cx, cy, elev){
+  const hw = TILE_W / 2 + 1;
+  const hh = TILE_H / 2 + 0.5;
   const ty = cy - elev;
   ctx.beginPath();
   ctx.moveTo(cx,      ty);
@@ -63,27 +77,40 @@ function _drawDiamond(ctx, cx, cy, elev, color){
   ctx.lineTo(cx,      ty + TILE_H + 1);
   ctx.lineTo(cx - hw, ty + hh);
   ctx.closePath();
+}
+
+function _drawDiamond(ctx, cx, cy, elev, color){
+  _diamondPath(ctx, cx, cy, elev);
   ctx.fillStyle = color;
   ctx.fill();
 }
 
-function _drawDiamondTextured(ctx, cx, cy, elev, tex){
-  const hw = TILE_W / 2 + 1, hh = TILE_H / 2 + 0.5;
+/**
+ * Dessine le losange avec une texture seamless.
+ * Cle : on applique un offset monde au pattern (setTransform) pour que
+ * les tuiles adjacentes partagent exactement le meme echantillonnage de texture
+ * -> zero joint visible entre tuiles, meme si la texture est plus petite que la tuile.
+ */
+function _drawDiamondTextured(ctx, cx, cy, elev, terrain){
+  const pattern = _getPattern(ctx, terrain);
+  if (!pattern){
+    _drawDiamond(ctx, cx, cy, elev, FLAT_TERRAIN_COLORS[terrain] || '#888');
+    return;
+  }
   const ty = cy - elev;
+  _diamondPath(ctx, cx, cy, elev);
   ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(cx,      ty);
-  ctx.lineTo(cx + hw, ty + hh);
-  ctx.lineTo(cx,      ty + TILE_H + 1);
-  ctx.lineTo(cx - hw, ty + hh);
-  ctx.closePath();
   ctx.clip();
-  const tw = tex.naturalWidth, th = tex.naturalHeight;
-  const ox = ((cx - hw) % tw + tw) % tw;
-  const oy = (ty         % th + th) % th;
-  for (let dx = -ox; dx < TILE_W + tw; dx += tw)
-    for (let dy = -oy; dy < TILE_H + th; dy += th)
-      ctx.drawImage(tex, cx - hw + dx, ty + dy, tw, th);
+  // Offset monde : la texture commence a (0,0) du monde, pas de la tuile.
+  // Resultat : pas de joint visible entre tuiles adjacentes.
+  if (pattern.setTransform){
+    const m = new DOMMatrix();
+    m.translateSelf(0, 0); // origine monde = (0,0), pas besoin d'offset
+    pattern.setTransform(m);
+  }
+  ctx.fillStyle = pattern;
+  // On remplit un rect un peu plus grand que le losange pour couvrir toute la surface
+  ctx.fillRect(cx - TILE_W / 2 - 1, ty - 1, TILE_W + 2, TILE_H + 2);
   ctx.restore();
 }
 
@@ -105,16 +132,14 @@ function _drawCliffEdge(ctx, cx, cy, elev){
 }
 
 function drawFlatTile(ctx, cx, cy, cell){
-  const elev  = flatElevOffset(cell);
-  const color = FLAT_TERRAIN_COLORS[cell.terrain] || '#888';
-  const tex   = FLAT_TERRAIN_TEXTURES[cell.terrain] || null;
-
+  const elev = flatElevOffset(cell);
   if (elev > 0) _drawCliffEdge(ctx, cx, cy, elev);
 
+  const tex = FLAT_TERRAIN_TEXTURES[cell.terrain];
   if (tex && tex.complete && tex.naturalWidth > 0){
-    _drawDiamondTextured(ctx, cx, cy, elev, tex);
+    _drawDiamondTextured(ctx, cx, cy, elev, cell.terrain);
   } else {
-    _drawDiamond(ctx, cx, cy, elev, color);
+    _drawDiamond(ctx, cx, cy, elev, FLAT_TERRAIN_COLORS[cell.terrain] || '#888');
   }
 }
 
@@ -128,9 +153,9 @@ function buildFlatMapCanvas(){
   const camX    = (typeof camera !== 'undefined') ? camera.x : 0;
   const camY    = (typeof camera !== 'undefined') ? camera.y : 0;
 
-  const PAD  = TILE_W * 3;
-  const vwW  = canvas.width  / dpr / zoom;
-  const vhW  = canvas.height / dpr / zoom;
+  const PAD = TILE_W * 3;
+  const vwW = canvas.width  / dpr / zoom;
+  const vhW = canvas.height / dpr / zoom;
 
   const inZone = _flatCanvas
     && _flatVersion === dataVer
@@ -152,13 +177,13 @@ function buildFlatMapCanvas(){
   const c = document.createElement('canvas');
   c.width  = Math.round(bakeW * dpr * zoom);
   c.height = Math.round(bakeH * dpr * zoom);
-  const ctx = c.getContext('2d');
-  if (!ctx) return null;
+  const bctx = c.getContext('2d');
+  if (!bctx) return null;
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = (typeof PERF !== 'undefined') ? PERF.smoothing : 'high';
+  bctx.imageSmoothingEnabled = true;
+  bctx.imageSmoothingQuality = (typeof PERF !== 'undefined') ? PERF.smoothing : 'high';
   const scale = dpr * zoom;
-  ctx.setTransform(scale, 0, 0, scale, -bakeL * scale, -bakeT * scale);
+  bctx.setTransform(scale, 0, 0, scale, -bakeL * scale, -bakeT * scale);
 
   const bounds = {
     left:   bakeL - TILE_W,
@@ -177,7 +202,7 @@ function buildFlatMapCanvas(){
     if (!cell) return;
     const cx = OFFSET_X + (col - row) * (TILE_W / 2);
     const cy = OFFSET_Y + (col + row) * (TILE_H / 2);
-    drawFlatTile(ctx, cx, cy, cell);
+    drawFlatTile(bctx, cx, cy, cell);
   });
 
   _flatCanvas  = c;
