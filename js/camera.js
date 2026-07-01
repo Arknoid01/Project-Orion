@@ -20,11 +20,11 @@ function applyCanvasResolution(){
 
 /** Déplace la caméra de (dx,dy) pixels-monde, avec clamp aux bords de la carte. */
 function moveCamera(dx, dy){
-  const dpr  = getRenderDpr();
-  const vw   = canvas.width  / dpr;   // viewport en pixels-monde
-  const vh   = canvas.height / dpr;
-  camera.x = Math.max(0, Math.min(WORLD_WIDTH  - vw, camera.x + dx));
-  camera.y = Math.max(0, Math.min(WORLD_HEIGHT - vh, camera.y + dy));
+  const dpr = getRenderDpr();
+  const vwWorld = canvas.width  / dpr / zoomLevel; // viewport en pixels-monde
+  const vhWorld = canvas.height / dpr / zoomLevel;
+  camera.x = Math.max(0, Math.min(Math.max(0, WORLD_WIDTH  - vwWorld), camera.x + dx));
+  camera.y = Math.max(0, Math.min(Math.max(0, WORLD_HEIGHT - vhWorld), camera.y + dy));
   if (typeof invalidateVisibleTilesCache === 'function') invalidateVisibleTilesCache();
   if (typeof markRenderDirty === 'function') markRenderDirty();
 }
@@ -32,10 +32,10 @@ function moveCamera(dx, dy){
 /** Centre la caméra sur un point monde (wx, wy). */
 function centerCameraOn(wx, wy){
   const dpr = getRenderDpr();
-  const vw  = canvas.width  / dpr;
-  const vh  = canvas.height / dpr;
-  camera.x = Math.max(0, Math.min(WORLD_WIDTH  - vw, wx - vw / 2));
-  camera.y = Math.max(0, Math.min(WORLD_HEIGHT - vh, wy - vh / 2));
+  const vwWorld = canvas.width  / dpr / zoomLevel;
+  const vhWorld = canvas.height / dpr / zoomLevel;
+  camera.x = Math.max(0, Math.min(Math.max(0, WORLD_WIDTH  - vwWorld), wx - vwWorld / 2));
+  camera.y = Math.max(0, Math.min(Math.max(0, WORLD_HEIGHT - vhWorld), wy - vhWorld / 2));
   if (typeof invalidateVisibleTilesCache === 'function') invalidateVisibleTilesCache();
   if (typeof markRenderDirty === 'function') markRenderDirty();
 }
@@ -43,7 +43,8 @@ function centerCameraOn(wx, wy){
 /** Convertit un clic écran (clientX/Y) en coordonnées monde. */
 function clientToWorld(clientX, clientY){
   const rect = canvas.getBoundingClientRect();
-  // pixels CSS → pixels monde : diviser par zoom, ajouter offset caméra
+  // pixels CSS écran → pixels monde : diviser par zoom (qui est appliqué par le transform)
+  // puis ajouter l'offset de caméra (en pixels-monde)
   return {
     mx: (clientX - rect.left) / zoomLevel + camera.x,
     my: (clientY - rect.top)  / zoomLevel + camera.y,
@@ -53,14 +54,14 @@ function clientToWorld(clientX, clientY){
 /** Bounds monde visibles (avec marge pour éviter les pop-ins). */
 function getVisibleWorldBounds(){
   const dpr = getRenderDpr();
-  const vw  = canvas.width  / dpr;
-  const vh  = canvas.height / dpr;
+  const vwWorld = canvas.width  / dpr / zoomLevel;
+  const vhWorld = canvas.height / dpr / zoomLevel;
   const pad = TILE_W * 2;
   return {
-    left:   camera.x / zoomLevel - pad,
-    top:    camera.y / zoomLevel - pad,
-    right:  camera.x / zoomLevel + vw / zoomLevel + pad,
-    bottom: camera.y / zoomLevel + vh / zoomLevel + pad,
+    left:   camera.x - pad,
+    top:    camera.y - pad,
+    right:  camera.x + vwWorld + pad,
+    bottom: camera.y + vhWorld + pad,
   };
 }
 

@@ -13,24 +13,22 @@ function setZoom(value, anchorClientX, anchorClientY){
   const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, value));
   if (newZoom === oldZoom) return;
 
-  // Garder le point sous le curseur/pincement fixe pendant le zoom.
-  const rect  = canvas.getBoundingClientRect();
-  const ax    = (anchorClientX !== undefined) ? anchorClientX : rect.left + rect.width  / 2;
-  const ay    = (anchorClientY !== undefined) ? anchorClientY : rect.top  + rect.height / 2;
-  // Coordonnée monde sous l'ancre avant zoom
-  const worldX = camera.x / oldZoom + (ax - rect.left) / oldZoom;
-  const worldY = camera.y / oldZoom + (ay - rect.top)  / oldZoom;
+  const rect = canvas.getBoundingClientRect();
+  const ax = (anchorClientX !== undefined) ? anchorClientX : rect.left + rect.width  / 2;
+  const ay = (anchorClientY !== undefined) ? anchorClientY : rect.top  + rect.height / 2;
+
+  // Point monde sous l'ancre avant zoom (en pixels-monde)
+  const worldX = camera.x + (ax - rect.left) / oldZoom;
+  const worldY = camera.y + (ay - rect.top)  / oldZoom;
 
   zoomLevel = newZoom;
 
-  // Recadrer la caméra pour que ce point reste sous l'ancre après zoom
-  camera.x = (worldX - (ax - rect.left) / newZoom) * newZoom;
-  camera.y = (worldY - (ay - rect.top)  / newZoom) * newZoom;
+  // Après zoom, ce même point monde doit rester sous l'ancre
   const dpr = getRenderDpr();
-  const vw  = canvas.width  / dpr;
-  const vh  = canvas.height / dpr;
-  camera.x = Math.max(0, Math.min((WORLD_WIDTH  - vw / newZoom) * newZoom, camera.x));
-  camera.y = Math.max(0, Math.min((WORLD_HEIGHT - vh / newZoom) * newZoom, camera.y));
+  const vwWorld = canvas.width  / dpr / newZoom;
+  const vhWorld = canvas.height / dpr / newZoom;
+  camera.x = Math.max(0, Math.min(Math.max(0, WORLD_WIDTH  - vwWorld), worldX - (ax - rect.left) / newZoom));
+  camera.y = Math.max(0, Math.min(Math.max(0, WORLD_HEIGHT - vhWorld), worldY - (ay - rect.top)  / newZoom));
 
   if (typeof invalidateVisibleTilesCache === 'function') invalidateVisibleTilesCache();
   if (typeof markRenderDirty === 'function') markRenderDirty();
