@@ -98,18 +98,26 @@ function isHouseServedBy(serviceType, col, row){
   return walkers.some(w => w.serviceType === serviceType && w.servedHouses.some(h => h.col === col && h.row === row));
 }
 
+/** true si l'agent utilise la sémantique patrouille (pathIndex = case courante, direction ±1). */
+function isPatrolWalker(agent){
+  return !!(agent && agent.serviceType != null && Array.isArray(agent.path) && agent.direction != null);
+}
+
 /** Delta grille du segment de route en cours (respecte le sens de patrouille). */
 function getWalkerMovementDelta(walker){
-  if (!walker.path || walker.path.length <= 1) return null;
-  const i = walker.pathIndex;
-  const j = i + (walker.direction || 1);
+  if (!isPatrolWalker(walker) || walker.path.length <= 1) return null;
+  const i = Number.isFinite(walker.pathIndex) ? walker.pathIndex : 0;
+  if (i < 0 || i >= walker.path.length) return null;
+  const j = i + walker.direction;
   if (j >= 0 && j < walker.path.length){
     const from = walker.path[i];
     const to = walker.path[j];
+    if (!from || !to) return null;
     return { dcol: to.col - from.col, drow: to.row - from.row };
   }
   const from = walker.path[Math.max(0, i - 1)];
   const to = walker.path[i];
+  if (!from || !to) return null;
   return { dcol: to.col - from.col, drow: to.row - from.row };
 }
 
@@ -118,10 +126,16 @@ function getWalkerMovementDelta(walker){
 // écoulé depuis le dernier tick — la simulation reste à 1 pas/seconde, seul l'affichage
 // est rafraîchi en continu (voir loop.js).
 function getWalkerScreenPos(walker, now){
-  const tile = walker.path[walker.pathIndex];
+  if (!walker.path || walker.path.length === 0){
+    return tileDiamondCenter(walker.col ?? 0, walker.row ?? 0);
+  }
+  const i = Number.isFinite(walker.pathIndex)
+    ? Math.min(Math.max(0, walker.pathIndex), walker.path.length - 1)
+    : 0;
+  const tile = walker.path[i];
+  if (!tile) return tileDiamondCenter(walker.col ?? 0, walker.row ?? 0);
   if (walker.path.length <= 1) return tileDiamondCenter(tile.col, tile.row);
 
-  const i = walker.pathIndex;
   const j = i + (walker.direction || 1);
   const fromTile = (j >= 0 && j < walker.path.length)
     ? walker.path[i]
@@ -129,6 +143,7 @@ function getWalkerScreenPos(walker, now){
   const toTile = (j >= 0 && j < walker.path.length)
     ? walker.path[j]
     : walker.path[i];
+  if (!fromTile || !toTile) return tileDiamondCenter(tile.col, tile.row);
   const elapsed = now - lastTickTimestamp;
   const t = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
 

@@ -20,6 +20,18 @@ function usesCleanBlockWalls(){
   return typeof TERRAIN_BLOCK_CLEAN_WALLS === 'boolean' && TERRAIN_BLOCK_CLEAN_WALLS;
 }
 
+function capBackOffsetFromImage(image, isoW){
+  if (!image || typeof detectTopDiamondGeometry !== 'function'
+      || typeof trimTransparentCanvas !== 'function'){
+    return 0;
+  }
+  const trimmed = trimTransparentCanvas(image);
+  const geo = detectTopDiamondGeometry(trimmed.canvas);
+  if (!geo || !geo.diamondWidth) return 0;
+  const scale = isoW / geo.diamondWidth;
+  return Math.max(0, Math.round(geo.topY * scale));
+}
+
 function bakeBlockAsset(id, source){
   if (!usesCleanBlockWalls()
       || typeof bakeTerrainBlockFromImage !== 'function'
@@ -28,6 +40,9 @@ function bakeBlockAsset(id, source){
     return;
   }
   const { w, h } = terrainBlockIsoSize();
+  if (source && source.naturalWidth && !(source instanceof HTMLCanvasElement)){
+    source._capBackOffsetPx = capBackOffsetFromImage(source, w);
+  }
   let baked;
   if (source instanceof HTMLCanvasElement){
     baked = bakeTerrainBlockFromCanvas(source, w, h, id);
@@ -363,6 +378,7 @@ function terrainBlockMetrics(src){
         : (src._stackStepPx || src._capH || TILE_H),
     };
   }
+  const rawOff = src && src._capBackOffsetPx ? src._capBackOffsetPx : 0;
   const capH = TILE_H;
   const sideH = (src && src._sideH)
     || (typeof TERRAIN_BLOCK_SIDE_H === 'number' ? TERRAIN_BLOCK_SIDE_H : null)
@@ -372,7 +388,7 @@ function terrainBlockMetrics(src){
     drawH: capH + sideH,
     capH,
     sideH,
-    capBackOffset: 0,
+    capBackOffset: rawOff,
     stackStep: capH,
   };
 }

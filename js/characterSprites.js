@@ -98,10 +98,17 @@ function applyIsoFacingFromDelta(agent, dcol, drow){
 
 /** Orientation pour le rendu (walkers : segment de route courant, incluant demi-tour). */
 function getAgentIsoFacing(agent){
-  if (typeof getWalkerMovementDelta === 'function'){
+  if (typeof isPatrolWalker === 'function' && isPatrolWalker(agent)
+      && typeof getWalkerMovementDelta === 'function'){
     const d = getWalkerMovementDelta(agent);
     if (d && (d.dcol || d.drow)){
       const iso = isoFacingFromGridDelta(d.dcol, d.drow);
+      if (iso) return iso;
+    }
+  } else if (agent.path && agent.pathIndex != null && agent.pathIndex < agent.path.length){
+    const next = agent.path[agent.pathIndex];
+    if (next && agent.col != null && agent.row != null){
+      const iso = isoFacingFromGridDelta(next.col - agent.col, next.row - agent.row);
       if (iso) return iso;
     }
   }

@@ -38,7 +38,7 @@ const PERF_LEVEL = getPerfLevel();
 // et GRASS_DECOR_CHANCE pour réduire le nombre de drawImage() par frame en mobile.
 const PERF_PRESETS = {
   faible: { dprCap: 1.5,  cacheScale: 2, smoothing: 'high', decorDensity: 1.0 },
-  normal: { dprCap: 1,    cacheScale: 1, smoothing: 'high', decorDensity: 0.85 },
+  normal: { dprCap: 1,    cacheScale: 2, smoothing: 'high', decorDensity: 0.85 },
   forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorDensity: 0.3 },
 };
 

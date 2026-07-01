@@ -25,6 +25,8 @@ initLanguageFromStorage();
 document.documentElement.lang = currentLang;
 applyStaticTranslations();
 applyCanvasResolution();
+if (typeof applyZoomLock === 'function') applyZoomLock();
+if (typeof BUILD_CONFIG_REV !== 'undefined') console.info('[Olympos] config', BUILD_CONFIG_REV, 'zoom=', typeof ZOOM_DEFAULT !== 'undefined' ? ZOOM_DEFAULT : '?');
 buildPalette();
 if (typeof renderQuickBuildCatalog === 'function') renderQuickBuildCatalog();
 applyGameUITranslations();
