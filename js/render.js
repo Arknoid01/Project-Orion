@@ -1233,7 +1233,12 @@ function render(now){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const dpr = getRenderDpr();
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Viewport : zoom appliqué à l'échelle, caméra appliquée en translation.
+  // camera.x/y sont en pixels-monde (non zoomés). On traduit en pixels-canvas.
+  const scale = dpr * zoomLevel;
+  const tx    = -camera.x * dpr;
+  const ty    = -camera.y * dpr;
+  ctx.setTransform(scale, 0, 0, scale, tx, ty);
 
   ctx.save();
   if (typeof applyMapViewTransform === 'function') applyMapViewTransform(ctx);

@@ -1253,12 +1253,11 @@ function computeLandCentroid(){
 }
 
 function centerMapView(){
-  const wrap = document.getElementById('canvasWrap');
-  if (!wrap) return;
   const land = computeLandCentroid();
   const targetCol = land ? Math.round(land.col) : Math.floor(GRID_COLS / 2);
   const targetRow = land ? Math.round(land.row) : Math.floor(GRID_ROWS / 2);
   const center = tileCenter(targetCol, targetRow);
-  wrap.scrollLeft = Math.max(0, center.x * zoomLevel - wrap.clientWidth / 2);
-  wrap.scrollTop = Math.max(0, center.y * zoomLevel - wrap.clientHeight / 2);
+  if (typeof centerCameraOn === 'function'){
+    centerCameraOn(center.x, center.y);
+  }
 }
