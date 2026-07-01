@@ -55,12 +55,12 @@ function flatElevOffset(cell){
 }
 
 function _drawDiamond(ctx, cx, cy, elev, color){
-  const hw = TILE_W / 2, hh = TILE_H / 2;
+  const hw = TILE_W / 2 + 1, hh = TILE_H / 2 + 0.5;
   const ty = cy - elev;
   ctx.beginPath();
   ctx.moveTo(cx,      ty);
   ctx.lineTo(cx + hw, ty + hh);
-  ctx.lineTo(cx,      ty + TILE_H);
+  ctx.lineTo(cx,      ty + TILE_H + 1);
   ctx.lineTo(cx - hw, ty + hh);
   ctx.closePath();
   ctx.fillStyle = color;
@@ -68,13 +68,13 @@ function _drawDiamond(ctx, cx, cy, elev, color){
 }
 
 function _drawDiamondTextured(ctx, cx, cy, elev, tex){
-  const hw = TILE_W / 2, hh = TILE_H / 2;
+  const hw = TILE_W / 2 + 1, hh = TILE_H / 2 + 0.5;
   const ty = cy - elev;
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(cx,      ty);
   ctx.lineTo(cx + hw, ty + hh);
-  ctx.lineTo(cx,      ty + TILE_H);
+  ctx.lineTo(cx,      ty + TILE_H + 1);
   ctx.lineTo(cx - hw, ty + hh);
   ctx.closePath();
   ctx.clip();
