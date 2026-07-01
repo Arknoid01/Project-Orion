@@ -279,3 +279,10 @@ function invalidatePixiTerrain(){
 function isPixiReady(){
   return !!_pixiApp;
 }
+
+/* --- Exposition globale (nécessaire sur certains navigateurs mobiles) --- */
+window.initPixiRenderer  = initPixiRenderer;
+window.isPixiReady       = isPixiReady;
+window.renderPixi        = renderPixi;
+window.buildPixiTerrain  = buildPixiTerrain;
+window.invalidatePixiTerrain = invalidatePixiTerrain;
