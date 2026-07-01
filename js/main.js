@@ -47,4 +47,14 @@ setInterval(() => {
   if (typeof isGamePaused === 'function' && isGamePaused()) return;
   saveGame({ silent: true });
 }, 10000);
-startRenderLoop();
+
+// Init Pixi puis démarrage de la boucle
+if (typeof initPixiRenderer === 'function'){
+  initPixiRenderer().then(ok => {
+    if (ok) console.log('[Main] Pixi actif');
+    else    console.warn('[Main] Pixi indisponible, fallback Canvas2D');
+    startRenderLoop();
+  });
+} else {
+  startRenderLoop();
+}

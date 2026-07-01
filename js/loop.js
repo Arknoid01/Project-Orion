@@ -41,7 +41,13 @@ function startRenderLoop(){
     if (elapsed < minInterval - 1) return;   // -1ms de marge pour éviter drift
 
     _renderLastTime = now;
-    render(now);
+
+    // Bascule Pixi ou Canvas2D
+    if (typeof isPixiReady === 'function' && isPixiReady()){
+      renderPixi(now);
+    } else {
+      render(now);
+    }
 
     // Après N frames consécutives sans changement, passe en idle.
     if (!hasMoving){
