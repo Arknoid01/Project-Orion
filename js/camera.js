@@ -71,55 +71,60 @@ function isTileInView(col, row, bounds){
   return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
 }
 
-/* -------- Pan tactile (1 doigt) -------- */
+/* Variables pan (déclarées ici, utilisées dans initCamera) */
 let _panLastX = null, _panLastY = null;
-
-canvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1){
-    _panLastX = e.touches[0].clientX;
-    _panLastY = e.touches[0].clientY;
-  }
-}, { passive: true });
-
-canvas.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 1 && _panLastX !== null){
-    e.preventDefault();
-    const dx = (_panLastX - e.touches[0].clientX) / zoomLevel;
-    const dy = (_panLastY - e.touches[0].clientY) / zoomLevel;
-    moveCamera(dx, dy);
-    _panLastX = e.touches[0].clientX;
-    _panLastY = e.touches[0].clientY;
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchend', (e) => {
-  if (e.touches.length < 1){ _panLastX = null; _panLastY = null; }
-});
-
-/* -------- Pan souris (desktop) -------- */
 let _mouseDown = false, _mouseLast = null;
 
-canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 1 || (e.button === 0 && e.altKey)){
-    _mouseDown = true;
-    _mouseLast = { x: e.clientX, y: e.clientY };
-    e.preventDefault();
-  }
-});
-
-window.addEventListener('mousemove', (e) => {
-  if (!_mouseDown || !_mouseLast) return;
-  moveCamera(
-    (_mouseLast.x - e.clientX) / zoomLevel,
-    (_mouseLast.y - e.clientY) / zoomLevel,
-  );
-  _mouseLast = { x: e.clientX, y: e.clientY };
-});
-
-window.addEventListener('mouseup', () => { _mouseDown = false; _mouseLast = null; });
-
-/* -------- Resize -------- */
-window.addEventListener('resize', () => {
+/* -------- Initialisation (appelée après que canvas soit défini dans render.js) -------- */
+function initCamera(){
   applyCanvasResolution();
-  if (typeof markRenderDirty === 'function') markRenderDirty();
-});
+
+  /* Pan tactile 1 doigt */
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1){
+      _panLastX = e.touches[0].clientX;
+      _panLastY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && _panLastX !== null){
+      e.preventDefault();
+      const dx = (_panLastX - e.touches[0].clientX) / zoomLevel;
+      const dy = (_panLastY - e.touches[0].clientY) / zoomLevel;
+      moveCamera(dx, dy);
+      _panLastX = e.touches[0].clientX;
+      _panLastY = e.touches[0].clientY;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 1){ _panLastX = null; _panLastY = null; }
+  });
+
+  /* Pan souris desktop */
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 1 || (e.button === 0 && e.altKey)){
+      _mouseDown = true;
+      _mouseLast = { x: e.clientX, y: e.clientY };
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!_mouseDown || !_mouseLast) return;
+    moveCamera(
+      (_mouseLast.x - e.clientX) / zoomLevel,
+      (_mouseLast.y - e.clientY) / zoomLevel,
+    );
+    _mouseLast = { x: e.clientX, y: e.clientY };
+  });
+
+  window.addEventListener('mouseup', () => { _mouseDown = false; _mouseLast = null; });
+
+  /* Resize */
+  window.addEventListener('resize', () => {
+    applyCanvasResolution();
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+  });
+}

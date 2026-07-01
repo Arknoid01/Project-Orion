@@ -37,39 +37,35 @@ function setZoom(value, anchorClientX, anchorClientY){
 function zoomIn(){  setZoom(zoomLevel + ZOOM_STEP); }
 function zoomOut(){ setZoom(zoomLevel - ZOOM_STEP); }
 
-/* ---- Molette desktop ---- */
-canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), e.clientX, e.clientY);
-}, { passive: false });
-
-/* ---- Pincement 2 doigts ---- */
-let _pinchDist  = null;
-let _pinchZoom  = 1;
-let _pinchMidX  = 0;
-let _pinchMidY  = 0;
-
+let _pinchDist = null, _pinchZoom = 1, _pinchMidX = 0, _pinchMidY = 0;
 function _touchDist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
 
-canvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 2){
-    _pinchDist = _touchDist(e.touches);
-    _pinchZoom = zoomLevel;
-    _pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    _pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-  }
-}, { passive: true });
-
-canvas.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 2 && _pinchDist){
+function initZoom(){
+  canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const ratio = _touchDist(e.touches) / _pinchDist;
-    const midX  = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY  = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    setZoom(_pinchZoom * ratio, midX, midY);
-  }
-}, { passive: false });
+    setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), e.clientX, e.clientY);
+  }, { passive: false });
 
-canvas.addEventListener('touchend', (e) => {
-  if (e.touches.length < 2) _pinchDist = null;
-});
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2){
+      _pinchDist = _touchDist(e.touches);
+      _pinchZoom = zoomLevel;
+      _pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      _pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && _pinchDist){
+      e.preventDefault();
+      const ratio = _touchDist(e.touches) / _pinchDist;
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      setZoom(_pinchZoom * ratio, midX, midY);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) _pinchDist = null;
+  });
+}

@@ -2,7 +2,11 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = true;
-ctx.imageSmoothingQuality = PERF.smoothing; // piloté par le niveau de perf choisi dans Paramètres
+ctx.imageSmoothingQuality = PERF.smoothing;
+
+// Initialiser la caméra et le zoom maintenant que canvas est défini
+if (typeof initCamera === 'function') initCamera();
+if (typeof initZoom   === 'function') initZoom();
 
 /* ===================== METRIQUES PIED SPRITE (bbox alpha) ===================== */
 // Les PNG bâtiments/maisons font 144 px mais la base occupe ~2 tuiles export (128 px = 1 tuile).

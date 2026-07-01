@@ -10,11 +10,11 @@ const GRID_ROWS = 60;
 
 const TILE_W = 128;
 const TILE_H = 64;
-const OFFSET_X = (GRID_COLS + GRID_ROWS) * TILE_W / 2;  // 7680
+const OFFSET_X = (GRID_COLS + GRID_ROWS) * TILE_W / 2;
 const OFFSET_Y = 80;
-const WORLD_WIDTH  = (GRID_COLS + GRID_ROWS) * TILE_W;       // 15360
-const WORLD_HEIGHT = (GRID_COLS + GRID_ROWS) * TILE_H + 400; // 7880
-const ELEVATION_PIXELS = 52; // décalage vertical des entités — proportionnel à TILE_H×2
+const WORLD_WIDTH  = (GRID_COLS + GRID_ROWS) * TILE_W;
+const WORLD_HEIGHT = (GRID_COLS + GRID_ROWS) * TILE_H + 400;
+const ELEVATION_PIXELS = 52; // décalage vertical des entités — proportionnel à TILE_H
 // Relief visuel des tuiles 3D (blocs atlas) — le relief est dans le sprite, pas via étirement.
 const TERRAIN_ELEV_BASELINE = 0.28;       // sous ce niveau : ombre de relief minimale
 const TERRAIN_BLOCK_HEIGHT_PER_ELEV = 24; // socle procédural optionnel (TERRAIN_USE_BASE_BLOCK)
@@ -31,10 +31,10 @@ const TERRAIN_CANVAS_H = 88;              // hauteur export normalisée (assets/
 const TERRAIN_FACE_ROW_FRAC = 38 / 88;    // ligne face iso dans le PNG (export normalisé)
 
 /* ===================== ZOOM ===================== */
-const ZOOM_DEFAULT = 0.28;
-const ZOOM_MIN = 0.18;
-const ZOOM_MAX = 0.55;
-const ZOOM_STEP = 0.10;
+const ZOOM_DEFAULT = 0.55;  // ~6 tuiles visibles en largeur — vue proche style Zeus
+const ZOOM_MIN = 0.20;      // vue d'ensemble carte
+const ZOOM_MAX = 1.20;      // très proche, détail d'un bâtiment
+const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
 const BUILDING_SPRITE_W = 62; // largeur cible à l'écran (base 1 tuile, −2 px vs TILE_W)
