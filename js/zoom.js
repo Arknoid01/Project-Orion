@@ -1,7 +1,3 @@
-/* ===================== ZOOM (fluide, mode viewport) ===================== */
-// Zoom = multiplicateur de rendu appliqué par setTransform dans render().
-// Le canvas fait la taille de l'écran (géré par camera.js).
-// Le pan est aussi géré par camera.js (moveCamera).
 let zoomLevel = ZOOM_DEFAULT;
 
 function getRenderDpr(){
@@ -17,13 +13,11 @@ function setZoom(value, anchorClientX, anchorClientY){
   const ax = (anchorClientX !== undefined) ? anchorClientX : rect.left + rect.width  / 2;
   const ay = (anchorClientY !== undefined) ? anchorClientY : rect.top  + rect.height / 2;
 
-  // Point monde sous l'ancre avant zoom (en pixels-monde)
   const worldX = camera.x + (ax - rect.left) / oldZoom;
   const worldY = camera.y + (ay - rect.top)  / oldZoom;
 
   zoomLevel = newZoom;
 
-  // Après zoom, ce même point monde doit rester sous l'ancre
   const dpr = getRenderDpr();
   const vwWorld = canvas.width  / dpr / newZoom;
   const vhWorld = canvas.height / dpr / newZoom;
@@ -32,6 +26,8 @@ function setZoom(value, anchorClientX, anchorClientY){
 
   if (typeof invalidateVisibleTilesCache === 'function') invalidateVisibleTilesCache();
   if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (typeof invalidateFlatMapCanvas === 'function') invalidateFlatMapCanvas();
+  if (typeof invalidatePixiTerrain === 'function') invalidatePixiTerrain();
 }
 
 function zoomIn(){  setZoom(zoomLevel + ZOOM_STEP); }
@@ -41,12 +37,14 @@ let _pinchDist = null, _pinchZoom = 1, _pinchMidX = 0, _pinchMidY = 0;
 function _touchDist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
 
 function initZoom(){
-  canvas.addEventListener('wheel', (e) => {
+  const zt = document.getElementById('canvasWrap') || document;
+
+  zt.addEventListener('wheel', (e) => {
     e.preventDefault();
     setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), e.clientX, e.clientY);
   }, { passive: false });
 
-  canvas.addEventListener('touchstart', (e) => {
+  zt.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2){
       _pinchDist = _touchDist(e.touches);
       _pinchZoom = zoomLevel;
@@ -55,7 +53,7 @@ function initZoom(){
     }
   }, { passive: true });
 
-  canvas.addEventListener('touchmove', (e) => {
+  zt.addEventListener('touchmove', (e) => {
     if (e.touches.length === 2 && _pinchDist){
       e.preventDefault();
       const ratio = _touchDist(e.touches) / _pinchDist;
@@ -65,7 +63,7 @@ function initZoom(){
     }
   }, { passive: false });
 
-  canvas.addEventListener('touchend', (e) => {
+  zt.addEventListener('touchend', (e) => {
     if (e.touches.length < 2) _pinchDist = null;
   });
 }
