@@ -90,7 +90,7 @@ function makeCubeMats(THREE, topColor, sideColor){
    --------------------------------------------------------------- */
 window.initThreeRenderer = async function(){
   try {
-    const mod = await import('./js/three.module.min.js');
+    const mod = await import('./three.module.min.js');
     _THREE = mod;
 
     // Renderer WebGL
