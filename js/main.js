@@ -25,8 +25,6 @@ initLanguageFromStorage();
 document.documentElement.lang = currentLang;
 applyStaticTranslations();
 applyCanvasResolution();
-if (typeof applyZoomLock === 'function') applyZoomLock();
-if (typeof BUILD_CONFIG_REV !== 'undefined') console.info('[Olympos] config', BUILD_CONFIG_REV, 'zoom=', typeof ZOOM_DEFAULT !== 'undefined' ? ZOOM_DEFAULT : '?');
 buildPalette();
 if (typeof renderQuickBuildCatalog === 'function') renderQuickBuildCatalog();
 applyGameUITranslations();
@@ -50,13 +48,43 @@ setInterval(() => {
   saveGame({ silent: true });
 }, 10000);
 
-// Init Pixi puis démarrage de la boucle
-if (typeof initPixiRenderer === 'function'){
-  initPixiRenderer().then(ok => {
-    if (ok) console.log('[Main] Pixi actif');
-    else    console.warn('[Main] Pixi indisponible, fallback Canvas2D');
-    startRenderLoop();
-  });
-} else {
+// Init Three.js (terrain) + Pixi (décors) puis démarrage de la boucle
+async function initRenderers(){
+  // 1) Three.js pour le terrain
+  if (typeof initThreeRenderer === 'function'){
+    const ok = await initThreeRenderer();
+    if (ok){
+      console.log('[Main] Three.js actif');
+
+      // 2) Canvas Pixi transparent pour les décors par-dessus Three.js
+      if (window.PIXI){
+        const cv = document.createElement('canvas');
+        cv.style.cssText = 'position:fixed;inset:0;z-index:2;pointer-events:none;';
+        cv.width  = window.innerWidth  * Math.min(window.devicePixelRatio, 1.5);
+        cv.height = window.innerHeight * Math.min(window.devicePixelRatio, 1.5);
+        cv.style.width  = window.innerWidth  + 'px';
+        cv.style.height = window.innerHeight + 'px';
+        document.getElementById('canvasWrap').appendChild(cv);
+
+        const pixiApp = new PIXI.Application();
+        await pixiApp.init({
+          canvas: cv,
+          width: cv.width, height: cv.height,
+          backgroundAlpha: 0,
+          antialias: false,
+          resolution: 1,
+        });
+        window._pixiDecorApp = pixiApp;
+        console.log('[Main] Pixi décors actif');
+      }
+
+      // Réenregistrer les listeners canvas sur le canvas Three.js
+      if (typeof initCanvasListeners === 'function') initCanvasListeners();
+    } else {
+      console.warn('[Main] Three.js indispo, fallback Canvas2D');
+    }
+  }
   startRenderLoop();
 }
+
+initRenderers();

@@ -101,44 +101,11 @@ function mountainRangeFactor(nx, ny, seed){
   return ridges * ridges * strength;
 }
 
-/** Chaînes orientées (2 axes depuis la seed) — relief grec type Pindus / Taygetus. */
-function greekRidgeFactor(nx, ny, seed){
-  const str = typeof MAP_GREEK_RIDGE_STRENGTH === 'number' ? MAP_GREEK_RIDGE_STRENGTH : 0.26;
-  const rng = mulberry32(seed + 77000);
-  const angle1 = rng() * Math.PI;
-  const angle2 = angle1 + (0.55 + rng() * 0.85);
-
-  function ridgeAlong(angle, offset){
-    const along = nx * Math.cos(angle) + ny * Math.sin(angle);
-    const across = nx * Math.sin(angle) - ny * Math.cos(angle);
-    const ridge = ridgedNoise(along * 2.1 + offset, across * 0.38 + 5, seed + Math.floor(angle * 1000) + offset);
-    return ridge * ridge;
-  }
-
-  const r1 = ridgeAlong(angle1, 0);
-  const r2 = ridgeAlong(angle2, 17) * 0.62;
-  return Math.max(r1, r2) * str;
-}
-
-/** Creux côtier le long des bords (sauf bande d'accès connectée). */
-function greekEdgeSeaDepression(col, row){
-  const seaWidth = typeof MAP_GREEK_EDGE_SEA_WIDTH === 'number' ? MAP_GREEK_EDGE_SEA_WIDTH : 12;
-  const seaDepth = typeof MAP_GREEK_EDGE_SEA_DEPTH === 'number' ? MAP_GREEK_EDGE_SEA_DEPTH : 0.11;
-  const connectedDist = connectedLandEdgeDistance(col, row);
-  const edgeDist = mapEdgeDistance(col, row);
-  const connectedGuard = (typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 4)
-    + (typeof MAP_CONNECTED_EDGE_FADE === 'number' ? MAP_CONNECTED_EDGE_FADE : 10);
-  if (connectedDist < connectedGuard) return 0;
-  if (edgeDist >= seaWidth) return 0;
-  const t = 1 - edgeDist / seaWidth;
-  return seaDepth * t * t;
-}
-
 let mapLandBridgePath = null;
 
 function entryCorridorHalfWidth(){
   const w = typeof MAP_ENTRY_CORRIDOR_WIDTH === 'number' ? MAP_ENTRY_CORRIDOR_WIDTH : 4;
-  return Math.max(0, Math.floor(w / 2));
+  return Math.max(1, Math.floor(w / 2));
 }
 
 function isEntryCorridorCell(col, row){
@@ -161,44 +128,9 @@ function connectedLandEdgeDistance(col, row){
   }
 }
 
-function migrantEntryCol(){
-  return typeof MIGRANT_ENTRY_COL === 'number' ? MIGRANT_ENTRY_COL : Math.floor(GRID_COLS / 2);
-}
-
-function isthmusColDistance(col){
-  return Math.abs(col - migrantEntryCol());
-}
-
-/** Largeur latérale de l'isthme — étroite au bord, suit le couloir vers l'intérieur. */
-function isthmusAllowedHalfWidth(col, row, seed){
-  if (isEntryCorridorCell(col, row)) return entryCorridorHalfWidth();
-  const edgeDist = connectedLandEdgeDistance(col, row);
-  const width = typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 2;
-  if (edgeDist >= width) return -1;
-  const baseHalf = typeof MAP_ISTHMUS_HALF_WIDTH === 'number' ? MAP_ISTHMUS_HALF_WIDTH : 1;
-  const wobble = typeof fbm === 'function'
-    ? fbm(col * 0.14 + 2, row * 0.11 + 6, (seed || mapSeed) + 88221, 2)
-    : 0.5;
-  return Math.max(0, baseHalf + Math.round((wobble - 0.5) * 0.8) - Math.floor(edgeDist * 0.65));
-}
-
-function isIsthmusAccessCell(col, row, seed){
-  const edgeDist = connectedLandEdgeDistance(col, row);
-  const maxDepth = typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 2;
-  const maxLen = typeof MAP_ISTHMUS_LENGTH === 'number' ? MAP_ISTHMUS_LENGTH : 8;
-  if (isEntryCorridorCell(col, row)) return true;
-  if (edgeDist > maxDepth) return false;
-  const southRows = GRID_ROWS - 1 - row;
-  if (southRows > maxLen) return false;
-  const halfW = isthmusAllowedHalfWidth(col, row, seed);
-  if (halfW < 0) return false;
-  return isthmusColDistance(col) <= halfW;
-}
-
 function isConnectedLandEdgeCell(col, row){
   const width = typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 0;
-  if (width <= 0) return false;
-  return connectedLandEdgeDistance(col, row) < width && isIsthmusAccessCell(col, row, mapSeed);
+  return width > 0 && connectedLandEdgeDistance(col, row) < width;
 }
 
 /** Chemin sinueux du bord sud vers l'intérieur (suit le relief existant). */
@@ -246,8 +178,8 @@ function buildEntryCorridorCellSet(path, seed){
   path.forEach((pt, i) => {
     const t = i / Math.max(1, path.length - 1);
     const widthNoise = fbm(pt.col * 0.17 + 3, pt.row * 0.14 + 7, seed + 88003, 2);
-    const halfW = Math.max(0, Math.round(baseHalf * (0.35 + widthNoise * 0.25)));
-    const vPad = t < 0.12 || t > 0.90 ? 0 : 0;
+    const halfW = Math.max(1, Math.round(baseHalf * (0.65 + widthNoise * 0.75)));
+    const vPad = t < 0.15 || t > 0.88 ? 1 : 0;
     for (let dc = -halfW; dc <= halfW; dc++){
       for (let dr = -vPad; dr <= vPad; dr++){
         const c = pt.col + dc;
@@ -268,16 +200,14 @@ function dryLandMountainFactor(h, land){
   return fromHeight * fromMask;
 }
 
-/** Remonte le relief le long de l'isthme / couloir d'accès sud. */
+/** Remonte le relief le long de l'isthme (îles uniquement). */
 function carveLandBridgeHeights(heights, seed){
-  if (!mapEntryCorridorCells) return;
+  if (mapLandStyle !== 'island' || !mapEntryCorridorCells) return;
   const lift = typeof MAP_LAND_BRIDGE_LIFT === 'number' ? MAP_LAND_BRIDGE_LIFT : 0.34;
-  const connectedGuard = (typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 4) + 8;
 
   for (let row = 0; row < GRID_ROWS; row++){
     for (let col = 0; col < GRID_COLS; col++){
       if (!isEntryCorridorCell(col, row)) continue;
-      if (mapLandStyle === 'continent' && connectedLandEdgeDistance(col, row) > connectedGuard) continue;
       const t = row / Math.max(1, GRID_ROWS - 1);
       const target = lerp(lift + 0.03, MAP_PLAYABLE_ELEVATION, t * 0.62);
       heights[row][col] = clamp01(Math.max(heights[row][col], target));
@@ -298,7 +228,6 @@ function carveConnectedLandEdgeHeights(heights, seed){
     for (let col = 0; col < GRID_COLS; col++){
       const dist = connectedLandEdgeDistance(col, row);
       if (dist >= maxDist) continue;
-      if (!isIsthmusAccessCell(col, row, seed)) continue;
 
       const noise = typeof fbm === 'function'
         ? fbm(col * 0.09 + 20, row * 0.09 + 14, seed + 88220, 2)
@@ -524,47 +453,17 @@ function domainWarpCoords(x, y, seed){
   return { x: x + dx * strength, y: y + dy * strength };
 }
 
-/** Facteur 0=eau profonde, 1=terre — côte organique (capes, baies) + isthme sud étroit. */
+/** Facteur 0=eau profonde, 1=terre — forme d'île avec baies. */
 function islandLandFactor(col, row, seed){
   const cx = (GRID_COLS - 1) / 2;
   const cy = (GRID_ROWS - 1) / 2;
-  const radiusMul = typeof MAP_ISLAND_RADIUS === 'number' ? MAP_ISLAND_RADIUS : 0.38;
-  const baseRadius = Math.min(GRID_COLS, GRID_ROWS) * radiusMul;
-
-  const dx = col - cx;
-  const dy = row - cy;
+  const radius = typeof MAP_ISLAND_RADIUS === 'number' ? MAP_ISLAND_RADIUS : 0.38;
+  const dx = (col - cx) / (GRID_COLS * radius);
+  const dy = (row - cy) / (GRID_ROWS * radius);
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx);
-
-  const coastMacro = fbm(Math.cos(angle) * 2.8 + 18, Math.sin(angle) * 2.8 + 36, seed + 6100, 4);
-  const coastMeso = fbm(col * 0.075 + 12, row * 0.075 + 24, seed + 6101, 3);
-  const coastFine = fbm(col * 0.16 + 70, row * 0.16 + 40, seed + 6102, 2);
-  const macroAmp = typeof MAP_ISLAND_COAST_MACRO === 'number' ? MAP_ISLAND_COAST_MACRO : 0.24;
-  const radialNoise = coastMacro * 0.50 + coastMeso * 0.32 + coastFine * 0.18;
-  const effectiveRadius = baseRadius * (0.90 + (radialNoise - 0.5) * macroAmp);
-
-  const soft = typeof MAP_ISLAND_COAST_SOFT === 'number' ? MAP_ISLAND_COAST_SOFT : 0.075;
-  const transition = Math.max(baseRadius * soft, 2.5 + coastFine * 3.5);
-  let land = smoothstep(clamp01((effectiveRadius - dist) / transition));
-
-  const isthmusLen = typeof MAP_ISTHMUS_LENGTH === 'number' ? MAP_ISTHMUS_LENGTH : 8;
-  const southRows = GRID_ROWS - 1 - row;
-  if (southRows <= isthmusLen + 1){
-    const halfW = typeof MAP_ISTHMUS_HALF_WIDTH === 'number' ? MAP_ISTHMUS_HALF_WIDTH : 0;
-    const wobble = fbm(col * 0.19 + 5, row * 0.14 + 9, seed + 6104, 2);
-    const allowedHalf = Math.max(0, halfW + (wobble > 0.72 ? 1 : 0) - Math.floor(southRows * 0.35));
-    if (isthmusColDistance(col) <= allowedHalf){
-      const neckT = 1 - southRows / Math.max(1, isthmusLen + 1);
-      land = clamp01(Math.max(land, smoothstep(neckT) * 0.94));
-    }
-  }
-
-  return land;
-}
-
-function usesIslandLandShape(){
-  if (mapLandStyle === 'island') return true;
-  return typeof MAP_ALWAYS_ISLAND_SHAPE === 'boolean' && MAP_ALWAYS_ISLAND_SHAPE;
+  const shape = fbm(col * 0.052 + 30, row * 0.052 + 30, seed + 6100, 4);
+  const edge = 0.80 + (shape - 0.5) * 0.30;
+  return smoothstep(clamp01((edge - dist) / 0.13));
 }
 
 function softenHeightMap(heights, passes){
@@ -597,7 +496,7 @@ function softenHeightMap(heights, passes){
 }
 
 function landCoverageFactor(col, row, seed){
-  if (!usesIslandLandShape()) return 1;
+  if (mapLandStyle === 'continent') return 1;
   return islandLandFactor(col, row, seed);
 }
 
@@ -622,13 +521,12 @@ function generateHeightMap(seed){
       const detail = fbm(nx * 4.2, ny * 4.2, seed + 2000, 2) * MAP_DETAIL_STRENGTH;
       const valleys = ridgedNoise(nx * 0.75 + 90, ny * 0.75 + 90, seed + 9000);
       const ranges = mountainRangeFactor(nx, ny, seed);
-      const greekRanges = greekRidgeFactor(nx, ny, seed);
 
       const landBias = typeof MAP_LAND_BASE_BIAS === 'number' ? MAP_LAND_BASE_BIAS : 0.06;
       let h = base * 0.52 + detail * 0.10 + landBias;
 
       const land = landCoverageFactor(col, row, seed);
-      if (usesIslandLandShape()){
+      if (mapLandStyle === 'island'){
         const islandBlend = clamp01(lerp(1 - islandStr, 1, land));
         h = lerp(sea, h, islandBlend);
         h = clamp01(h - valleys * valleyStr * land);
@@ -637,13 +535,20 @@ function generateHeightMap(seed){
       }
 
       const mountMask = dryLandMountainFactor(h, land);
-      h = clamp01(h + ridges * 0.30 * mountMask + ranges * 0.14 * mountMask + greekRanges * 0.52 * mountMask);
+      h = clamp01(h + ridges * 0.34 * mountMask + ranges * 0.12 * mountMask);
 
       const mcx = (GRID_COLS - 1) / 2;
       const mcy = (GRID_ROWS - 1) / 2;
-      const mDist = Math.sqrt((col - mcx) ** 2 + (row - mcy) ** 2) / (GRID_COLS * 0.32);
+      const mDist = Math.sqrt((col - mcx) ** 2 + (row - mcy) ** 2) / (GRID_COLS * 0.28);
       const mBoost = typeof MAP_MOUNTAIN_CENTER_BOOST === 'number' ? MAP_MOUNTAIN_CENTER_BOOST : 0.08;
-      h = clamp01(h + clamp01(1 - mDist) * mBoost * mountMask * 0.65);
+      h = clamp01(h + clamp01(1 - mDist) * mBoost * mountMask);
+
+      if (mapLandStyle === 'island'){
+        const edgeX = Math.min(col, GRID_COLS - 1 - col) / (GRID_COLS * 0.1);
+        const edgeY = Math.min(row, GRID_ROWS - 1 - row) / (GRID_ROWS * 0.1);
+        const edgeFactor = clamp01(Math.min(edgeX, edgeY));
+        h = h * (0.72 + 0.28 * edgeFactor);
+      }
 
       const borderW = effectiveEdgeBorderWidth();
       if (borderW > 0){
@@ -896,17 +801,10 @@ function terrainFromMaps(height, moisture, slope, col, row, heights){
 
   if (isPlain
       && moisture > MAP_WHEAT_MOISTURE
-      && moisture < 0.54
+      && moisture < 0.72
       && height >= MAP_WHEAT_MIN_HEIGHT
       && height <= MAP_WHEAT_MAX_HEIGHT
-      && slope < 0.038){
-    const wheatThreshold = typeof MAP_WHEAT_NOISE_THRESHOLD === 'number' ? MAP_WHEAT_NOISE_THRESHOLD : 0.74;
-    const patchChance = typeof MAP_WHEAT_PATCH_CHANCE === 'number' ? MAP_WHEAT_PATCH_CHANCE : 0.018;
-    const wheatNoise = coastStyleNoise(col, row, 15001);
-    if (wheatNoise < wheatThreshold) return 'grass';
-    if (mulberry32(hashSeed(col, row) ^ mapSeed ^ 0x57484541)() > patchChance * (0.55 + wheatNoise * 0.9)){
-      return 'grass';
-    }
+      && slope < 0.045){
     return 'wheat';
   }
 
@@ -937,7 +835,6 @@ function enrichNaturalLandscape(heights, moisture){
   const forestSpread = typeof MAP_FOREST_SPREAD_CHANCE === 'number' ? MAP_FOREST_SPREAD_CHANCE : 0.32;
   const wheatSpread = typeof MAP_WHEAT_SPREAD_CHANCE === 'number' ? MAP_WHEAT_SPREAD_CHANCE : 0.26;
   const groveThreshold = typeof MAP_GROVE_NOISE_THRESHOLD === 'number' ? MAP_GROVE_NOISE_THRESHOLD : 0.58;
-  const grovePatch = typeof MAP_GROVE_PATCH_CHANCE === 'number' ? MAP_GROVE_PATCH_CHANCE : 0.22;
   const scale = MAP_NOISE_SCALE * 2.4;
 
   function canBecomeForest(col, row){
@@ -945,19 +842,17 @@ function enrichNaturalLandscape(heights, moisture){
     const m = moisture[row][col];
     return h >= MAP_FOREST_MIN_HEIGHT
       && h <= MAP_FOREST_MAX_HEIGHT
-      && m > MAP_FOREST_MOISTURE - 0.08
+      && m > MAP_FOREST_MOISTURE - 0.06
       && !isNearWater(heights, col, row);
   }
 
   function canBecomeWheat(col, row){
     const h = heights[row][col];
     const m = moisture[row][col];
-    const wheatThreshold = typeof MAP_WHEAT_NOISE_THRESHOLD === 'number' ? MAP_WHEAT_NOISE_THRESHOLD : 0.74;
     return h >= MAP_WHEAT_MIN_HEIGHT
       && h <= MAP_WHEAT_MAX_HEIGHT
-      && m > MAP_WHEAT_MOISTURE + 0.06
-      && m < 0.54
-      && coastStyleNoise(col, row, 15001) >= wheatThreshold
+      && m > MAP_WHEAT_MOISTURE
+      && m < 0.74
       && !isNearWater(heights, col, row);
   }
 
@@ -983,18 +878,14 @@ function enrichNaturalLandscape(heights, moisture){
           next[row][col] = 'forest';
           continue;
         }
-        if (forestN === 1 && canBecomeForest(col, row) && rng() < forestSpread * 0.55){
-          next[row][col] = 'forest';
-          continue;
-        }
-        if (wheatN >= 5 && canBecomeWheat(col, row) && rng() < wheatSpread){
+        if (wheatN >= 2 && canBecomeWheat(col, row) && rng() < wheatSpread){
           next[row][col] = 'wheat';
           continue;
         }
 
         if (pass === 0 && forestN === 0 && canBecomeForest(col, row)){
           const grove = fbm(col * scale + 11, row * scale + 23, mapSeed + 12001, 3);
-          if (grove >= groveThreshold && rng() < grovePatch){
+          if (grove >= groveThreshold && rng() < 0.22){
             next[row][col] = 'forest';
           }
         }
@@ -1051,50 +942,10 @@ function countNeighborTerrains(col, row, predicate, radius){
   return { count, total };
 }
 
-/** Fusionne collines/herbe en roche quand entourées par un massif — massifs plus homogènes. */
-function coalesceMountainMassifs(heights){
-  if (!Array.isArray(grid) || grid.length === 0) return;
-
-  const minN = typeof MAP_MOUNTAIN_COALESCE_MIN_NEIGHBORS === 'number' ? MAP_MOUNTAIN_COALESCE_MIN_NEIGHBORS : 5;
-  const changes = [];
-
-  for (let row = 1; row < GRID_ROWS - 1; row++){
-    for (let col = 1; col < GRID_COLS - 1; col++){
-      const cell = grid[row][col];
-      if (!cell || cell.terrain === 'water' || cell.terrain === 'sand' || isMountainTerrain(cell.terrain)) continue;
-
-      const h = heights[row][col];
-      if (h < MAP_MARBLE_THRESHOLD - 0.10 || !isLandEnoughForMountain(col, row, h)) continue;
-      if (isNearWater(heights, col, row)) continue;
-
-      const near = countNeighborTerrains(col, row, isMountainTerrain, 1);
-      const broad = countNeighborTerrains(col, row, terrain => isMountainTerrain(terrain) || terrain === 'hill', 2);
-      const shouldCoalesce = near.count >= minN || (near.count >= 4 && broad.count >= 14);
-      if (!shouldCoalesce) continue;
-
-      const slope = cell.slope || 0;
-      changes.push({
-        col,
-        row,
-        terrain: slope > MAP_ROCK_SLOPE * 0.68 || h > MAP_MARBLE_THRESHOLD - 0.02 ? 'rock' : 'marble',
-      });
-    }
-  }
-
-  changes.forEach(change => {
-    const cell = grid[change.row][change.col];
-    cell.terrain = change.terrain;
-    applyCellHeight(cell, heights[change.row][change.col]);
-  });
-}
-
 /** Comble seulement les petits trous vraiment enfermés dans un massif roche/marbre. */
 function closeMountainHoles(heights, passes){
-  const defaultPasses = typeof MAP_MOUNTAIN_HOLE_CLOSE_PASSES === 'number' ? MAP_MOUNTAIN_HOLE_CLOSE_PASSES : 1;
-  const n = typeof passes === 'number' ? passes : defaultPasses;
+  const n = typeof passes === 'number' ? passes : 1;
   if (!Array.isArray(grid) || grid.length === 0) return;
-
-  const minNeighbors = typeof MAP_MOUNTAIN_HOLE_MIN_NEIGHBORS === 'number' ? MAP_MOUNTAIN_HOLE_MIN_NEIGHBORS : 5;
 
   for (let pass = 0; pass < n; pass++){
     const changes = [];
@@ -1104,13 +955,13 @@ function closeMountainHoles(heights, passes){
         if (!cell || cell.terrain === 'water' || cell.terrain === 'sand' || isMountainTerrain(cell.terrain)) continue;
 
         const h = heights[row][col];
-        const fillMinHeight = MAP_MARBLE_THRESHOLD - 0.08;
+        const fillMinHeight = MAP_MARBLE_THRESHOLD - 0.06;
         if (h < fillMinHeight || !isLandEnoughForMountain(col, row, h)) continue;
 
         const near = countNeighborTerrains(col, row, isMountainTerrain, 1);
         const broad = countNeighborTerrains(col, row, terrain => isMountainTerrain(terrain) || terrain === 'hill', 2);
-        const enclosedByRock = near.count >= minNeighbors + 2;
-        const enclosedByMassif = near.count >= minNeighbors && broad.count >= 14;
+        const enclosedByRock = near.count >= 7;
+        const enclosedByMassif = near.count >= 6 && broad.count >= 17;
 
         if (enclosedByRock || enclosedByMassif){
           const slope = cell.slope || 0;
@@ -1128,40 +979,6 @@ function closeMountainHoles(heights, passes){
       cell.terrain = change.terrain;
       applyCellHeight(cell, heights[change.row][change.col]);
     });
-  }
-}
-
-/** Garantit une bande côtière praticable sur le bord connecté (spawn migrants / PNJ). */
-function ensureSpawnCoastStrip(heights){
-  if (!Array.isArray(grid) || grid.length === 0) return;
-
-  const edgeDepth = typeof MAP_CONNECTED_EDGE_LAND_WIDTH === 'number' ? MAP_CONNECTED_EDGE_LAND_WIDTH : 2;
-  const lift = typeof MAP_CONNECTED_EDGE_LIFT === 'number' ? MAP_CONNECTED_EDGE_LIFT : 0.36;
-  const waterMin = MAP_WATER_THRESHOLD + 0.02;
-
-  for (let row = 0; row < GRID_ROWS; row++){
-    for (let col = 0; col < GRID_COLS; col++){
-      const dist = connectedLandEdgeDistance(col, row);
-      if (dist >= edgeDepth && !isEntryCorridorCell(col, row)) continue;
-      if (!isIsthmusAccessCell(col, row, mapSeed) && !isEntryCorridorCell(col, row)) continue;
-
-      const cell = grid[row][col];
-      if (!cell) continue;
-
-      const h = clamp01(Math.max(heights[row][col], lift - dist * 0.012));
-      heights[row][col] = h;
-
-      if (dist === 0){
-        cell.terrain = 'sand';
-      } else if (cell.terrain === 'water' || cell.terrain === 'rock' || cell.terrain === 'marble'){
-        cell.terrain = h < waterMin ? 'sand' : (h > MAP_HILL_THRESHOLD ? 'hill' : 'grass');
-      } else if (cell.terrain === 'forest' && dist <= 1){
-        cell.terrain = 'grass';
-      }
-
-      cell.level = Math.max(1, cell.level || 1);
-      applyCellHeight(cell, h);
-    }
   }
 }
 
@@ -1377,15 +1194,12 @@ async function generateProceduralMap(seed){
   await yieldFrame();
   polishCoastBiomes(heights, slopes);
   polishMountainBiomes(heights);
-  coalesceMountainMassifs(heights);
-  closeMountainHoles(heights);
+  closeMountainHoles(heights, 1);
   syncAllCellHeights(heights);
 
   reportGenProgress(88, 'Bords de carte…');
   await yieldFrame();
   if (typeof polishMapEdges === 'function') polishMapEdges();
-  ensureSpawnCoastStrip(heights);
-  syncAllCellHeights(heights);
 
   reportGenProgress(94, 'Corridor d\'entrée…');
   await yieldFrame();
@@ -1398,6 +1212,11 @@ async function generateProceduralMap(seed){
   terrainGenerationInProgress = false;
   if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
   else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+
+  // Déclenche le bake Three.js si actif
+  if (typeof buildThreeTerrain === 'function' && typeof isThreeReady === 'function' && isThreeReady()){
+    buildThreeTerrain();
+  }
   if (typeof render === 'function') render();
   debugInfo('Carte procédurale générée', {
     seed: mapSeed,

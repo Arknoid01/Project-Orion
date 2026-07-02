@@ -92,8 +92,8 @@ function tileCenter(col, row){
   };
 }
 
-/** Sommet nord du losange visible (cap PNG) — même ancrage que drawLegoBrick. */
-function tileCapNorth(col, row){
+/** Sommet visuel du losange (cap) — corrige le décalage des cubes PNG empilés. */
+function natureDecorTileNorth(col, row){
   const anchor = (typeof usesLayeredTerrain === 'function' && usesLayeredTerrain()
       && typeof tileSurfaceAnchor === 'function')
     ? tileSurfaceAnchor(col, row)
@@ -103,7 +103,7 @@ function tileCapNorth(col, row){
       && typeof terrainBlockMetrics === 'function'
       && inBounds(col, row)){
     const cell = grid[row][col];
-    const sprite = blockTopSpriteForCell(cell, true);
+    const sprite = blockTopSpriteForCell(cell, false);
     if (sprite){
       const m = terrainBlockMetrics(sprite);
       if (m && m.capBackOffset){
@@ -114,14 +114,9 @@ function tileCapNorth(col, row){
   return anchor;
 }
 
-/** Sommet visuel du losange (cap) — alias décor / arbres. */
-function natureDecorTileNorth(col, row){
-  return typeof tileCapNorth === 'function' ? tileCapNorth(col, row) : tileCenter(col, row);
-}
-
 /** Centre du losange walkable (clics / surbrillance). */
 function tileDiamondCenter(col, row){
-  const north = typeof tileCapNorth === 'function' ? tileCapNorth(col, row) : tileCenter(col, row);
+  const north = tileCenter(col, row);
   return { x: north.x, y: north.y + TILE_H / 2 };
 }
 

@@ -42,8 +42,10 @@ function startRenderLoop(){
 
     _renderLastTime = now;
 
-    // Bascule Pixi ou Canvas2D
-    if (typeof isPixiReady === 'function' && isPixiReady()){
+    // Bascule Three.js ou Pixi ou Canvas2D
+    if (typeof isThreeReady === 'function' && isThreeReady()){
+      renderThree(now);
+    } else if (typeof isPixiReady === 'function' && isPixiReady()){
       renderPixi(now);
     } else {
       render(now);

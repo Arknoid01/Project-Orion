@@ -621,12 +621,6 @@ function drawTileShape(cx, cy, fillColor, strokeColor){
   drawDiamondOn(ctx, cx, cy, fillColor, strokeColor);
 }
 
-/** Surbrillance case — même ancrage cap que les blocs PNG (tileCapNorth). */
-function drawTileHighlight(col, row, fillColor, strokeColor){
-  const north = typeof tileCapNorth === 'function' ? tileCapNorth(col, row) : tileCenter(col, row);
-  drawTileShape(Math.round(north.x), Math.round(north.y), fillColor, strokeColor);
-}
-
 function drawDiamondOn(c, cx, cy, fillColor, strokeColor){
   c.beginPath();
   c.moveTo(cx, cy);
@@ -1345,16 +1339,19 @@ function render(now){
       );
       rectTiles.forEach(tile => {
         if (!inBounds(tile.col, tile.row)) return;
+        const { x, y } = tileCenter(tile.col, tile.row);
         const ok = roadMode
           ? canPlaceRoadTerrain(tile.col, tile.row)
           : canPlaceTerrain(tile.col, tile.row);
         const color = ok ? 'rgba(120,255,120,0.45)' : 'rgba(255,60,60,0.25)';
-        drawTileHighlight(tile.col, tile.row, color, 'rgba(0,0,0,0.35)');
+        drawTileShape(x, y, color, 'rgba(0,0,0,0.35)');
       });
-      drawTileHighlight(zonePlacementStart.col, zonePlacementStart.row, 'rgba(210,162,74,0.55)', 'rgba(210,162,74,0.9)');
+      const { x, y } = tileCenter(zonePlacementStart.col, zonePlacementStart.row);
+      drawTileShape(x, y, 'rgba(210,162,74,0.55)', 'rgba(210,162,74,0.9)');
     } else if (supportsZonePlacement() && !zonePlacementStart){
+      const { x, y } = tileCenter(hoverTile.col, hoverTile.row);
       const ok = roadMode ? canPlaceRoad(hoverTile.col, hoverTile.row) : canPlace(hoverTile.col, hoverTile.row);
-      drawTileHighlight(hoverTile.col, hoverTile.row, ok ? 'rgba(210,162,74,0.35)' : 'rgba(255,60,60,0.35)', 'rgba(0,0,0,0.4)');
+      drawTileShape(x, y, ok ? 'rgba(210,162,74,0.35)' : 'rgba(255,60,60,0.35)', 'rgba(0,0,0,0.4)');
     } else {
     const def = selectedBuilding ? BUILDING_DEFS[selectedBuilding] : null;
     const fp = (def && def.footprint) || 1;
@@ -1378,7 +1375,8 @@ function render(now){
     }
     tiles.forEach(t => {
       if (!inBounds(t.col, t.row)) return;
-      drawTileHighlight(t.col, t.row, color, 'rgba(0,0,0,0.4)');
+      const { x, y } = tileCenter(t.col, t.row);
+      drawTileShape(x, y, color, 'rgba(0,0,0,0.4)');
     });
     }
   }
