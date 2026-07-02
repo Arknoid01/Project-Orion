@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Test 3D ISO — Olympos</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+  canvas { display:block; }
+  #info {
+    position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.6); color:#fff; padding:8px 16px;
+    border-radius:8px; font:14px sans-serif; text-align:center;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<div id="info">1 doigt = tourner · 2 doigts = zoom · double-tap = vue iso</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.min.js"></script>
+<script>
+/* ===================== SCENE ===================== */
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb); // ciel bleu
+
+/* ===================== CAMERA ISO ===================== */
+const W = window.innerWidth, H = window.innerHeight;
+const aspect = W / H;
+const viewSize = 12; // tuiles visibles en largeur
+const cam = new THREE.OrthographicCamera(
+  -viewSize * aspect / 2,  viewSize * aspect / 2,
+   viewSize / 2,           -viewSize / 2,
+  -100, 100
+);
+
+// Position isométrique classique
+let camAngleH = Math.PI / 4;   // 45° horizontal
+let camAngleV = Math.atan(1 / Math.sqrt(2)); // ~35.26° vertical
+const camDist = 20;
+
+function updateCamera(){
+  cam.position.x = camDist * Math.cos(camAngleV) * Math.sin(camAngleH);
+  cam.position.y = camDist * Math.sin(camAngleV);
+  cam.position.z = camDist * Math.cos(camAngleV) * Math.cos(camAngleH);
+  cam.lookAt(0, 0, 0);
+}
+updateCamera();
+
+/* ===================== RENDERER ===================== */
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+
+/* ===================== LUMIERE ===================== */
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(1, 2, 1);
+scene.add(sun);
+
+/* ===================== TEXTURE ===================== */
+// Texture procédurale Minecraft-style en attendant le vrai PNG
+function makeProceduralTexture(topColor, sideColor){
+  const size = 64;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+
+  // Fond
+  ctx.fillStyle = sideColor;
+  ctx.fillRect(0, 0, size, size);
+
+  // Bruit pixelisé
+  for (let i = 0; i < 200; i++){
+    const x = Math.floor(Math.random() * size / 4) * 4;
+    const y = Math.floor(Math.random() * size / 4) * 4;
+    const bright = Math.random() > 0.5 ? 20 : -20;
+    const c = hexToRgb(sideColor);
+    ctx.fillStyle = `rgb(${c.r+bright},${c.g+bright},${c.b+bright})`;
+    ctx.fillRect(x, y, 4, 4);
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  return tex;
+}
+
+function hexToRgb(hex){
+  const n = parseInt(hex.slice(1), 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+
+// Matériaux par face [right, left, top, bottom, front, back]
+function makeCubeMat(top, side){
+  const topTex  = makeProceduralTexture(top, top);
+  const sideTex = makeProceduralTexture(side, side);
+  const botTex  = makeProceduralTexture('#5c3d1a', '#5c3d1a');
+  return [
+    new THREE.MeshLambertMaterial({ map: sideTex }),
+    new THREE.MeshLambertMaterial({ map: sideTex }),
+    new THREE.MeshLambertMaterial({ map: topTex  }),
+    new THREE.MeshLambertMaterial({ map: botTex  }),
+    new THREE.MeshLambertMaterial({ map: sideTex }),
+    new THREE.MeshLambertMaterial({ map: sideTex }),
+  ];
+}
+
+const MATS = {
+  grass: makeCubeMat('#5d9e3c', '#8B6340'),
+  dirt:  makeCubeMat('#8B6340', '#8B6340'),
+  sand:  makeCubeMat('#d4b870', '#d4b870'),
+  water: makeCubeMat('#3a86c8', '#3a86c8'),
+  rock:  makeCubeMat('#8a8070', '#8a8070'),
+};
+
+// Essaie de charger le vrai PNG uploadé
+const loader = new THREE.TextureLoader();
+loader.load(
+  'assets/textures/flat/game/grass_top.png',
+  (tex) => {
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    // Remplace la face du dessus de l'herbe par la vraie texture
+    MATS.grass[2] = new THREE.MeshLambertMaterial({ map: tex });
+    // Reconstruit les cubes avec la vraie texture
+    buildMap();
+  },
+  null,
+  () => buildMap() // fallback si pas de texture
+);
+
+/* ===================== GRILLE DE CUBES ===================== */
+const GRID = 20; // 20×20 cubes pour le test
+const geo  = new THREE.BoxGeometry(1, 1, 1);
+
+let mapGroup = null;
+
+function buildMap(){
+  if (mapGroup) scene.remove(mapGroup);
+  mapGroup = new THREE.Group();
+
+  for (let x = 0; x < GRID; x++){
+    for (let z = 0; z < GRID; z++){
+      // Génération simple : hauteurs aléatoires
+      const nx = x / GRID, nz = z / GRID;
+      const noise = Math.sin(nx * 8) * Math.cos(nz * 6) * 0.5 + 0.5;
+      const h = Math.max(1, Math.round(noise * 3));
+
+      let matKey = 'grass';
+      if (h <= 1) matKey = 'sand';
+      if (h >= 3) matKey = 'rock';
+
+      // Empile les cubes
+      for (let y = 0; y < h; y++){
+        const mat = y === h - 1 ? MATS[matKey] : MATS.dirt;
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(
+          x - GRID / 2 + 0.5,
+          y - 1,
+          z - GRID / 2 + 0.5
+        );
+        mapGroup.add(mesh);
+      }
+    }
+  }
+
+  scene.add(mapGroup);
+}
+
+buildMap();
+
+/* ===================== RESIZE ===================== */
+window.addEventListener('resize', () => {
+  const W = window.innerWidth, H = window.innerHeight;
+  const a = W / H;
+  cam.left   = -viewSize * a / 2;
+  cam.right  =  viewSize * a / 2;
+  cam.top    =  viewSize / 2;
+  cam.bottom = -viewSize / 2;
+  cam.updateProjectionMatrix();
+  renderer.setSize(W, H);
+});
+
+/* ===================== CONTROLES TACTILES ===================== */
+let lastTouch = null;
+let pinchDist  = null;
+let currentZoom = viewSize;
+
+const canvas = renderer.domElement;
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1){
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  } else if (e.touches.length === 2){
+    pinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && lastTouch){
+    const dx = e.touches[0].clientX - lastTouch.x;
+    const dy = e.touches[0].clientY - lastTouch.y;
+    camAngleH -= dx * 0.008;
+    camAngleV  = Math.max(0.1, Math.min(Math.PI/2 - 0.05, camAngleV - dy * 0.005));
+    updateCamera();
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  } else if (e.touches.length === 2 && pinchDist){
+    const newDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const ratio = pinchDist / newDist;
+    currentZoom = Math.max(4, Math.min(30, currentZoom * ratio));
+    const a = window.innerWidth / window.innerHeight;
+    cam.left   = -currentZoom * a / 2;
+    cam.right  =  currentZoom * a / 2;
+    cam.top    =  currentZoom / 2;
+    cam.bottom = -currentZoom / 2;
+    cam.updateProjectionMatrix();
+    pinchDist = newDist;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (e.touches.length < 1) lastTouch = null;
+  if (e.touches.length < 2) pinchDist = null;
+});
+
+// Double-tap : retour à la vue isométrique classique
+let lastTap = 0;
+canvas.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTap < 300){
+    camAngleH = Math.PI / 4;
+    camAngleV = Math.atan(1 / Math.sqrt(2));
+    updateCamera();
+  }
+  lastTap = now;
+}, { passive: true });
+
+// Souris desktop
+let mouseDown = false, lastMouse = null;
+canvas.addEventListener('mousedown', e => { mouseDown = true; lastMouse = {x:e.clientX, y:e.clientY}; });
+window.addEventListener('mouseup',   () => { mouseDown = false; });
+window.addEventListener('mousemove', e => {
+  if (!mouseDown || !lastMouse) return;
+  camAngleH -= (e.clientX - lastMouse.x) * 0.005;
+  camAngleV  = Math.max(0.1, Math.min(Math.PI/2 - 0.05, camAngleV - (e.clientY - lastMouse.y) * 0.004));
+  updateCamera();
+  lastMouse = {x:e.clientX, y:e.clientY};
+});
+canvas.addEventListener('wheel', e => {
+  currentZoom = Math.max(4, Math.min(30, currentZoom + e.deltaY * 0.02));
+  const a = window.innerWidth / window.innerHeight;
+  cam.left   = -currentZoom * a / 2;
+  cam.right  =  currentZoom * a / 2;
+  cam.top    =  currentZoom / 2;
+  cam.bottom = -currentZoom / 2;
+  cam.updateProjectionMatrix();
+}, { passive: true });
+
+/* ===================== BOUCLE ===================== */
+function animate(){
+  requestAnimationFrame(animate);
+  renderer.render(scene, cam);
+}
+animate();
+</script>
+</body>
+</html>
