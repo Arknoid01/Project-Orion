@@ -108,7 +108,15 @@ function makeCubeMatsFromTextures(THREE, topTex, sideTex){
   const side = sideTex || topTex;
   const bot  = sideTex || topTex;
   const mk = (tex)=> tex
-    ? new THREE.MeshLambertMaterial({ map: tex })
+    ? new THREE.MeshLambertMaterial({
+      map: tex,
+      transparent: false,
+      opacity: 1,
+      alphaTest: 0,
+      depthWrite: true,
+      depthTest: true,
+      side: THREE.FrontSide,
+    })
     : new THREE.MeshLambertMaterial({ color: 0x888888 });
   return [mk(side), mk(side), mk(topTex || side), mk(bot), mk(side), mk(side)];
 }
@@ -125,37 +133,59 @@ const THREE_TERRAIN_TEX_DEFS = {
   water:  { top: 'water.png',  side: 'water.png' },
 };
 
-function _loadThreeTexture(THREE, path){
+/** Aplati une image PNG en texture RGB opaque (fix alpha mobile WebGL). */
+function _bakeOpaqueCanvasTexture(THREE, img, fillHex){
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) return null;
+  const cv = document.createElement('canvas');
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext('2d');
+  const fill = fillHex != null ? fillHex : 0x5aaa38;
+  const r = (fill >> 16) & 255;
+  const g = (fill >> 8) & 255;
+  const b = fill & 255;
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.premultiplyAlpha = false;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function _loadThreeTexture(THREE, path, fillHex){
   return new Promise((resolve)=>{
-    new THREE.TextureLoader().load(
-      path,
-      (tex)=>{
-        tex.magFilter = THREE.NearestFilter;
-        tex.minFilter = THREE.NearestFilter;
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        resolve(tex);
-      },
-      undefined,
-      ()=> resolve(null),
-    );
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=> resolve(_bakeOpaqueCanvasTexture(THREE, img, fillHex));
+    img.onerror = ()=> resolve(null);
+    img.src = path;
   });
 }
 
 async function _loadThreeTerrainTextures(THREE){
   for (const [key, paths] of Object.entries(THREE_TERRAIN_TEX_DEFS)){
-    const top  = await _loadThreeTexture(THREE, THREE_TERRAIN_TEX_BASE + paths.top);
-    const side = await _loadThreeTexture(THREE, THREE_TERRAIN_TEX_BASE + paths.side);
+    const topFill  = TERRAIN_TOP_COLOR[key] || 0x888888;
+    const sideFill = TERRAIN_SIDE_COLOR[key] || 0x666666;
+    const top  = await _loadThreeTexture(THREE, THREE_TERRAIN_TEX_BASE + paths.top, topFill);
+    const side = await _loadThreeTexture(THREE, THREE_TERRAIN_TEX_BASE + paths.side, sideFill);
     if (top){
       window._terrainMats[key] = makeCubeMatsFromTextures(THREE, top, side);
     } else {
       window._terrainMats[key] = makeCubeMats(
         THREE,
-        TERRAIN_TOP_COLOR[key] || 0x888888,
-        TERRAIN_SIDE_COLOR[key] || 0x666666,
+        topFill,
+        sideFill,
       );
     }
   }
-  console.log('[Three] Textures terrain carrées chargées');
+  console.log('[Three] Textures terrain carrées chargées (opaque mobile-safe)');
 }
 
 /* ---------------------------------------------------------------
@@ -429,8 +459,11 @@ window.initThreeRenderer = async function(){
     // Renderer WebGL
     const rnd = new _THREE.WebGLRenderer({
       antialias: false,
+      alpha: false,
+      premultipliedAlpha: false,
       powerPreference: 'high-performance',
     });
+    rnd.setClearColor(0x8ec8e8, 1);
     rnd.domElement.id = 'gameCanvas';
     rnd.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;touch-action:none;cursor:pointer;';
 
