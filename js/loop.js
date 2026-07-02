@@ -31,7 +31,13 @@ function startRenderLoop(){
       || (typeof godAgents !== 'undefined' && godAgents.length > 0)
       || (typeof monster !== 'undefined' && monster)
       || (typeof hero !== 'undefined' && hero)
-      || (typeof hoverTile !== 'undefined' && hoverTile);
+      || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0)
+      || (typeof hoverTile !== 'undefined' && hoverTile)
+      || (typeof selectedBuilding !== 'undefined' && selectedBuilding)
+      || (typeof roadMode !== 'undefined' && roadMode)
+      || (typeof demolishMode !== 'undefined' && demolishMode)
+      || (typeof blockMode !== 'undefined' && blockMode)
+      || (typeof stairsMode !== 'undefined' && stairsMode);
 
     if (hasMoving) markRenderDirty();
 

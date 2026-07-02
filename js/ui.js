@@ -741,11 +741,20 @@ document.addEventListener('keydown', (e) => {
 // canvas existe toujours (render.js le crée avant ui.js dans l'ordre de chargement),
 // donc pas besoin de garde ici -- mais infoBar (à l'intérieur du handler) si.
 function initCanvasListeners(){
-const _c = document.getElementById('gameCanvas') || canvas;
+const _c = (typeof isThreeReady === 'function' && isThreeReady() && window._threeRenderer)
+  ? window._threeRenderer.domElement
+  : (document.getElementById('gameCanvas') || canvas);
 _c.addEventListener('mousemove', (e) => {
-  const pick = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
-  const { mx, my } = pick(e.clientX, e.clientY);
-  const { col, row } = pickTileAtWorld(mx, my);
+  const pick = typeof pickTileAtScreen === 'function'
+    ? pickTileAtScreen(e.clientX, e.clientY)
+    : null;
+  if (!pick || !pick.hit){
+    hoverTile = null;
+    const infoMiss = document.getElementById('infoBar');
+    if (infoMiss) infoMiss.textContent = t('info.hover');
+    return;
+  }
+  const { col, row } = pick;
   hoverTile = { col, row };
 
   const info = document.getElementById('infoBar');
@@ -763,6 +772,7 @@ _c.addEventListener('mousemove', (e) => {
     }
   }
   if (supportsZonePlacement()) updateZonePlacementUI();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
   // Le rendu est géré par requestAnimationFrame (loop.js) — pas de render() ici.
 });
 
@@ -774,9 +784,11 @@ _c.addEventListener('contextmenu', (e) => {
 });
 
 _c.addEventListener('click', (e) => {
-  const pick = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
-  const { mx, my } = pick(e.clientX, e.clientY);
-  const { col, row } = pickTileAtWorld(mx, my);
+  const pick = typeof pickTileAtScreen === 'function'
+    ? pickTileAtScreen(e.clientX, e.clientY)
+    : null;
+  if (!pick || !pick.hit) return;
+  const { col, row } = pick;
   if (!inBounds(col, row)) return;
 
   const cell = grid[row][col];
@@ -845,7 +857,13 @@ _c.addEventListener('click', (e) => {
     // Aucun mode actif : on inspecte ce qui a été tapé -- un marcheur en mouvement
     // s'il est sous le doigt, sinon la case (ouvre l'observateur, nouvelle UI).
     const now = performance.now();
-    const hitWalker = (typeof findWalkerNear === 'function') ? findWalkerNear(mx, my, now) : null;
+    const hitWalker = (typeof findWalkerNear === 'function')
+      ? findWalkerNear(
+          (typeof isThreeReady === 'function' && isThreeReady()) ? e.clientX : pick.mx,
+          (typeof isThreeReady === 'function' && isThreeReady()) ? e.clientY : pick.my,
+          now,
+        )
+      : null;
     if (hitWalker && typeof openWalkerObserver === 'function'){
       openWalkerObserver(hitWalker);
     } else if (typeof openTileObserver === 'function'){

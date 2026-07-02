@@ -1261,6 +1261,14 @@ function centerMapView(){
   const land = computeLandCentroid();
   const targetCol = land ? Math.round(land.col) : Math.floor(GRID_COLS / 2);
   const targetRow = land ? Math.round(land.row) : Math.floor(GRID_ROWS / 2);
+
+  if (typeof isThreeReady === 'function' && isThreeReady()
+      && typeof centerThreeOnTile === 'function'){
+    centerThreeOnTile(targetCol, targetRow);
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+    return;
+  }
+
   const center = tileCenter(targetCol, targetRow);
   if (typeof centerCameraOn === 'function'){
     centerCameraOn(center.x, center.y);

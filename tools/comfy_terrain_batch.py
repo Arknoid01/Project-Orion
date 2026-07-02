@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 """
-Génère toutes les textures terrain via l'API ComfyUI (Flux + LoRA seamless).
+Genere les textures terrain carrees (style Minecraft) via ComfyUI (SDXL + LoRA texture).
 
-Prérequis :
-  - ComfyUI lancé (http://127.0.0.1:8188)
-  - Flux : flux1-dev (safetensors dans models/unet/ OU .gguf via UnetLoaderGGUF)
-  - CLIP : t5xxl + clip_l + ae (auto-détectés depuis ComfyUI)
-  - LoRA : models/loras/seamless_texture.safetensors
+Prerequis :
+  - ComfyUI lance (http://127.0.0.1:8188)
+  - Checkpoint : models/checkpoints/sdxlNuclearGeneralPurposeV3Semi_v30.safetensors
+  - LoRA       : models/loras/sxz-texture-sdxl.safetensors
+
+Prompt : texture of {surface}, {subject}, seamless
 
 Usage :
-  python tools/comfy_terrain_batch.py
-  python tools/comfy_terrain_batch.py --only grass_top stone
+  python tools/comfy_terrain_batch.py --list
   python tools/comfy_terrain_batch.py --dry-run
+  python tools/comfy_terrain_batch.py
+  python tools/comfy_terrain_batch.py --only grass wheat water
   python tools/comfy_terrain_batch.py --import-game
-  python tools/comfy_terrain_batch.py --workflow tools/comfy_workflows/mon_export_api.json
 
-Prompts : smlstxtr, <subject>, seamless texture  (+ style grec dans config)
+Config : tools/comfy_terrain_config.json
 """
 
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import os
 import subprocess
@@ -35,7 +35,61 @@ import uuid
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT, "tools", "comfy_terrain_config.json")
 SOURCE_DIR = os.path.join(ROOT, "assets", "textures", "flat", "source")
-DEFAULT_WORKFLOW = os.path.join(ROOT, "tools", "comfy_workflows", "terrain_flux_seamless.api.json")
+DEFAULT_WORKFLOW = os.path.join(ROOT, "tools", "comfy_workflows", "terrain_sdxl_texture.api.json")
+
+TERRAIN_BACKEND = "sdxl"
+SCRIPT_VERSION = "sdxl-nuclear-sxz-2026-07-02-cfg7"
+FORBIDDEN_FLUX_NODES = frozenset({
+    "DualCLIPLoader",
+    "UNETLoader",
+    "UnetLoaderGGUF",
+    "FluxGuidance",
+    "ModelSamplingFlux",
+    "EmptySD3LatentImage",
+    "SamplerCustomAdvanced",
+    "BasicGuider",
+    "RandomNoise",
+})
+
+
+def print_banner() -> None:
+    print("=" * 60)
+    print(f"  ORION terrain batch — BACKEND {TERRAIN_BACKEND.upper()}")
+    print(f"  Version : {SCRIPT_VERSION}")
+    print(f"  Script  : {os.path.abspath(__file__)}")
+    print("  (PAS comfy_batch_generate.py — celui-la utilise Flux pour les batiments)")
+    print("=" * 60)
+
+
+def workflow_node_types(workflow: dict) -> set[str]:
+    return {
+        n.get("class_type")
+        for n in workflow.values()
+        if isinstance(n, dict) and n.get("class_type")
+    }
+
+
+def assert_sdxl_workflow(workflow: dict) -> None:
+    types = workflow_node_types(workflow)
+    flux_hits = types & FORBIDDEN_FLUX_NODES
+    if flux_hits:
+        raise SystemExit(
+            "ERREUR : workflow Flux detecte dans la file ComfyUI.\n"
+            f"  Nodes Flux : {', '.join(sorted(flux_hits))}\n"
+            "  Cause probable : --workflow pointe vers un export Flux ancien.\n"
+            "  Relance SANS --workflow, ou avec un export SDXL.\n"
+            f"  Script attendu : {os.path.abspath(__file__)}"
+        )
+    if "CheckpointLoaderSimple" not in types:
+        raise SystemExit(
+            "ERREUR : workflow sans CheckpointLoaderSimple (pas SDXL).\n"
+            f"  Nodes : {', '.join(sorted(types))}"
+        )
+    if "LoraLoader" not in types:
+        raise SystemExit(
+            "ERREUR : workflow sans LoraLoader.\n"
+            f"  Nodes : {', '.join(sorted(types))}"
+        )
 
 
 def load_config(path: str) -> dict:
@@ -101,53 +155,51 @@ def pick_model(candidates: list[str], preferred: str | None, *hints: str) -> str
 
 
 def resolve_models(cfg: dict, object_info: dict) -> dict:
-    """Aligne la config sur les modèles réellement présents dans ComfyUI."""
+    """Aligne checkpoint + LoRA SDXL sur les modeles presents dans ComfyUI."""
     m = dict(cfg.get("models") or {})
     resolved = dict(m)
 
-    unet_safetensors = model_choices(object_info, "UNETLoader", "unet_name")
-    unet_gguf = model_choices(object_info, "UnetLoaderGGUF", "unet_name")
-    if unet_safetensors:
-        resolved["unet_loader"] = "UNETLoader"
-        resolved["unet"] = pick_model(unet_safetensors, m.get("unet"), "flux")
-    elif unet_gguf:
-        resolved["unet_loader"] = "UnetLoaderGGUF"
-        resolved["unet"] = pick_model(unet_gguf, m.get("unet"), "flux")
-    else:
+    ckpt_list = model_choices(object_info, "CheckpointLoaderSimple", "ckpt_name")
+    resolved["checkpoint"] = pick_model(
+        ckpt_list,
+        m.get("checkpoint"),
+        "nuclear",
+        "sdxl",
+    )
+    if not resolved["checkpoint"]:
         raise SystemExit(
-            "Aucun modèle Flux UNET détecté.\n"
-            "Place flux1-dev.safetensors dans models/unet/ ou un .gguf Flux dans models/unet/"
+            "Aucun checkpoint SDXL detecte.\n"
+            "Place sdxlNuclearGeneralPurposeV3Semi_v30.safetensors dans models/checkpoints/"
         )
 
-    clip1 = model_choices(object_info, "DualCLIPLoader", "clip_name1")
-    clip2 = model_choices(object_info, "DualCLIPLoader", "clip_name2")
-    resolved["clip_t5"] = pick_model(clip1, m.get("clip_t5"), "t5", "t5xxl")
-    resolved["clip_l"] = pick_model(clip2, m.get("clip_l"), "clip_l")
-    if resolved["clip_t5"] == resolved["clip_l"] and len(clip1) > 1:
-        for name in clip1:
-            if name != resolved["clip_l"]:
-                resolved["clip_t5"] = name
-                break
-
-    vae_list = model_choices(object_info, "VAELoader", "vae_name")
-    resolved["vae"] = pick_model(vae_list, m.get("vae"), "ae.safetensors", "ae")
-
-    lora_list = model_choices(object_info, "LoraLoaderModelOnly", "lora_name")
-    resolved["lora"] = pick_model(lora_list, m.get("lora"), "seamless")
+    lora_list = model_choices(object_info, "LoraLoader", "lora_name")
+    resolved["lora"] = pick_model(
+        lora_list,
+        m.get("lora"),
+        "sxz",
+        "texture",
+    )
     if not resolved["lora"]:
-        raise SystemExit("LoRA seamless_texture.safetensors introuvable dans models/loras/")
+        raise SystemExit("LoRA sxz-texture-sdxl.safetensors introuvable dans models/loras/")
 
+    strength = m.get("lora_strength", 0.9)
+    resolved["lora_strength"] = strength
+    resolved["lora_strength_clip"] = m.get("lora_strength_clip", strength)
     return resolved
 
 
-def format_prompt(cfg: dict, subject: str) -> str:
-    prefix = cfg.get("prompt_prefix", "smlstxtr").strip()
-    suffix = cfg.get("prompt_suffix", "seamless texture").strip()
-    parts = [p for p in (prefix, subject.strip(), suffix) if p]
-    return ", ".join(parts)
+def format_prompt(cfg: dict, job: dict) -> str:
+    template = cfg.get("prompt_template", "texture of {surface}, {subject}, seamless")
+    surface = (job.get("surface") or job.get("name") or "terrain").strip()
+    subject = (job.get("subject") or "").strip()
+    try:
+        return template.format(surface=surface, subject=subject).strip()
+    except KeyError:
+        parts = [p for p in (surface, subject, "seamless") if p]
+        return ", ".join(parts)
 
 
-def build_flux_seamless_workflow(
+def build_sdxl_texture_workflow(
     cfg: dict,
     models: dict,
     positive: str,
@@ -155,109 +207,62 @@ def build_flux_seamless_workflow(
     seed: int,
     filename_prefix: str,
 ) -> dict:
-    """Workflow Flux + LoraLoaderModelOnly (safetensors ou GGUF)."""
+    """Workflow SDXL : CheckpointLoaderSimple + LoraLoader + KSampler."""
     g = cfg["generation"]
     width = g.get("width", 1024)
     height = g.get("height", 1024)
-    unet_loader = models.get("unet_loader", "UNETLoader")
-
-    unet_node: dict = {
-        "class_type": unet_loader,
-        "inputs": {"unet_name": models["unet"]},
-    }
-    if unet_loader == "UNETLoader":
-        unet_node["inputs"]["weight_dtype"] = "default"
+    lora_strength = models.get("lora_strength", 0.9)
+    lora_clip = models.get("lora_strength_clip", lora_strength)
 
     return {
-        "10": unet_node,
-        "11": {
-            "class_type": "DualCLIPLoader",
-            "inputs": {
-                "clip_name1": models["clip_t5"],
-                "clip_name2": models["clip_l"],
-                "type": "flux",
-            },
+        "4": {
+            "class_type": "CheckpointLoaderSimple",
+            "inputs": {"ckpt_name": models["checkpoint"]},
         },
-        "12": {
-            "class_type": "VAELoader",
-            "inputs": {"vae_name": models["vae"]},
-        },
-        "20": {
-            "class_type": "LoraLoaderModelOnly",
+        "5": {
+            "class_type": "LoraLoader",
             "inputs": {
-                "model": ["10", 0],
                 "lora_name": models["lora"],
-                "strength_model": models.get("lora_strength", 0.85),
+                "strength_model": lora_strength,
+                "strength_clip": lora_clip,
+                "model": ["4", 0],
+                "clip": ["4", 1],
             },
         },
-        "21": {
-            "class_type": "ModelSamplingFlux",
-            "inputs": {
-                "model": ["20", 0],
-                "max_shift": 1.15,
-                "base_shift": 0.5,
-                "width": width,
-                "height": height,
-            },
-        },
-        "30": {
+        "6": {
             "class_type": "CLIPTextEncode",
-            "inputs": {"text": positive, "clip": ["11", 0]},
+            "inputs": {"text": positive, "clip": ["5", 1]},
         },
-        "31": {
+        "7": {
             "class_type": "CLIPTextEncode",
-            "inputs": {"text": negative, "clip": ["11", 0]},
+            "inputs": {"text": negative, "clip": ["5", 1]},
         },
-        "32": {
-            "class_type": "FluxGuidance",
-            "inputs": {"conditioning": ["30", 0], "guidance": g.get("guidance", 3.5)},
-        },
-        "40": {
+        "13": {
             "class_type": "EmptyLatentImage",
+            "inputs": {"width": width, "height": height, "batch_size": 1},
+        },
+        "3": {
+            "class_type": "KSampler",
             "inputs": {
-                "width": width,
-                "height": height,
-                "batch_size": 1,
-            },
-        },
-        "50": {
-            "class_type": "RandomNoise",
-            "inputs": {"noise_seed": seed},
-        },
-        "51": {
-            "class_type": "BasicGuider",
-            "inputs": {"model": ["21", 0], "conditioning": ["32", 0]},
-        },
-        "52": {
-            "class_type": "KSamplerSelect",
-            "inputs": {"sampler_name": g.get("sampler", "euler")},
-        },
-        "53": {
-            "class_type": "BasicScheduler",
-            "inputs": {
-                "model": ["21", 0],
-                "scheduler": g.get("scheduler", "simple"),
-                "steps": g.get("steps", 20),
+                "seed": seed,
+                "steps": g.get("steps", 30),
+                "cfg": g.get("cfg", 7.0),
+                "sampler_name": g.get("sampler", "euler_ancestral"),
+                "scheduler": g.get("scheduler", "normal"),
                 "denoise": 1.0,
+                "model": ["5", 0],
+                "positive": ["6", 0],
+                "negative": ["7", 0],
+                "latent_image": ["13", 0],
             },
         },
-        "54": {
-            "class_type": "SamplerCustomAdvanced",
-            "inputs": {
-                "noise": ["50", 0],
-                "guider": ["51", 0],
-                "sampler": ["52", 0],
-                "sigmas": ["53", 0],
-                "latent_image": ["40", 0],
-            },
-        },
-        "60": {
+        "8": {
             "class_type": "VAEDecode",
-            "inputs": {"samples": ["54", 0], "vae": ["12", 0]},
+            "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
         },
         "70": {
             "class_type": "SaveImage",
-            "inputs": {"images": ["60", 0], "filename_prefix": filename_prefix},
+            "inputs": {"images": ["8", 0], "filename_prefix": filename_prefix},
         },
     }
 
@@ -282,6 +287,14 @@ def load_workflow_template(cfg: dict, workflow_path: str | None) -> dict | None:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         if is_api_workflow(data):
+            flux = workflow_node_types(data) & FORBIDDEN_FLUX_NODES
+            if flux:
+                print(
+                    f"ATTENTION : workflow externe ignore (Flux) : {path}\n"
+                    f"  Nodes : {', '.join(sorted(flux))}",
+                    file=sys.stderr,
+                )
+                continue
             return data
     return None
 
@@ -301,8 +314,10 @@ def patch_workflow_template(
         .replace("{{NEGATIVE}}", json.dumps(negative)[1:-1])
         .replace("{{SEED}}", str(seed))
         .replace("{{FILENAME_PREFIX}}", json.dumps(filename_prefix)[1:-1])
+        .replace("{{CHECKPOINT}}", json.dumps(cfg["models"]["checkpoint"])[1:-1])
         .replace("{{LORA}}", json.dumps(cfg["models"]["lora"])[1:-1])
-        .replace("{{LORA_STRENGTH}}", str(cfg["models"].get("lora_strength", 0.85)))
+        .replace("{{LORA_STRENGTH}}", str(cfg["models"].get("lora_strength", 0.9)))
+        .replace("{{LORA_STRENGTH_CLIP}}", str(cfg["models"].get("lora_strength_clip", cfg["models"].get("lora_strength", 0.9))))
     )
     workflow = json.loads(raw)
 
@@ -389,15 +404,23 @@ def run_import_game(size: int) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Batch textures terrain ComfyUI (Flux + seamless LoRA)")
+    parser = argparse.ArgumentParser(description="Batch textures terrain ComfyUI (SDXL + sxz-texture LoRA)")
     parser.add_argument("--config", default=CONFIG_PATH, help="Chemin comfy_terrain_config.json")
     parser.add_argument("--workflow", default=None, help="Export API ComfyUI (.json) optionnel")
-    parser.add_argument("--only", nargs="+", metavar="NAME", help="Textures ciblées (ex. grass_top stone)")
+    parser.add_argument("--only", nargs="+", metavar="NAME", help="Textures ciblées (ex. grass wheat water)")
     parser.add_argument("--dry-run", action="store_true", help="Affiche prompts sans envoyer à ComfyUI")
-    parser.add_argument("--import-game", action="store_true", help="Lance import_flat_textures.py après génération")
-    parser.add_argument("--game-size", type=int, default=64, help="Taille import jeu (TERRAIN_FLAT_FACE_PX)")
+    parser.add_argument("--import-game", action="store_true", help="Déploie vers assets/tiles/generated_mediterranean/")
+    parser.add_argument("--game-size", type=int, default=64, help="Taille carrée import jeu (px)")
     parser.add_argument("--list", action="store_true", help="Liste les textures configurées")
+    parser.add_argument("--version", action="store_true", help="Affiche version + chemin du script")
     args = parser.parse_args()
+
+    if args.version:
+        print_banner()
+        print(f"Config : {CONFIG_PATH}")
+        return 0
+
+    print_banner()
 
     cfg = load_config(args.config)
     base = comfy_base(cfg)
@@ -412,10 +435,19 @@ def main() -> int:
             print(f"Inconnus dans config : {', '.join(sorted(missing))}", file=sys.stderr)
 
     if args.list or not jobs:
-        print("Textures terrain :")
+        print("Textures terrain (cubes Three.js — carrées seamless) :")
+        print(f"  Source Comfy  : {SOURCE_DIR}")
+        print(f"  Déploiement   : assets/tiles/generated_mediterranean/")
+        print()
         for j in cfg.get("textures") or []:
-            print(f"  - {j['name']}")
-            print(f"      {format_prompt(cfg, j['subject'])}")
+            print(f"  - {j['name']}.png")
+            print(f"      {format_prompt(cfg, j)}")
+        print()
+        print("Usage Three.js (threeRenderer.js) :")
+        print("  grass/hill -> grass.png (top) + dirt.png (cotes)")
+        print("  wheat      -> wheat.png + dirt.png")
+        print("  forest     -> forest.png + dirt.png")
+        print("  sand/rock/marble/water -> meme texture sur toutes les faces")
         return 0 if args.list else 1
 
     template = load_workflow_template(cfg, args.workflow)
@@ -423,19 +455,19 @@ def main() -> int:
 
     if args.dry_run:
         print(f"ComfyUI : {base}")
-        print(f"Mode    : {'workflow externe' if use_template else 'workflow Flux intégré'}")
+        print(f"Mode    : {'workflow externe SDXL' if use_template else 'workflow SDXL integre'}")
         try:
             models = resolve_models(cfg, fetch_object_info(base))
-            print(f"UNET    : {models['unet_loader']} -> {models['unet']}")
-            print(f"CLIP    : {models['clip_t5']} + {models['clip_l']}")
-            print(f"VAE     : {models['vae']}")
-            print(f"LoRA    : {models['lora']} @ {models.get('lora_strength', 0.85)}")
+            print(f"Checkpoint : {models['checkpoint']}")
+            print(f"LoRA       : {models['lora']} @ {models.get('lora_strength', 0.9)}")
+            g = cfg.get("generation") or {}
+            print(f"Steps/CFG  : {g.get('steps', 30)} steps, cfg {g.get('cfg', 7.0)}, sampler {g.get('sampler', 'euler_ancestral')}")
         except (urllib.error.URLError, SystemExit) as err:
-            print(f"Modèles : (ComfyUI offline — {err})")
+            print(f"Modeles : (ComfyUI offline — {err})")
         print()
         for i, job in enumerate(jobs):
             seed = cfg["generation"].get("seed_base", 42) + i
-            pos = format_prompt(cfg, job["subject"])
+            pos = format_prompt(cfg, job)
             print(f"[{job['name']}] seed={seed}")
             print(f"  + {pos}")
             print(f"  - {negative}\n")
@@ -451,25 +483,29 @@ def main() -> int:
     seed_base = cfg["generation"].get("seed_base", 42)
 
     print(f"ComfyUI {base} — {len(jobs)} texture(s)")
-    print(f"UNET : {models['unet_loader']} -> {models['unet']}")
-    print(f"CLIP : {models['clip_t5']} + {models['clip_l']}")
-    print(f"VAE  : {models['vae']}")
-    print(f"LoRA : {models['lora']} @ {models.get('lora_strength', 0.85)}\n")
+    print(f"Checkpoint : {models['checkpoint']}")
+    print(f"LoRA       : {models['lora']} @ {models.get('lora_strength', 0.9)}")
+    g = cfg.get("generation") or {}
+    print(f"Steps/CFG  : {g.get('steps', 30)} steps, cfg {g.get('cfg', 7.0)}, sampler {g.get('sampler', 'euler_ancestral')}\n")
 
     ok = 0
     for i, job in enumerate(jobs):
         name = job["name"]
-        positive = format_prompt(cfg, job["subject"])
+        positive = format_prompt(cfg, job)
         seed = seed_base + i
         prefix = f"{subfolder}/{name}"
 
         if use_template:
             workflow = patch_workflow_template(template, cfg, positive, negative, seed, prefix)
         else:
-            workflow = build_flux_seamless_workflow(cfg, models, positive, negative, seed, prefix)
+            workflow = build_sdxl_texture_workflow(cfg, models, positive, negative, seed, prefix)
+
+        assert_sdxl_workflow(workflow)
+        node_list = ", ".join(sorted(workflow_node_types(workflow)))
 
         print(f"> {name}")
         print(f"  prompt: {positive}")
+        print(f"  nodes : {node_list}")
 
         try:
             prompt_id = queue_prompt(base, workflow, client_id)
@@ -484,7 +520,7 @@ def main() -> int:
             print(f"  ERREUR : {err}\n", file=sys.stderr)
             if not use_template:
                 print(
-                    "  Astuce : exporte ton graphe ComfyUI (Flux + seamless LoRA)\n"
+                    "  Astuce : exporte ton graphe ComfyUI SDXL + sxz-texture-sdxl\n"
                     "  en « Save (API Format) », place-le dans tools/comfy_workflows/\n"
                     "  et relance avec --workflow chemin/vers/export.api.json\n",
                     file=sys.stderr,

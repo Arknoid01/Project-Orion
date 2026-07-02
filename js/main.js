@@ -48,38 +48,22 @@ setInterval(() => {
   saveGame({ silent: true });
 }, 10000);
 
-// Init Three.js (terrain) + Pixi (décors) puis démarrage de la boucle
+// Three.js (terrain) + Pixi overlay (sprites) puis boucle de rendu
 async function initRenderers(){
-  // 1) Three.js pour le terrain
   if (typeof initThreeRenderer === 'function'){
     const ok = await initThreeRenderer();
     if (ok){
       console.log('[Main] Three.js actif');
 
-      // 2) Canvas Pixi transparent pour les décors par-dessus Three.js
-      if (window.PIXI){
-        const cv = document.createElement('canvas');
-        cv.style.cssText = 'position:fixed;inset:0;z-index:2;pointer-events:none;';
-        cv.width  = window.innerWidth  * Math.min(window.devicePixelRatio, 1.5);
-        cv.height = window.innerHeight * Math.min(window.devicePixelRatio, 1.5);
-        cv.style.width  = window.innerWidth  + 'px';
-        cv.style.height = window.innerHeight + 'px';
-        document.getElementById('canvasWrap').appendChild(cv);
-
-        const pixiApp = new PIXI.Application();
-        await pixiApp.init({
-          canvas: cv,
-          width: cv.width, height: cv.height,
-          backgroundAlpha: 0,
-          antialias: false,
-          resolution: 1,
-        });
-        window._pixiDecorApp = pixiApp;
-        console.log('[Main] Pixi décors actif');
+      if (typeof initPixiOverlay === 'function'){
+        await initPixiOverlay();
+        console.log('[Main] Pixi overlay actif');
+        if (typeof buildThreeDecors === 'function') buildThreeDecors();
       }
 
-      // Réenregistrer les listeners canvas sur le canvas Three.js
       if (typeof initCanvasListeners === 'function') initCanvasListeners();
+      if (typeof centerMapView === 'function') centerMapView();
+      if (typeof applyMediterraneanViewportGrade === 'function') applyMediterraneanViewportGrade();
     } else {
       console.warn('[Main] Three.js indispo, fallback Canvas2D');
     }

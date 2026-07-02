@@ -4,53 +4,65 @@
   "output_subfolder": "orion_terrain",
 
   "models": {
-    "unet": "flux1-dev-Q4_K_S.gguf",
-    "unet_loader": "auto",
-    "clip_t5": "t5xxl_fp8_e4m3fn.safetensors",
-    "clip_l": "clip_l.safetensors",
-    "vae": "ae.safetensors",
-    "lora": "seamless_texture.safetensors",
-    "lora_strength": 0.85
+    "checkpoint": "sdxlNuclearGeneralPurposeV3Semi_v30.safetensors",
+    "lora": "sxz-texture-sdxl.safetensors",
+    "lora_strength": 0.9,
+    "lora_strength_clip": 0.9
   },
 
   "generation": {
     "width": 1024,
     "height": 1024,
-    "steps": 20,
-    "guidance": 3.5,
-    "sampler": "euler",
-    "scheduler": "simple",
+    "steps": 30,
+    "cfg": 7.0,
+    "sampler": "euler_ancestral",
+    "scheduler": "normal",
     "seed_base": 424242
   },
 
-  "prompt_suffix": "seamless texture",
-  "prompt_prefix": "smlstxtr",
-  "negative": "text, watermark, logo, signature, blurry, low quality, jpeg artifacts, perspective, isometric, 3d, object, character, border, frame, shadow overlay, vignette",
+  "prompt_template": "texture of {surface}, {subject}, seamless",
+  "negative": "text, watermark, logo, signature, blurry, low quality, jpeg artifacts, perspective, isometric, 3d render, object, character, person, animal, tree, bush, flower, building, column, ruin, border, frame, shadow overlay, vignette, gradient edge",
 
   "textures": [
     {
-      "name": "grass_top",
-      "subject": "ancient greek meadow grass, mediterranean olive grove turf, dry sunny aegean hillside, top down view, cycladic island vegetation"
+      "name": "grass",
+      "surface": "dry aegean meadow grass",
+      "subject": "mediterranean olive grove turf, sun-bleached cycladic hillside vegetation, sparse greek island pasture, warm green brown, top down view"
     },
     {
-      "name": "forest_top",
-      "subject": "mediterranean pine scrubland floor, greek forest underbrush, dry maquis vegetation, top down view, dappled green brown"
+      "name": "forest",
+      "surface": "mediterranean maquis forest floor",
+      "subject": "dry greek pine underbrush, garrigue leaf litter, dappled green brown maquis, aegean woodland ground, top down view"
     },
     {
-      "name": "sand_top",
-      "subject": "golden aegean beach sand, cycladic island shore, bright sunlit fine sand, top down view, hellenic coastline"
+      "name": "wheat",
+      "surface": "golden aegean wheat field",
+      "subject": "mediterranean farmland grain stubble, dry hellenic cereal crop, sunlit harvest field, warm yellow ochre farmland, top down view"
     },
     {
       "name": "sand",
-      "subject": "aegean golden sand surface, mediterranean beach sand tile, warm sunlit sand, flat material"
+      "surface": "cycladic beach sand",
+      "subject": "bright aegean shore sand, fine warm mediterranean coastline sand, sunlit hellenic island beach, top down view"
     },
     {
       "name": "dirt",
-      "subject": "dry mediterranean ochre earth, greek terracotta soil, rocky hillside dirt path, terracotta clay ground"
+      "surface": "mediterranean ochre earth",
+      "subject": "greek terracotta clay soil, rocky aegean hillside dirt, warm terracotta path ground, cycladic terracotta soil, top down view"
     },
     {
-      "name": "stone",
-      "subject": "ancient greek limestone marble cobblestone pavement, cycladic white grey stone blocks, weathered hellenic masonry, classical agora floor"
+      "name": "rock",
+      "surface": "aegean limestone rock",
+      "subject": "weathered grey greek mountain cliff stone, rough cycladic hillside rock face, dry mediterranean karst stone blocks, top down view"
+    },
+    {
+      "name": "marble",
+      "surface": "ancient greek marble pavement",
+      "subject": "white cycladic marble tiles, polished hellenic white grey marble blocks, classical mediterranean agora masonry, top down view"
+    },
+    {
+      "name": "water",
+      "surface": "turquoise aegean sea water",
+      "subject": "calm mediterranean shallow cove, clear greek island coastal water, deep blue green hellenic sea surface, top down view"
     }
   ],
 

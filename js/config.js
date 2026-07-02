@@ -38,6 +38,7 @@ const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
 const BUILDING_SPRITE_W = TILE_W - 4; // largeur cible à l'écran — proportionnel à TILE_W
+const BUILDING_FOOTPRINT_SCALE = 0.85; // base visuelle sur 1 tuile (un peu plus petit que la case)
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
 // Sprites iso « Isometric Asset - Lite » — affichés comme des bâtiments sur le terrain
@@ -319,7 +320,7 @@ const TERRAIN_SPRITES = {
   hill:   'assets/tiles/hill.png',
 };
 
-const ROAD_SPRITE_PATH = 'assets/tiles/road.png?v=6';
+const ROAD_SPRITE_PATH = 'assets/tiles/road.png?v=7';
 
 // Variantes depuis tiles_pretes.zip (losanges iso du pack nature)
 const TERRAIN_TILE_VARIANTS = {

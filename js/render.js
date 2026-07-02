@@ -138,7 +138,10 @@ HOUSE_LEVELS.forEach(lvl => {
   HOUSE_SPRITES[lvl.key] = img;
 });
 
-// Sprites de sol — en mode blocs : chargés si calque texture plate activé
+window.BUILDING_SPRITE_IMAGES = BUILDING_SPRITES;
+window.HOUSE_SPRITE_IMAGES = HOUSE_SPRITES;
+
+// Sprites de sol — en mode blocs : chargés si calage texture plate activé
 const TERRAIN_SPRITE_IMAGES = {};
 const ROAD_SPRITE = new Image();
 const _useFlatCaps = typeof TERRAIN_CAP_USE_FLAT_SPRITES === 'boolean' && TERRAIN_CAP_USE_FLAT_SPRITES;
@@ -464,6 +467,11 @@ function invalidateTerrainLayerCache(){
   terrainLayerCacheVersion = -1;
   if (typeof invalidateFlatMapCanvas === 'function') invalidateFlatMapCanvas();
   invalidateVisibleTilesCache();
+  if (typeof isThreeReady === 'function' && isThreeReady()){
+    if (typeof buildThreeDecors === 'function') buildThreeDecors();
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+    return;
+  }
   if (typeof markRenderDirty === 'function') markRenderDirty();
 }
 
@@ -779,15 +787,58 @@ function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
 }
 
 function buildingDrawWidth(def, sprite){
-  if (def.spriteScale) return def.spriteScale;
+  const footprintScale = typeof BUILDING_FOOTPRINT_SCALE === 'number' ? BUILDING_FOOTPRINT_SCALE : 1;
+  if (def.spriteScale) return Math.round(def.spriteScale * footprintScale);
   const fp = def.isMonument ? (def.footprint || 2) : 1;
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
     const w = spriteDrawWidthForTile(sprite, fp);
-    return Math.round(def.isMonument ? w * 0.95 : w);
+    return Math.round((def.isMonument ? w * 0.95 : w) * footprintScale);
   }
-  if (def.isMonument) return Math.round(BUILDING_SPRITE_W * fp * 0.95);
-  return BUILDING_SPRITE_W;
+  if (def.isMonument) return Math.round(BUILDING_SPRITE_W * fp * 0.95 * footprintScale);
+  return Math.round(BUILDING_SPRITE_W * footprintScale);
 }
+
+window.measureSpriteFoot = measureSpriteFoot;
+window.spriteDrawWidthForTile = spriteDrawWidthForTile;
+window.buildingDrawWidthForDef = buildingDrawWidth;
+
+/** Calage écran Three+Pixi = même règles que drawSpriteOnTile (north → foot sud). */
+window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, opts){
+  opts = opts || {};
+  if (typeof getTileScreenQuad !== 'function') return null;
+  const q = getTileScreenQuad(col, row);
+  const north = q.reduce(function(a, b){ return a.y < b.y ? a : b; });
+  const south = q.reduce(function(a, b){ return a.y > b.y ? a : b; });
+  const east  = q.reduce(function(a, b){ return a.x > b.x ? a : b; });
+  const west  = q.reduce(function(a, b){ return a.x < b.x ? a : b; });
+  const screenTileW = Math.hypot(east.x - west.x, east.y - west.y);
+  const tileW = typeof TILE_W !== 'undefined' ? TILE_W : 128;
+  const pxScale = screenTileW / tileW;
+
+  const m = sprite ? measureSpriteFoot(sprite) : null;
+  const footNx = m ? m.footNx : 0.5;
+  const footNy = m ? m.footNy : 1;
+
+  let footY;
+  if (opts.cyIsFoot) footY = north.y;
+  else if (opts.anchorCenter) footY = north.y + (south.y - north.y) * 0.5;
+  else footY = south.y;
+
+  const logicalW = targetLogicalW != null ? targetLogicalW : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : 124);
+  const targetW = logicalW * pxScale;
+  const srcW = (sprite && (sprite.naturalWidth || sprite.width)) || 62;
+  const lift = opts.lift != null ? opts.lift * pxScale : 0;
+
+  return {
+    x: north.x,
+    y: footY + lift,
+    scale: targetW / srcW,
+    footNx,
+    footNy,
+    targetW,
+    pxScale,
+  };
+};
 
 const SPRITE_TILE_OPTS = { lift: 0 };
 const SPRITE_TREE_OPTS = { lift: 0, anchorCenter: true };
@@ -1242,6 +1293,10 @@ function invalidateVisibleTilesCache(){
 /* ===================== RENDU PRINCIPAL ===================== */
 function render(now){
   now = now || performance.now();
+  if (typeof isThreeReady === 'function' && isThreeReady()){
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+    return;
+  }
   if (!canvas || !ctx || !Array.isArray(grid) || grid.length === 0) return;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1406,3 +1461,43 @@ function applyMediterraneanWarmGrade(targetCtx, width, height){
   targetCtx.fillRect(0, 0, width, height);
   targetCtx.restore();
 }
+
+/** Teinte chaude plein ecran (Three.js + Pixi) — meme logique que applyMediterraneanWarmGrade. */
+window.applyMediterraneanViewportGrade = function(){
+  const wrap = document.getElementById('canvasWrap');
+  if (!wrap) return;
+
+  const enabled = typeof MEDITERRANEAN_COLOR_GRADE_ENABLED === 'boolean'
+    && MEDITERRANEAN_COLOR_GRADE_ENABLED;
+  const threeActive = typeof isThreeReady === 'function' && isThreeReady();
+
+  let layer = document.getElementById('viewportGrade');
+  if (!enabled || !threeActive){
+    if (layer) layer.remove();
+    return;
+  }
+
+  const multiply = typeof MEDITERRANEAN_WARM_MULTIPLY === 'string'
+    ? MEDITERRANEAN_WARM_MULTIPLY
+    : 'rgba(255, 238, 210, 0.14)';
+  const highlight = typeof MEDITERRANEAN_WARM_HIGHLIGHT === 'string'
+    ? MEDITERRANEAN_WARM_HIGHLIGHT
+    : 'rgba(255, 210, 130, 0.09)';
+
+  if (!layer){
+    layer = document.createElement('div');
+    layer.id = 'viewportGrade';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2;';
+
+    const mul = document.createElement('div');
+    mul.style.cssText = 'position:absolute;inset:0;mix-blend-mode:multiply;';
+    const hi = document.createElement('div');
+    hi.style.cssText = 'position:absolute;inset:0;mix-blend-mode:soft-light;';
+    layer.append(mul, hi);
+    wrap.appendChild(layer);
+  }
+
+  layer.children[0].style.background = multiply;
+  layer.children[1].style.background = highlight;
+};

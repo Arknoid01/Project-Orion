@@ -1390,8 +1390,13 @@ h2{
 }
 #canvasWrap canvas{
   display:block;
+  width:100%;
+  height:100%;
   touch-action:none;
   cursor:pointer;
+}
+#canvasWrap canvas#pixiOverlayCanvas{
+  pointer-events:none;
 }
 #notification{
   position:fixed;
@@ -2247,7 +2252,7 @@ h2{
 <script src="js/i18n.js"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
-<script src="js/config.js?v=31"></script>
+<script src="js/config.js?v=32"></script>
 <script src="js/mediterraneanDecorSprites.js?v=4"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js?v=2"></script>
@@ -2281,7 +2286,7 @@ h2{
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
-<script src="js/loop.js?v=3"></script>
+<script src="js/loop.js?v=4"></script>
 <script src="js/pause.js"></script>
 <script src="js/characterSprites.js"></script>
 <script src="js/forestTrees.js?v=19"></script>
@@ -2292,9 +2297,9 @@ h2{
 <script src="js/camera.js"></script>
 <script src="js/zoom.js?v=4"></script>
 <script src="js/flatRenderer.js"></script>
-<script src="js/render.js?v=36"></script>
-<script src="js/pixiRenderer.js"></script>
-<script src="js/threeRenderer.js"></script>
+<script src="js/render.js?v=40"></script>
+<script src="js/pixiRenderer.js?v=11"></script>
+<script src="js/threeRenderer.js?v=11"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
 <script src="js/migrationAgents.js?v=3"></script>
@@ -2310,7 +2315,7 @@ h2{
 <script src="js/economyBalance.js"></script>
 <script src="js/ui.js?v=3"></script>
 <script src="js/observer.js"></script>
-<script src="js/main.js?v=2"></script>
+<script src="js/main.js?v=3"></script>
 
 <!-- ===== Interface (gestion des panneaux, catalogue de construction) ===== -->
 <script>

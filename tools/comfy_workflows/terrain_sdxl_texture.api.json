@@ -1,0 +1,3 @@
+{
+  "_comment": "Optionnel — exporte ton graphe SDXL + sxz-texture-sdxl en Save (API Format) et remplace ce fichier. Le script utilise le workflow SDXL integre par defaut."
+}

@@ -273,13 +273,23 @@ function openWalkerObserver(walker){
 // Renvoie le marcheur dont la position écran actuelle (interpolée) est la plus
 // proche du point cliqué, dans un rayon raisonnable -- sinon null.
 function findWalkerNear(screenX, screenY, now){
-  const threshold = WALKER_DISPLAY_SIZE;
+  const threshold = (typeof isThreeReady === 'function' && isThreeReady())
+    ? (typeof WALKER_DISPLAY_SIZE !== 'undefined' ? WALKER_DISPLAY_SIZE : 30) * 1.5
+    : WALKER_DISPLAY_SIZE;
   let closest = null;
   let closestDist = threshold;
   walkers.forEach(w => {
-    if (w.path.length <= 1) return; // immobile, pas affiché -> pas cliquable
-    const pos = getWalkerScreenPos(w, now);
-    const dist = Math.hypot(pos.x - screenX, pos.y - screenY);
+    if (w.path.length <= 1) return;
+    let px, py;
+    if (typeof isThreeReady === 'function' && isThreeReady()
+        && typeof getWalkerWorld3ScreenPos === 'function'){
+      const s = getWalkerWorld3ScreenPos(w, now);
+      px = s.x; py = s.y;
+    } else {
+      const pos = getWalkerScreenPos(w, now);
+      px = pos.x; py = pos.y;
+    }
+    const dist = Math.hypot(px - screenX, py - screenY);
     if (dist <= closestDist){
       closest = w;
       closestDist = dist;

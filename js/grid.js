@@ -49,6 +49,7 @@ function bumpTerrainVersion(){
   if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
   if (typeof invalidatePixiTerrain === 'function') invalidatePixiTerrain();
   if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+  if (typeof invalidateThreeTerrain === 'function') invalidateThreeTerrain();
 }
 
 function invalidateMapDrawOrder(){ mapDrawOrder = null; }
@@ -223,6 +224,28 @@ function pickTileAtWorld(mx, my){
     }
   }
   return { col: bestCol, row: bestRow };
+}
+
+/** Pick unifié : Three.js raycast ou fallback iso 2D. */
+function pickTileAtScreen(clientX, clientY){
+  if (typeof isThreeReady === 'function' && isThreeReady()
+      && typeof threeRayPick === 'function'){
+    const pick = threeRayPick(clientX, clientY);
+    return {
+      col: pick.col,
+      row: pick.row,
+      hit: pick.hit,
+      clientX,
+      clientY,
+      x: pick.x,
+      y: pick.y,
+      z: pick.z,
+    };
+  }
+  const pickFn = typeof clientToMapWorld === 'function' ? clientToMapWorld : clientToWorld;
+  const { mx, my } = pickFn(clientX, clientY);
+  const { col, row } = pickTileAtWorld(mx, my);
+  return { col, row, hit: inBounds(col, row), mx, my, clientX, clientY };
 }
 
 function tileSortKey(col, row){

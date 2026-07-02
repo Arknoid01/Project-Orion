@@ -1,48 +1,62 @@
-# Modes rendu terrain (empilement Lego)
+# Modes rendu terrain
 
-Configuration dans `js/config.js`.
+## Mode actuel — cubes Three.js (Minecraft-style)
 
-## Mode validé — nature PNG (fallback)
+Textures **carrées seamless** dans `assets/tiles/generated_mediterranean/` :
 
-```javascript
-const TERRAIN_USE_FLAT_FACES = false;
-const TERRAIN_FLAT_BLOCK_KEYS = [];
-const TERRAIN_TEXTURED_CUBES = true;
-const TERRAIN_CUBE_FULL_FACES = true;
-const LEGO_BRICK_STEP = 32;
-```
+| Fichier | Usage cube |
+|---------|------------|
+| `grass.png` | Dessus herbe / colline |
+| `forest.png` | Dessus forêt |
+| `wheat.png` | Dessus blé |
+| `sand.png` | Sable (toutes faces) |
+| `dirt.png` | Côtés herbe / colline / blé / forêt |
+| `rock.png` | Roche (toutes faces) |
+| `marble.png` | Marbre (toutes faces) |
+| `water.png` | Eau (toutes faces) |
 
-Blocs depuis `assets/tiles/blocks/*.png`, empilement 3 niveaux OK.
+Config moteur : `js/threeRenderer.js` → `THREE_TERRAIN_TEX_DEFS`
 
-## Mode hybride — Comfy par bloc (recommandé pour tester)
+## Pipeline ComfyUI (génération)
 
-```javascript
-const TERRAIN_USE_FLAT_FACES = false;
-const TERRAIN_FLAT_BLOCK_KEYS = ['stone'];
-```
+Prérequis : ComfyUI + SDXL Nuclear + LoRA `sxz-texture-sdxl.safetensors`
 
-1. Charge d'abord les PNG nature (repli si flat manquant)
-2. Attend le gabarit dirt/grass puis remplace `stone` par Comfy
-3. **Recadre** le bake Comfy sur les dimensions exactes du PNG nature (empilement identique)
-
-Workflow Comfy :
+Prompt : `texture of {surface}, {subject}, seamless`
 
 ```bash
-python tools/comfy_terrain_batch.py --only stone
-python tools/import_flat_textures.py --force
+# Voir la liste complète + prompts méditerranéens
+python tools/comfy_terrain_batch.py --list
+
+# Prévisualiser les prompts sans GPU
+python tools/comfy_terrain_batch.py --dry-run
+
+# Générer les 8 textures (1024×1024 → source/)
+python tools/comfy_terrain_batch.py
+
+# Une ou plusieurs textures
+python tools/comfy_terrain_batch.py --only grass wheat water
+
+# Générer + déployer carrés 64×64 dans le jeu
+python tools/comfy_terrain_batch.py --import-game
+
+# Vérifier que tout est présent et carré
+python tools/import_flat_textures.py --check
 ```
 
-Puis Ctrl+F5 + nouvelle partie.
+Chemins :
+- Export Comfy → `assets/textures/flat/source/{grass,forest,...}.png`
+- Jeu Three.js → `assets/tiles/generated_mediterranean/{grass,forest,...}.png`
 
-## Mode full flat (expérimental)
+Puis **Ctrl+F5** + nouvelle partie.
 
-```javascript
-const TERRAIN_USE_FLAT_FACES = true;
-const TERRAIN_FLAT_BLOCK_KEYS = [];
+## Ancien mode 2D flat (iso)
+
+```bash
+python tools/import_flat_textures.py --legacy-flat
 ```
 
-Toutes les faces depuis `flat/game/`. Nécessite les 6 faces importées, sinon rendu plat cassé.
+Écrit dans `assets/textures/flat/game/` avec noms legacy (`grass_top`, etc.).
 
-## Retour arrière rapide
+## Retour arrière
 
-Mettre `TERRAIN_FLAT_BLOCK_KEYS = []` et Ctrl+F5.
+Les PNG procéduraux Three.js restent le fallback si un fichier manque.

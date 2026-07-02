@@ -7,6 +7,7 @@ const camera = { x: 0, y: 0 };
 
 /** Taille du canvas = taille physique de l'écran (devicePixelRatio inclus). */
 function applyCanvasResolution(){
+  if (typeof isThreeReady === 'function' && isThreeReady()) return;
   const dpr = getRenderDpr();
   const w = Math.round(window.innerWidth * dpr);
   const h = Math.round(window.innerHeight * dpr);
@@ -20,6 +21,7 @@ function applyCanvasResolution(){
 
 /** Déplace la caméra de (dx,dy) pixels-monde, avec clamp aux bords de la carte. */
 function moveCamera(dx, dy){
+  if (typeof isThreeReady === 'function' && isThreeReady()) return;
   const dpr = getRenderDpr();
   const vwWorld = canvas.width  / dpr / zoomLevel; // viewport en pixels-monde
   const vhWorld = canvas.height / dpr / zoomLevel;
@@ -92,6 +94,7 @@ function initCamera(){
   }, { passive: true });
 
   target.addEventListener('touchmove', (e) => {
+    if (typeof isThreeReady === 'function' && isThreeReady()) return;
     if (e.touches.length === 1 && _panLastX !== null){
       e.preventDefault();
       const dx = (_panLastX - e.touches[0].clientX) / zoomLevel;
@@ -108,6 +111,7 @@ function initCamera(){
 
   /* Pan souris desktop */
   window.addEventListener('mousemove', (e) => {
+    if (typeof isThreeReady === 'function' && isThreeReady()) return;
     if (!_mouseDown || !_mouseLast) return;
     moveCamera(
       (_mouseLast.x - e.clientX) / zoomLevel,

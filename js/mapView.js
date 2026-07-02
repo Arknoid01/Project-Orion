@@ -44,6 +44,10 @@ function applyMapViewTransform(c){
 }
 
 function clientToMapWorld(clientX, clientY){
+  if (typeof isThreeReady === 'function' && isThreeReady()
+      && typeof clientToMapWorldThree === 'function'){
+    return clientToMapWorldThree(clientX, clientY);
+  }
   const base = clientToWorld(clientX, clientY);
   if (!isMapViewTransformed()) return base;
 

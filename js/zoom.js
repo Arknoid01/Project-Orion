@@ -5,6 +5,18 @@ function getRenderDpr(){
 }
 
 function setZoom(value, anchorClientX, anchorClientY){
+  if (typeof isThreeReady === 'function' && isThreeReady()
+      && typeof syncZoomLevelToThree === 'function'){
+    const oldZoom = zoomLevel;
+    const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, value));
+    if (newZoom === oldZoom) return;
+    zoomLevel = newZoom;
+    syncZoomLevelToThree(newZoom);
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+    if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+    return;
+  }
+
   const oldZoom = zoomLevel;
   const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, value));
   if (newZoom === oldZoom) return;
@@ -40,6 +52,7 @@ function initZoom(){
   const zt = document.getElementById('canvasWrap') || document;
 
   zt.addEventListener('wheel', (e) => {
+    if (typeof isThreeReady === 'function' && isThreeReady()) return;
     e.preventDefault();
     setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), e.clientX, e.clientY);
   }, { passive: false });
