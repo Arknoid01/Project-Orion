@@ -598,8 +598,95 @@ function _updateThreeCam(){
 }
 
 /* ---------------------------------------------------------------
-   CONSTRUCTION DU TERRAIN DEPUIS grid[][]
+   CONSTRUCTION DU TERRAIN — Niveau 1+2 optimisé
+   • Face culling géométrique : seules les faces exposées sont créées
+   • BufferGeometry fusionné par terrain : 1 draw call par type
+   • Pas d'ombres, frustumCulled=false
    --------------------------------------------------------------- */
+
+/**
+ * Retourne les 4 voisins d'une cellule à (c, r, y) en 3D.
+ * Utilisé pour déterminer quelles faces sont cachées.
+ */
+function _isFaceHidden(grid, ROWS, COLS, c, r, y, face){
+  // face : 'top','bottom','north','south','east','west'
+  let nc=c, nr=r, ny=y;
+  if(face==='top')    ny=y+1;
+  else if(face==='bottom') ny=y-1;
+  else if(face==='north')  nr=r-1; // -Z en Three.js
+  else if(face==='south')  nr=r+1;
+  else if(face==='east')   nc=c+1;
+  else if(face==='west')   nc=c-1;
+
+  // Face du bas → toujours cachée
+  if(face==='bottom') return true;
+
+  // Hors grille → face exposée
+  if(nc<0||nc>=COLS||nr<0||nr>=ROWS) return false;
+
+  const nCell = grid[nr] && grid[nr][nc];
+  if(!nCell) return false;
+
+  const nH = Math.max(1, TERRAIN_HEIGHT[nCell.terrain||'grass']||1);
+
+  if(face==='top') return ny < nH; // cube au-dessus
+  // Face latérale : cachée si le voisin est au moins aussi haut
+  return nH > y;
+}
+
+/**
+ * Construit un BufferGeometry avec uniquement les faces visibles.
+ * Chaque face = 2 triangles = 6 vertices.
+ * UV mappés pour utiliser la texture complète sur chaque face.
+ */
+function _buildMergedGeometry(THREE, facesData){
+  const positions = [];
+  const normals   = [];
+  const uvs       = [];
+  const idxTop    = []; // indices pour la face du dessus (mat index 2)
+  const idxSide   = []; // indices pour les faces latérales (mat index 0)
+
+  const faceVerts = {
+    top:   [[-.5,+.5,-.5],[+.5,+.5,-.5],[+.5,+.5,+.5],[-.5,+.5,+.5]],
+    north: [[+.5,+.5,-.5],[-.5,+.5,-.5],[-.5,-.5,-.5],[+.5,-.5,-.5]],
+    south: [[-.5,+.5,+.5],[+.5,+.5,+.5],[+.5,-.5,+.5],[-.5,-.5,+.5]],
+    east:  [[+.5,+.5,+.5],[+.5,+.5,-.5],[+.5,-.5,-.5],[+.5,-.5,+.5]],
+    west:  [[-.5,+.5,-.5],[-.5,+.5,+.5],[-.5,-.5,+.5],[-.5,-.5,-.5]],
+  };
+  const faceNormals = {
+    top:[0,1,0], north:[0,0,-1], south:[0,0,1], east:[1,0,0], west:[-1,0,0]
+  };
+  const faceUVs = [[0,1],[1,1],[1,0],[0,0]];
+
+  let vi = 0;
+  for(const {x,y,z,face} of facesData){
+    const verts = faceVerts[face];
+    const n = faceNormals[face];
+    for(let i=0;i<4;i++){
+      positions.push(x+verts[i][0], y+verts[i][1], z+verts[i][2]);
+      normals.push(n[0],n[1],n[2]);
+      uvs.push(faceUVs[i][0], faceUVs[i][1]);
+    }
+    const arr = face==='top' ? idxTop : idxSide;
+    arr.push(vi,vi+1,vi+2, vi,vi+2,vi+3);
+    vi+=4;
+  }
+
+  if(vi===0) return null;
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('normal',   new THREE.Float32BufferAttribute(normals,3));
+  geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uvs,2));
+
+  // Groupe 0 = faces latérales (mat[0]=side), Groupe 1 = face du dessus (mat[2]=top)
+  const allIdx = [...idxSide, ...idxTop];
+  geo.setIndex(allIdx);
+  geo.addGroup(0, idxSide.length, 0); // side material
+  geo.addGroup(idxSide.length, idxTop.length, 1); // top material
+  return geo;
+}
+
 window.buildThreeTerrain = function(){
   if(!_THREE || !Array.isArray(grid) || !grid.length) return;
   if(typeof isTerrainGenerationInProgress==='function' && isTerrainGenerationInProgress()) return;
@@ -610,81 +697,78 @@ window.buildThreeTerrain = function(){
   window._terrainPickMeshes = [];
   _syncThreeGridOffset();
 
-  const geo   = new _THREE.BoxGeometry(1,1,1);
   const ROWS  = grid.length;
   const COLS  = grid[0].length;
   const offR  = ROWS / 2;
   const offC  = COLS / 2;
+  const DIRT  = 'grass';
 
-  // Compter les instances par terrain
-  const counts = {};
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      const cell = grid[r][c];
-      if(!cell) continue;
-      const terrain = cell.terrain || 'grass';
-      const h = _terrainLayerCount(terrain);
-      counts[terrain] = (counts[terrain]||0) + h;
-    }
-  }
+  // --- Collecter les faces visibles par terrain ---
+  const facesPerTerrain = {}; // terrain → [{x,y,z,face}]
+  const FACES = ['top','north','south','east','west']; // bas toujours caché
 
-  // InstancedMesh par terrain
-  const meshes={}, idx={};
-  for(const [key,count] of Object.entries(counts)){
-    if(!count) continue;
-    const mats = window._terrainMats[key] || window._terrainMats['grass'];
-    meshes[key] = new _THREE.InstancedMesh(geo, mats, count);
-    meshes[key].instanceMatrix.setUsage(_THREE.StaticDrawUsage);
-    meshes[key].userData.pickCells = new Array(count);
-    window._threeGroup.add(meshes[key]);
-    idx[key] = 0;
-  }
-
-  const mat4 = new _THREE.Matrix4();
-  const DIRT  = 'grass'; // couches inférieures
+  let totalFaces = 0, totalHidden = 0;
 
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
       const cell = grid[r][c];
       if(!cell) continue;
       const terrain = cell.terrain || 'grass';
-      const h = _terrainLayerCount(terrain);
+      const h = Math.max(1, TERRAIN_HEIGHT[terrain]||1);
       const x3 = c - offC + 0.5;
       const z3 = r - offR + 0.5;
 
       for(let y=0;y<h;y++){
         const t = y===h-1 ? terrain : DIRT;
-        if(!meshes[t]) continue;
-        const inst = idx[t]++;
-        mat4.makeTranslation(x3, y-0.5, z3);
-        meshes[t].setMatrixAt(inst, mat4);
-        if (y === h - 1) meshes[t].userData.pickCells[inst] = { col: c, row: r };
+        const yPos = y - 0.5;
+
+        for(const face of FACES){
+          totalFaces++;
+          if(_isFaceHidden(grid, ROWS, COLS, c, r, y, face)){
+            totalHidden++;
+            continue;
+          }
+          if(!facesPerTerrain[t]) facesPerTerrain[t] = [];
+          facesPerTerrain[t].push({x:x3, y:yPos, z:z3, face});
+        }
       }
     }
   }
 
-  for(const mesh of Object.values(meshes)){
-    mesh.instanceMatrix.needsUpdate = true;
+  // --- Construire un Mesh fusionné par terrain ---
+  for(const [key, faces] of Object.entries(facesPerTerrain)){
+    if(!faces.length) continue;
+    const geo  = _buildMergedGeometry(_THREE, faces);
+    if(!geo) continue;
+    const mats = window._terrainMats[key] || window._terrainMats['grass'];
+    // [0]=side, [1]=top pour les groupes de la géométrie
+    const matArr = Array.isArray(mats) ? [mats[0], mats[2]] : [mats, mats];
+    const mesh = new _THREE.Mesh(geo, matArr);
+    mesh.frustumCulled = false; // Niveau 2 : pas de culling automatique (notre géo est déjà culled)
+    mesh.castShadow    = false; // Niveau 2 : pas d'ombres (inutile en iso)
+    mesh.receiveShadow = false;
+    mesh.userData.terrainKey = key;
+    window._threeGroup.add(mesh);
     window._terrainPickMeshes.push(mesh);
   }
 
   scene.add(window._threeGroup);
 
-  // Centrer la caméra sur le centre des terres
+  const pct = totalFaces > 0 ? Math.round((1-totalHidden/totalFaces)*100) : 100;
+  console.log(`[Three] Terrain ${COLS}×${ROWS} — ${totalFaces-totalHidden}/${totalFaces} faces (${pct}% visibles, ${100-pct}% culled)`);
+
+  // Centrer la caméra
   if(typeof computeLandCentroid==='function'){
     const land = computeLandCentroid();
     if(land){
       window._threeTarget.set(
-        Math.round(land.col) - offC,
-        0.5,
-        Math.round(land.row) - offR
+        Math.round(land.col) - offC, 0.5, Math.round(land.row) - offR
       );
       _updateThreeCam();
     }
   }
 
   if(typeof buildThreeDecors==='function') buildThreeDecors();
-  console.log('[Three] Terrain', COLS+'x'+ROWS, 'généré');
 };
 
 /* ---------------------------------------------------------------
