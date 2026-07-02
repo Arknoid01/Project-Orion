@@ -139,16 +139,25 @@ function _bakeOpaqueCanvasTexture(THREE, img, fillHex){
   const h = img.naturalHeight || img.height;
   if (!w || !h) return null;
   const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
+  cv.width = w; cv.height = h;
   const ctx = cv.getContext('2d');
   const fill = fillHex != null ? fillHex : 0x5aaa38;
-  const r = (fill >> 16) & 255;
-  const g = (fill >> 8) & 255;
-  const b = fill & 255;
+  const r=(fill>>16)&255, g=(fill>>8)&255, b=fill&255;
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(img, 0, 0);
+  try {
+    ctx.drawImage(img, 0, 0);
+    // Vérifie que l'image n'est pas transparente (canvas tainted = pixels à 0)
+    const sample = ctx.getImageData(w>>1, h>>1, 1, 1).data;
+    if (sample[3] < 10){
+      // Canal alpha nul = image transparente ou tainted → refill couleur
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(0, 0, w, h);
+    }
+  } catch(e){
+    // Canvas tainted → on garde juste la couleur de fond
+    console.warn('[Three] Texture tainted, fallback couleur');
+  }
   const tex = new THREE.CanvasTexture(cv);
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
@@ -161,11 +170,22 @@ function _bakeOpaqueCanvasTexture(THREE, img, fillHex){
 
 function _loadThreeTexture(THREE, path, fillHex){
   return new Promise((resolve)=>{
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = ()=> resolve(_bakeOpaqueCanvasTexture(THREE, img, fillHex));
-    img.onerror = ()=> resolve(null);
-    img.src = path;
+    const tryLoad = (withCORS) => {
+      const img = new Image();
+      if (withCORS) img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(_bakeOpaqueCanvasTexture(THREE, img, fillHex));
+      img.onerror = () => {
+        if (withCORS){
+          // Retry sans CORS
+          tryLoad(false);
+        } else {
+          console.warn('[Three] Image manquante:', path);
+          resolve(null);
+        }
+      };
+      img.src = path;
+    };
+    tryLoad(true);
   });
 }
 

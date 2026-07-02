@@ -5,8 +5,8 @@
 const DEVICE_REDUCE_CANVAS_LOAD = PERF_LEVEL !== 'faible';
 
 /* ===================== CONFIG GRILLE / VUE (ISO FIXE) ===================== */
-const GRID_COLS = 60;
-const GRID_ROWS = 60;
+const GRID_COLS = 120;
+const GRID_ROWS = 120;
 
 const TILE_W = 128;
 const TILE_H = 64;
@@ -563,13 +563,13 @@ const MAP_ROCK_SLOPE = 0.092;
 const MAP_MARBLE_VEIN_THRESHOLD = 0.58;    // seuil du bruit ridgé — plus haut = filons plus étroits
 const MAP_MARBLE_VEIN_SCALE = 3.6;         // fréquence des filons (plus haut = veines plus petites)
 const MAP_COAST_BEACH_SLOPE = 0.046;
-const MAP_FOREST_MOISTURE = 0.74;          // plus élevé → moins de forêt
+const MAP_FOREST_MOISTURE = 0.58;          // baissé : plus de forêt
 const MAP_FOREST_MIN_HEIGHT = 0.28;
-const MAP_FOREST_MAX_HEIGHT = 0.40;        // bande de maquis plus étroite
-const MAP_FOREST_MAX_SLOPE = 0.042;
+const MAP_FOREST_MAX_HEIGHT = 0.52;        // élargi vers le haut
+const MAP_FOREST_MAX_SLOPE = 0.052;
 const MAP_WHEAT_MOISTURE = 0.40;
 const MAP_WHEAT_MIN_HEIGHT = 0.24;
-const MAP_WHEAT_MAX_HEIGHT = 0.44;
+const MAP_WHEAT_MAX_HEIGHT = 0.34;         // réduit : moins de blé
 const MAP_PLAIN_MARBLE_CHANCE = 0.014;
 const MAP_FOREST_SPREAD_CHANCE = 0.32;     // extension organique des bosquets
 const MAP_WHEAT_SPREAD_CHANCE = 0.26;      // extension des champs
@@ -590,10 +590,10 @@ const MAP_CONTINENT_EDGE_BORDER = 1;       // légère respiration sur les bords
 const MAP_ISLAND_EDGE_BORDER = 4;
 const MAP_EDGE_WATER_LEVEL = 0.055;
 const MAP_CONNECTED_LAND_EDGE = 'south';   // côté toujours relié à la terre : north/south/east/west
-const MAP_CONNECTED_EDGE_LAND_WIDTH = 3;   // bande garantie sans eau
+const MAP_CONNECTED_EDGE_LAND_WIDTH = 0;   // désactivé : seul le corridor sinueux gère l'accès
 const MAP_CONNECTED_EDGE_FADE = 10;        // transition douce vers l'intérieur
 const MAP_CONNECTED_EDGE_LIFT = 0.32;      // hauteur minimale de la bande connectée
-const MAP_ENTRY_CORRIDOR_WIDTH = 4;        // largeur moyenne de l'isthme d'accès
+const MAP_ENTRY_CORRIDOR_WIDTH = 3;        // 3 blocs de large — plus mince, laisse de l'espace
 const MAP_LAND_BRIDGE_LIFT = 0.34;
 const MAP_LAND_BRIDGE_WIND = 0.38;         // sinuosité du chemin d'accès
 const MAP_MOUNTAIN_MIN_LAND = 0.30;        // évite les massifs sur les bords d'île
