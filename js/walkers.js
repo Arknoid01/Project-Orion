@@ -8,14 +8,24 @@ let walkers = []; // { col, row, type, path:[{col,row}...], pathIndex, direction
 function tileKey(col, row){ return `${col},${row}`; }
 
 function roadNeighbors(col, row){
+  const here = inBounds(col, row) ? grid[row][col] : null;
+  if (!here) return [];
+  const onRoad = !!here.hasRoad;
   const candidates = [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]];
   return candidates
     .filter(([c, r]) => {
       if (!inBounds(c, r)) return false;
+      const cell = grid[r][c];
+      if (cell.patrolBlock || here.patrolBlock) return false;
       if (typeof roadTileConnects === 'function'){
-        return roadTileConnects(col, row, c, r);
+        if (!roadTileConnects(col, row, c, r)) return false;
+      } else if (!cell.hasRoad){
+        return false;
       }
-      return grid[r][c].hasRoad && !grid[r][c].patrolBlock;
+      // Sur une route : rester sur le réseau routier (pas de raccourci via bâtiments).
+      if (onRoad) return !!cell.hasRoad;
+      // Depuis le bâtiment de service : entrer uniquement sur une case route.
+      return !!cell.hasRoad;
     })
     .map(([c, r]) => ({ col: c, row: r }));
 }
@@ -24,23 +34,71 @@ function pickDeterministic(rng, arr){
   return arr[Math.floor(rng() * arr.length)];
 }
 
-// DFS qui serpente le long des routes connectées, sans repasser deux fois sur la même
-// case, jusqu'à épuiser le budget maxSteps ou arriver dans une impasse. Le choix de
-// branche à un carrefour est déterministe (seed basé sur la position du bâtiment),
-// donc reproductible — et la borne de blocage permet au joueur de l'influencer.
+/** Prolonge une route en ligne droite (1 voisin route) jusqu'à impasse / carrefour / budget. */
+function walkRoadArm(firstCol, firstRow, fromCol, fromRow, maxLen){
+  const arm = [{ col: firstCol, row: firstRow }];
+  let col = firstCol;
+  let row = firstRow;
+  let prevCol = fromCol;
+  let prevRow = fromRow;
+  while (arm.length < maxLen){
+    const nexts = roadNeighbors(col, row).filter(n => !(n.col === prevCol && n.row === prevRow));
+    if (nexts.length !== 1) break;
+    arm.push(nexts[0]);
+    prevCol = col;
+    prevRow = row;
+    col = nexts[0].col;
+    row = nexts[0].row;
+  }
+  return arm;
+}
+
+/** Trie les sorties route depuis le hub (ordre stable = gauche / droite reproductibles). */
+function sortRoadExits(hubCol, hubRow, exits){
+  return exits.slice().sort((a, b) => {
+    const ac = a.col - hubCol;
+    const ar = a.row - hubRow;
+    const bc = b.col - hubCol;
+    const br = b.row - hubRow;
+    const angA = Math.atan2(ar, ac);
+    const angB = Math.atan2(br, bc);
+    return angA - angB || ac - bc || ar - br;
+  });
+}
+
+// Trajet de patrouille le long des routes. Sur une route droite (hub + 2 directions),
+// le path enchaîne : bâtiment → hub → bras A → hub → bras B → hub — le ping-pong
+// alterne ainsi un passage complet à droite puis à gauche (et inversement au retour).
 function computePatrolPath(startCol, startRow, maxSteps){
   const path = [{ col: startCol, row: startRow }];
-  const firstNeighbors = roadNeighbors(startCol, startRow);
-  if (firstNeighbors.length === 0) return path; // pas connecté à une route : immobile
+  const entries = roadNeighbors(startCol, startRow);
+  if (entries.length === 0) return path;
 
   const rng = mulberry32(hashSeed(startCol, startRow));
-  const visited = new Set([tileKey(startCol, startRow)]);
-  let current = pickDeterministic(rng, firstNeighbors);
+  const hub = entries.length === 1 ? entries[0] : pickDeterministic(rng, entries);
+  path.push(hub);
 
+  const exits = sortRoadExits(hub.col, hub.row, roadNeighbors(hub.col, hub.row)
+    .filter(n => !(n.col === startCol && n.row === startRow)));
+
+  if (exits.length === 2){
+    const half = Math.max(1, Math.floor((maxSteps - 1) / 2));
+    const armA = walkRoadArm(exits[0].col, exits[0].row, hub.col, hub.row, half);
+    const armB = walkRoadArm(exits[1].col, exits[1].row, hub.col, hub.row, half);
+    path.push(...armA);
+    path.push({ col: hub.col, row: hub.row });
+    path.push(...armB);
+    path.push({ col: hub.col, row: hub.row });
+    return path;
+  }
+
+  const visited = new Set(path.map(t => tileKey(t.col, t.row)));
+  let current = exits.length > 0 ? pickDeterministic(rng, exits) : null;
   while (current && path.length <= maxSteps){
     path.push(current);
     visited.add(tileKey(current.col, current.row));
-    const next = roadNeighbors(current.col, current.row).filter(n => !visited.has(tileKey(n.col, n.row)));
+    const next = roadNeighbors(current.col, current.row)
+      .filter(n => !visited.has(tileKey(n.col, n.row)));
     current = next.length > 0 ? pickDeterministic(rng, next) : null;
   }
   return path;
@@ -76,6 +134,7 @@ function recomputeAllWalkers(){
     walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, prevPathIndex: 0, direction: 1, facing: 'down', mirrorX: false, servedHouses });
   });
   debugInfo(`Patrouilles recalculées : ${walkers.length} bâtiment(s) de service actif(s)`);
+  if (typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
 }
 
 function advanceWalkers(){
@@ -121,36 +180,67 @@ function getWalkerMovementDelta(walker){
   return { dcol: to.col - from.col, drow: to.row - from.row };
 }
 
-/* ===================== POSITION ECRAN INTERPOLEE ===================== */
-// Glisse visuellement entre la case précédente et la case actuelle en fonction du temps
-// écoulé depuis le dernier tick — la simulation reste à 1 pas/seconde, seul l'affichage
-// est rafraîchi en continu (voir loop.js).
-function getWalkerScreenPos(walker, now){
-  if (!walker.path || walker.path.length === 0){
-    return tileDiamondCenter(walker.col ?? 0, walker.row ?? 0);
+/** Segment d'interpolation : prevPathIndex → pathIndex après tick, sinon case courante → suivante. */
+function getWalkerInterp(walker, now){
+  if (!walker?.path?.length){
+    return { col: walker?.col ?? 0, row: walker?.row ?? 0, t: 0, fromTile: null, toTile: null };
   }
-  const i = Number.isFinite(walker.pathIndex)
-    ? Math.min(Math.max(0, walker.pathIndex), walker.path.length - 1)
-    : 0;
-  const tile = walker.path[i];
-  if (!tile) return tileDiamondCenter(walker.col ?? 0, walker.row ?? 0);
-  if (walker.path.length <= 1) return tileDiamondCenter(tile.col, tile.row);
+  if (walker.path.length <= 1){
+    const tile = walker.path[0];
+    return { col: tile.col, row: tile.row, t: 0, fromTile: tile, toTile: tile };
+  }
 
-  const j = i + (walker.direction || 1);
-  const fromTile = (j >= 0 && j < walker.path.length)
-    ? walker.path[i]
-    : walker.path[Math.max(0, i - 1)];
-  const toTile = (j >= 0 && j < walker.path.length)
-    ? walker.path[j]
-    : walker.path[i];
-  if (!fromTile || !toTile) return tileDiamondCenter(tile.col, tile.row);
-  const elapsed = now - lastTickTimestamp;
-  const t = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
+  const pathIndex = Math.min(
+    Math.max(0, Number.isFinite(walker.pathIndex) ? walker.pathIndex : 0),
+    walker.path.length - 1,
+  );
+  let fromIdx = Number.isFinite(walker.prevPathIndex) ? walker.prevPathIndex : pathIndex;
+  fromIdx = Math.min(Math.max(0, fromIdx), walker.path.length - 1);
+  let toIdx = pathIndex;
 
-  const fromPos = tileDiamondCenter(fromTile.col, fromTile.row);
-  const toPos = tileDiamondCenter(toTile.col, toTile.row);
+  // Avant le premier tick (prev === index) : glisser vers la prochaine case du trajet.
+  if (fromIdx === toIdx){
+    const nextIdx = toIdx + (walker.direction || 1);
+    if (nextIdx >= 0 && nextIdx < walker.path.length){
+      fromIdx = toIdx;
+      toIdx = nextIdx;
+    }
+  }
+
+  const fromTile = walker.path[fromIdx];
+  const toTile = walker.path[toIdx];
+  if (!fromTile || !toTile){
+    return { col: walker.col ?? 0, row: walker.row ?? 0, t: 0, fromTile, toTile };
+  }
+
+  const elapsed = now - (typeof lastTickTimestamp !== 'undefined' ? lastTickTimestamp : 0);
+  const tickMs = typeof TICK_DURATION_MS !== 'undefined' ? TICK_DURATION_MS : 1000;
+  const t = (fromIdx === toIdx) ? 0 : Math.min(1, Math.max(0, elapsed / tickMs));
   return {
-    x: fromPos.x + (toPos.x - fromPos.x) * t,
-    y: fromPos.y + (toPos.y - fromPos.y) * t,
+    fromTile,
+    toTile,
+    fromIdx,
+    toIdx,
+    t,
+    col: fromTile.col + (toTile.col - fromTile.col) * t,
+    row: fromTile.row + (toTile.row - fromTile.row) * t,
+  };
+}
+
+/* ===================== POSITION ECRAN INTERPOLEE ===================== */
+// Glisse visuellement entre prevPathIndex et pathIndex (tick écoulé depuis lastTickTimestamp).
+function getWalkerScreenPos(walker, now){
+  const interp = getWalkerInterp(walker, now);
+  if (!interp.fromTile || !interp.toTile){
+    return tileDiamondCenter(interp.col, interp.row);
+  }
+  if (interp.fromTile.col === interp.toTile.col && interp.fromTile.row === interp.toTile.row){
+    return tileDiamondCenter(interp.col, interp.row);
+  }
+  const fromPos = tileDiamondCenter(interp.fromTile.col, interp.fromTile.row);
+  const toPos = tileDiamondCenter(interp.toTile.col, interp.toTile.row);
+  return {
+    x: fromPos.x + (toPos.x - fromPos.x) * interp.t,
+    y: fromPos.y + (toPos.y - fromPos.y) * interp.t,
   };
 }

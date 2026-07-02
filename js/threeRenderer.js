@@ -16,15 +16,21 @@ window._threeGroup   = null;
 window._decorSprites = [];
 window._terrainPickMeshes = [];
 window._threeGridOffset   = { offC: 0, offR: 0 };
+window._threePadGroup       = null;
+window._threePadMeshes      = new Map();
 
 // Matériaux Three.js par terrain (initialisés après chargement de THREE)
 window._terrainMats  = {};
+window._threeWalkerAtlases = {};   // service → THREE.Texture (spritesheet)
+window._threeWalkerFrames  = {};   // service → frames[dirIdx][frameIdx] → THREE.Texture
+window._threeWalkerPool    = [];   // { sprite, material, serviceType, dirKey, frameIdx, mirror }
+window._threeWalkerGroup   = null;
 
 let _threeRaycaster = null;
 let _threeNdc       = null;
 let _threeProjVec   = null;
 
-const THREE_ZOOM_BASE = 16; // _threeZoom à zoomLevel === ZOOM_DEFAULT
+const THREE_ZOOM_BASE = 7.8; // frustum ortho à ZOOM_DEFAULT — vue serrée Zeus (~3 tuiles large)
 window.THREE_ZOOM_BASE = THREE_ZOOM_BASE;
 
 /* ---------------------------------------------------------------
@@ -39,6 +45,7 @@ const TERRAIN_HEIGHT = {
   forest: 2,
   rock:   3,
   marble: 2,
+  building_pad: 1,
 };
 
 const TERRAIN_TOP_COLOR = {
@@ -50,6 +57,7 @@ const TERRAIN_TOP_COLOR = {
   forest: 0x2a7a1a,
   rock:   0x8a8070,
   marble: 0xddd8c8,
+  building_pad: 0xe8e4dc,
 };
 
 const TERRAIN_SIDE_COLOR = {
@@ -61,6 +69,7 @@ const TERRAIN_SIDE_COLOR = {
   forest: 0x1a5a0a,
   rock:   0x6a6050,
   marble: 0xccc8b8,
+  building_pad: 0xccc8b8,
 };
 
 /* ---------------------------------------------------------------
@@ -100,13 +109,14 @@ function makeCubeMats(THREE, topColor, sideColor){
   const top  = makePixelTex(THREE, topColor, topColor);
   const side = makePixelTex(THREE, sideColor, sideColor + 1);
   const bot  = makePixelTex(THREE, sideColor * 0.6 | 0, sideColor + 2);
-  return [side,side,top,bot,side,side].map(t=>new THREE.MeshLambertMaterial({map:t}));
+  return [side,side,top,bot,side,side].map(t=>new THREE.MeshLambertMaterial({map:t, toneMapped:false, depthWrite:true, depthTest:true}));
 }
 
 /** Matériaux cube style Minecraft : face du dessus + côtés (textures carrées tileables). */
-function makeCubeMatsFromTextures(THREE, topTex, sideTex){
+function makeCubeMatsFromTextures(THREE, topTex, sideTex, opts){
   const side = sideTex || topTex;
   const bot  = sideTex || topTex;
+  const polygonOffset = opts && opts.polygonOffset;
   const mk = (tex)=> tex
     ? new THREE.MeshLambertMaterial({
       map: tex,
@@ -116,9 +126,27 @@ function makeCubeMatsFromTextures(THREE, topTex, sideTex){
       depthWrite: true,
       depthTest: true,
       side: THREE.FrontSide,
+      toneMapped: false,
+      polygonOffset: !!polygonOffset,
+      polygonOffsetFactor: polygonOffset ? 1 : 0,
+      polygonOffsetUnits: polygonOffset ? 1 : 0,
     })
-    : new THREE.MeshLambertMaterial({ color: 0x888888 });
+    : new THREE.MeshLambertMaterial({ color: 0x888888, toneMapped: false });
   return [mk(side), mk(side), mk(topTex || side), mk(bot), mk(side), mk(side)];
+}
+
+function _terrainMatPair(key, foundation){
+  const mats = window._terrainMats[key] || window._terrainMats['grass'];
+  if (!Array.isArray(mats)) return [mats, mats];
+  if (!foundation) return [mats[0], mats[2]];
+  const side = mats[0].clone ? mats[0].clone() : mats[0];
+  const top  = mats[2].clone ? mats[2].clone() : mats[2];
+  side.polygonOffset = true;
+  side.polygonOffsetFactor = 2;
+  side.polygonOffsetUnits = 2;
+  side.depthWrite = true;
+  side.depthTest  = true;
+  return [side, top];
 }
 
 const THREE_TERRAIN_TEX_BASE = 'assets/tiles/generated_mediterranean/';
@@ -131,6 +159,7 @@ const THREE_TERRAIN_TEX_DEFS = {
   rock:   { top: 'rock.png',   side: 'rock.png' },
   marble: { top: 'marble.png', side: 'marble.png' },
   water:  { top: 'water.png',  side: 'water.png' },
+  building_pad: { top: 'building_pad.png', side: 'dirt.png' },
 };
 
 /** Aplati une image PNG en texture RGB opaque (fix alpha mobile WebGL). */
@@ -147,13 +176,16 @@ function _bakeOpaqueCanvasTexture(THREE, img, fillHex){
   ctx.fillRect(0, 0, w, h);
   try {
     ctx.drawImage(img, 0, 0);
-    // Vérifie que l'image n'est pas transparente (canvas tainted = pixels à 0)
-    const sample = ctx.getImageData(w>>1, h>>1, 1, 1).data;
-    if (sample[3] < 10){
-      // Canal alpha nul = image transparente ou tainted → refill couleur
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+    let needsOpaque = false;
+    for (let i = 3; i < data.length; i += 4){
+      if (data[i] < 255){
+        data[i] = 255;
+        needsOpaque = true;
+      }
     }
+    if (needsOpaque) ctx.putImageData(imageData, 0, 0);
   } catch(e){
     // Canvas tainted → on garde juste la couleur de fond
     console.warn('[Three] Texture tainted, fallback couleur');
@@ -164,6 +196,7 @@ function _bakeOpaqueCanvasTexture(THREE, img, fillHex){
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.premultiplyAlpha = false;
   tex.generateMipmaps = false;
+  if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
 }
@@ -280,9 +313,9 @@ window.syncThreeZoomToLevel = function(){
   }
 };
 
-/** Quad écran de la face supérieure d'une case (4 coins projetés). */
-window.getTileScreenQuad = function(col, row){
-  const y = window.getTerrainSurfaceY(col, row);
+/** Quad écran de la face supérieure d'une case (4 coins projetés). ySink = enfoncement Y monde. */
+window.getTileScreenQuad = function(col, row, ySink){
+  const y = window.getTerrainSurfaceY(col, row) - (ySink || 0);
   const w = window.gridToWorld3(col, row, y);
   const h = 0.5;
   return [
@@ -293,15 +326,42 @@ window.getTileScreenQuad = function(col, row){
   ];
 };
 
-/** Sommets iso projetés (détection min/max — indépendante de l'ordre du quad). */
-window.getTileScreenDiamond = function(col, row){
-  const q = window.getTileScreenQuad(col, row);
+/** px écran → delta Y monde (profondeur dans le sol, pour calage bâtiments). */
+window.screenPxToWorldY = function(px, col, row){
+  if (!px || !_THREE || !window._threeCam) return 0;
+  const y0 = window.getTerrainSurfaceY(col, row);
+  const w = window.gridToWorld3(col, row, y0);
+  const s0 = window.worldToScreen(w.x, y0, w.z);
+  const s1 = window.worldToScreen(w.x, y0 - 0.05, w.z);
+  const dy = Math.abs(s1.y - s0.y);
+  if (dy < 1e-6) return px * 0.001;
+  return px * 0.05 / dy;
+};
+
+function _cellHasBuildingPad(cell){
+  return !!(cell && (cell.building || cell.monumentPart));
+}
+
+/** Milieu d'une arête entre deux sommets projetés. */
+function _screenEdgeMid(a, b){
+  return { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
+}
+
+/** Losange écran : milieux des 4 arêtes (pas les coins — évite le décalage bas/latéral). */
+function _diamondFromScreenQuad(q){
+  const byY = q.slice().sort(function(a, b){ return a.y - b.y; });
+  const byX = q.slice().sort(function(a, b){ return a.x - b.x; });
   return {
-    north: q.reduce(function(a, b){ return a.y < b.y ? a : b; }),
-    south: q.reduce(function(a, b){ return a.y > b.y ? a : b; }),
-    east:  q.reduce(function(a, b){ return a.x > b.x ? a : b; }),
-    west:  q.reduce(function(a, b){ return a.x < b.x ? a : b; }),
+    north: _screenEdgeMid(byY[0], byY[1]),
+    south: _screenEdgeMid(byY[2], byY[3]),
+    west:  _screenEdgeMid(byX[0], byX[1]),
+    east:  _screenEdgeMid(byX[2], byX[3]),
   };
+}
+
+/** Sommets iso projetés (milieux d'arêtes — alignés sur tileEntityFoot 2D). */
+window.getTileScreenDiamond = function(col, row, ySink){
+  return _diamondFromScreenQuad(window.getTileScreenQuad(col, row, ySink));
 };
 
 /** Pied sud du losange projeté (= tileEntityFoot en espace écran). */
@@ -430,42 +490,154 @@ window.centerThreeOnTile = function(col, row){
   const { offC, offR } = window._threeGridOffset;
   window._threeTarget.set(col - offC, 0.5, row - offR);
   _updateThreeCam();
+  if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
+};
+
+/** Position monde 3D interpolée d'un walker (sans projection écran). */
+window.getWalkerWorld3Pos = function(walker, now){
+  const footLift = 0.04;
+  if (!walker || !Array.isArray(walker.path) || !walker.path.length){
+    const c = walker?.col ?? 0, r = walker?.row ?? 0;
+    const w = gridToWorld3Anchor(c, r);
+    return { x: w.x, y: w.y + footLift, z: w.z };
+  }
+  const interp = typeof getWalkerInterp === 'function'
+    ? getWalkerInterp(walker, now)
+    : null;
+  if (!interp || !interp.fromTile || !interp.toTile){
+    const w = gridToWorld3Anchor(walker.col ?? interp?.col ?? 0, walker.row ?? interp?.row ?? 0);
+    return { x: w.x, y: w.y + footLift, z: w.z };
+  }
+  const { offC, offR } = window._threeGridOffset;
+  const yFrom = window.getTerrainSurfaceY(interp.fromTile.col, interp.fromTile.row);
+  const yTo   = window.getTerrainSurfaceY(interp.toTile.col, interp.toTile.row);
+  const t = interp.t;
+  return {
+    x: interp.col - offC + 0.5,
+    y: yFrom + (yTo - yFrom) * t + footLift,
+    z: interp.row - offR + 0.5,
+  };
 };
 
 /** Position écran d'un walker (interpolation grille → centre face supérieure). */
 window.getWalkerWorld3ScreenPos = function(walker, now){
-  if (!walker || !Array.isArray(walker.path) || !walker.path.length){
-    const c = walker?.col ?? 0, r = walker?.row ?? 0;
-    const w = gridToWorld3Anchor(c, r);
-    return worldToScreen(w.x, w.y, w.z);
+  const p = window.getWalkerWorld3Pos(walker, now);
+  return worldToScreen(p.x, p.y, p.z);
+};
+
+const _THREE_WALKER_FRAME_W = 96;
+const _THREE_WALKER_FRAME_H = 96;
+const _THREE_WALKER_FRAMES  = 3;
+const _THREE_WALKER_DIRS    = 4;
+const _THREE_WALKER_DIR_ROW = { left: 0, down: 1, right: 2, up: 3 };
+
+function _threeWalkerFrameTexture(THREE, atlas, frameCol, frameRow){
+  const tex = atlas.clone();
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.repeat.set(1 / _THREE_WALKER_FRAMES, 1 / _THREE_WALKER_DIRS);
+  tex.offset.set(frameCol / _THREE_WALKER_FRAMES, 1 - (frameRow + 1) / _THREE_WALKER_DIRS);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+async function _loadThreeWalkerTextures(THREE){
+  const paths = typeof SERVICE_WALKER_SPRITES !== 'undefined' ? SERVICE_WALKER_SPRITES : {};
+  const loader = new THREE.TextureLoader();
+  await Promise.all(Object.entries(paths).map(([service, path]) => new Promise((resolve) => {
+    loader.load(path, (atlas) => {
+      atlas.magFilter = THREE.NearestFilter;
+      atlas.minFilter = THREE.NearestFilter;
+      atlas.colorSpace = THREE.SRGBColorSpace;
+      window._threeWalkerAtlases[service] = atlas;
+      const frames = [];
+      for (let d = 0; d < _THREE_WALKER_DIRS; d++){
+        const row = [];
+        for (let f = 0; f < _THREE_WALKER_FRAMES; f++){
+          row.push(_threeWalkerFrameTexture(THREE, atlas, f, d));
+        }
+        frames.push(row);
+      }
+      window._threeWalkerFrames[service] = frames;
+      resolve();
+    }, undefined, () => resolve());
+  })));
+}
+
+function _threeWalkerWorldScale(){
+  const size = typeof WALKER_DISPLAY_SIZE !== 'undefined' ? WALKER_DISPLAY_SIZE : 30;
+  const base = typeof THREE_ZOOM_BASE !== 'undefined' ? THREE_ZOOM_BASE : 16;
+  const zoom = window._threeZoom || base;
+  return (size / 96) * (base / zoom) * 0.95;
+}
+
+/** Walkers en sprites Three.js (1 seul contexte WebGL, pas de couche Pixi). */
+window.syncThreeWalkers = function(now){
+  if (!_THREE || !window._threeReady || !window._threeScene) return;
+  if (!window._threeWalkerGroup){
+    window._threeWalkerGroup = new _THREE.Group();
+    window._threeWalkerGroup.name = 'walkers';
+    window._threeScene.add(window._threeWalkerGroup);
   }
-  const i = Number.isFinite(walker.pathIndex)
-    ? Math.min(Math.max(0, walker.pathIndex), walker.path.length - 1) : 0;
-  const tile = walker.path[i];
-  if (!tile || walker.path.length <= 1){
-    const w = gridToWorld3Anchor(tile?.col ?? walker.col ?? 0, tile?.row ?? walker.row ?? 0);
-    return worldToScreen(w.x, w.y, w.z);
+  const list = (typeof walkers !== 'undefined' && Array.isArray(walkers)) ? walkers : [];
+  const pool = window._threeWalkerPool;
+  const frameMs = typeof WALKER_ANIM_FRAME_MS !== 'undefined' ? WALKER_ANIM_FRAME_MS : 200;
+  const frameIdxBase = Math.floor(now / frameMs);
+  const worldH = _threeWalkerWorldScale();
+
+  while (pool.length < list.length){
+    const material = new _THREE.SpriteMaterial({
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const sprite = new _THREE.Sprite(material);
+    sprite.center.set(0.5, 0.08);
+    sprite.renderOrder = 10;
+    window._threeWalkerGroup.add(sprite);
+    pool.push({ sprite, material, serviceType: null, dirKey: '', frameIdx: -1, mirror: false });
   }
-  const j = i + (walker.direction || 1);
-  const fromTile = (j >= 0 && j < walker.path.length) ? walker.path[i] : walker.path[Math.max(0, i - 1)];
-  const toTile   = (j >= 0 && j < walker.path.length) ? walker.path[j] : walker.path[i];
-  if (!fromTile || !toTile){
-    const w = gridToWorld3Anchor(tile.col, tile.row);
-    return worldToScreen(w.x, w.y, w.z);
+
+  let active = 0;
+  for (let i = 0; i < list.length; i++){
+    const w = list[i];
+    if (!w || !w.path || w.path.length <= 1) continue;
+
+    const entry = pool[active++];
+    const pos = window.getWalkerWorld3Pos(w, now);
+    entry.sprite.position.set(pos.x, pos.y, pos.z);
+    entry.sprite.visible = true;
+
+    const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(w) : null;
+    const dirKey = iso ? iso.facing : (w.facing || 'left');
+    const mirror = iso ? iso.mirrorX : !!w.mirrorX;
+    const service = w.serviceType;
+    const anim = window._threeWalkerFrames[service];
+    const dirIdx = anim ? (_THREE_WALKER_DIR_ROW[dirKey] ?? 1) : 0;
+    const frameIdx = anim ? (frameIdxBase % (anim[dirIdx]?.length || 1)) : 0;
+    const frameTex = anim?.[dirIdx]?.[frameIdx] || null;
+
+    if (frameTex && (entry.serviceType !== service || entry.dirKey !== dirKey
+        || entry.frameIdx !== frameIdx || entry.mirror !== mirror)){
+      entry.material.map = frameTex;
+      entry.material.needsUpdate = true;
+      entry.serviceType = service;
+      entry.dirKey = dirKey;
+      entry.frameIdx = frameIdx;
+      entry.mirror = mirror;
+    } else if (frameTex && entry.material.map !== frameTex){
+      entry.material.map = frameTex;
+      entry.material.needsUpdate = true;
+      entry.frameIdx = frameIdx;
+    }
+
+    const sx = mirror ? -worldH : worldH;
+    entry.sprite.scale.set(sx, worldH, 1);
   }
-  const elapsed = now - (typeof lastTickTimestamp !== 'undefined' ? lastTickTimestamp : 0);
-  const tickMs  = typeof TICK_DURATION_MS !== 'undefined' ? TICK_DURATION_MS : 1000;
-  const t = Math.min(1, Math.max(0, elapsed / tickMs));
-  const col = fromTile.col + (toTile.col - fromTile.col) * t;
-  const row = fromTile.row + (toTile.row - fromTile.row) * t;
-  const yFrom = window.getTerrainSurfaceY(fromTile.col, fromTile.row);
-  const yTo   = window.getTerrainSurfaceY(toTile.col, toTile.row);
-  const { offC, offR } = window._threeGridOffset;
-  return worldToScreen(
-    col - offC + 0.5,
-    yFrom + (yTo - yFrom) * t,
-    row - offR + 0.5,
-  );
+
+  for (let i = active; i < pool.length; i++){
+    pool[i].sprite.visible = false;
+  }
 };
 
 /* ---------------------------------------------------------------
@@ -482,7 +654,11 @@ window.initThreeRenderer = async function(){
       alpha: false,
       premultipliedAlpha: false,
       powerPreference: 'high-performance',
+      logarithmicDepthBuffer: true,
+      stencil: false,
+      depth: true,
     });
+    rnd.sortObjects = true;
     rnd.setClearColor(0x8ec8e8, 1);
     rnd.domElement.id = 'gameCanvas';
     rnd.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;touch-action:none;cursor:pointer;';
@@ -521,6 +697,7 @@ window.initThreeRenderer = async function(){
       window._terrainMats[key] = makeCubeMats(_THREE, TERRAIN_TOP_COLOR[key]||0x888888, TERRAIN_SIDE_COLOR[key]||0x666666);
     }
     await _loadThreeTerrainTextures(_THREE);
+    await _loadThreeWalkerTextures(_THREE);
 
     // Listeners resize (+ visualViewport mobile)
     const onViewResize = ()=>{
@@ -570,13 +747,17 @@ function _getThreeView(){
 function _resizeThreeView(){
   if (!window._threeRenderer) return;
   const view = _getThreeView();
-  const dpr  = Math.min(window.devicePixelRatio || 1, 1.5);
+  const dpr  = (typeof getRenderDpr === 'function')
+    ? getRenderDpr()
+    : Math.min(window.devicePixelRatio || 1, 1.5);
   window._threeRenderer.setPixelRatio(dpr);
   // updateStyle:false — le CSS (inset:0) fixe la taille à l'écran ; setSize = buffer logique
   window._threeRenderer.setSize(view.width, view.height, false);
   if (window._pixiOverlayApp?.renderer){
+    window._pixiOverlayApp.renderer.resolution = dpr;
     window._pixiOverlayApp.renderer.resize(view.width, view.height);
   }
+  if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
 }
 
 function _updateThreeCam(){
@@ -597,6 +778,25 @@ function _updateThreeCam(){
   cam.updateMatrixWorld();
 }
 
+/** Rectangle grille approximatif visible (culling décors avant projection coûteuse). */
+window.getThreeVisibleGridRect = function(padTiles){
+  const t = window._threeTarget;
+  const z = window._threeZoom || 16;
+  if (!t || !window._threeGridOffset) return null;
+  const view = _getThreeView();
+  const a = view.width / Math.max(view.height, 1);
+  const pad = padTiles || 2;
+  const halfX = (z * a / 2) * 1.2 + pad;
+  const halfZ = (z / 2) * 1.2 + pad;
+  const { offC, offR } = window._threeGridOffset;
+  return {
+    minCol: Math.floor(t.x - halfX + offC),
+    maxCol: Math.ceil(t.x + halfX + offC),
+    minRow: Math.floor(t.z - halfZ + offR),
+    maxRow: Math.ceil(t.z + halfZ + offR),
+  };
+};
+
 /* ---------------------------------------------------------------
    CONSTRUCTION DU TERRAIN — Niveau 1+2 optimisé
    • Face culling géométrique : seules les faces exposées sont créées
@@ -605,33 +805,37 @@ function _updateThreeCam(){
    --------------------------------------------------------------- */
 
 /**
- * Retourne les 4 voisins d'une cellule à (c, r, y) en 3D.
- * Utilisé pour déterminer quelles faces sont cachées.
+ * Couches solides du voisin pour le culling latéral.
+ * L'eau compte comme solide seulement face à d'autres cases d'eau (sinon berges visibles).
  */
-function _isFaceHidden(grid, ROWS, COLS, c, r, y, face){
-  // face : 'top','bottom','north','south','east','west'
-  let nc=c, nr=r, ny=y;
-  if(face==='top')    ny=y+1;
-  else if(face==='bottom') ny=y-1;
-  else if(face==='north')  nr=r-1; // -Z en Three.js
-  else if(face==='south')  nr=r+1;
-  else if(face==='east')   nc=c+1;
-  else if(face==='west')   nc=c-1;
+function _neighborSolidLayers(grid, ROWS, COLS, nc, nr, viewerTerrain){
+  if(nc<0||nc>=COLS||nr<0||nr>=ROWS) return 0;
+  const cell = grid[nr] && grid[nr][nc];
+  if(!cell) return 0;
+  if(cell.terrain === 'water') return viewerTerrain === 'water' ? 1 : 0;
+  return Math.max(1, TERRAIN_HEIGHT[cell.terrain||'grass']||1);
+}
 
-  // Face du bas → toujours cachée
+/**
+ * Détermine si une face de cube à (c, r, y) est entièrement occluse.
+ * face : 'top','bottom','north','south','east','west'
+ */
+function _isFaceHidden(grid, ROWS, COLS, c, r, y, face, viewerTerrain){
   if(face==='bottom') return true;
 
-  // Hors grille → face exposée
-  if(nc<0||nc>=COLS||nr<0||nr>=ROWS) return false;
+  const cell = grid[r] && grid[r][c];
+  const h = Math.max(1, TERRAIN_HEIGHT[cell?.terrain||'grass']||1);
 
-  const nCell = grid[nr] && grid[nr][nc];
-  if(!nCell) return false;
+  if(face==='top') return y + 1 < h; // autre couche dans la même colonne
 
-  const nH = Math.max(1, TERRAIN_HEIGHT[nCell.terrain||'grass']||1);
+  let nc=c, nr=r;
+  if(face==='north')      nr=r-1; // -Z
+  else if(face==='south') nr=r+1; // +Z
+  else if(face==='east')  nc=c+1; // +X
+  else if(face==='west')  nc=c-1; // -X
 
-  if(face==='top') return ny < nH; // cube au-dessus
-  // Face latérale : cachée si le voisin est au moins aussi haut
-  return nH > y;
+  const nH = _neighborSolidLayers(grid, ROWS, COLS, nc, nr, viewerTerrain);
+  return y < nH; // voisin a un bloc à cette hauteur
 }
 
 /**
@@ -659,16 +863,25 @@ function _buildMergedGeometry(THREE, facesData){
   const faceUVs = [[0,1],[1,1],[1,0],[0,0]];
 
   let vi = 0;
-  for(const {x,y,z,face} of facesData){
+  for(const {x,y,z,face,layer} of facesData){
     const verts = faceVerts[face];
     const n = faceNormals[face];
+    // Légère poussée vers l'extérieur — évite z-fighting sur la couche de fond (y=0)
+    const layerBias = (layer != null && layer > 0) ? layer * 0.00015 : 0;
+    const faceBias  = face === 'top' ? 0.0004 : 0.0008;
+    const bias = layerBias + faceBias;
     for(let i=0;i<4;i++){
-      positions.push(x+verts[i][0], y+verts[i][1], z+verts[i][2]);
+      positions.push(
+        x + verts[i][0] + n[0] * bias,
+        y + verts[i][1] + n[1] * bias,
+        z + verts[i][2] + n[2] * bias,
+      );
       normals.push(n[0],n[1],n[2]);
       uvs.push(faceUVs[i][0], faceUVs[i][1]);
     }
     const arr = face==='top' ? idxTop : idxSide;
-    arr.push(vi,vi+1,vi+2, vi,vi+2,vi+3);
+    // CCW vus de l'extérieur (FrontSide) — ordre inverse vs BoxGeometry par défaut
+    arr.push(vi,vi+2,vi+1, vi,vi+3,vi+2);
     vi+=4;
   }
 
@@ -687,7 +900,7 @@ function _buildMergedGeometry(THREE, facesData){
   return geo;
 }
 
-window.buildThreeTerrain = function(){
+window.buildThreeTerrain = function(opts){
   if(!_THREE || !Array.isArray(grid) || !grid.length) return;
   if(typeof isTerrainGenerationInProgress==='function' && isTerrainGenerationInProgress()) return;
 
@@ -703,8 +916,9 @@ window.buildThreeTerrain = function(){
   const offC  = COLS / 2;
   const DIRT  = 'grass';
 
-  // --- Collecter les faces visibles par terrain ---
-  const facesPerTerrain = {}; // terrain → [{x,y,z,face}]
+  // --- Collecter les faces visibles par terrain (surface vs couche de fond) ---
+  const facesPerTerrain = {};      // sommet de pile
+  const facesFoundation = {};      // y < h-1 — couche dirt (souvent y=0)
   const FACES = ['top','north','south','east','west']; // bas toujours caché
 
   let totalFaces = 0, totalHidden = 0;
@@ -719,37 +933,47 @@ window.buildThreeTerrain = function(){
       const z3 = r - offR + 0.5;
 
       for(let y=0;y<h;y++){
-        const t = y===h-1 ? terrain : DIRT;
+        const topKey = terrain;
+        const t = y === h - 1 ? topKey : DIRT;
         const yPos = y - 0.5;
 
         for(const face of FACES){
           totalFaces++;
-          if(_isFaceHidden(grid, ROWS, COLS, c, r, y, face)){
+          if(_isFaceHidden(grid, ROWS, COLS, c, r, y, face, t)){
             totalHidden++;
             continue;
           }
           if(!facesPerTerrain[t]) facesPerTerrain[t] = [];
-          facesPerTerrain[t].push({x:x3, y:yPos, z:z3, face});
+          if(!facesFoundation[t]) facesFoundation[t] = [];
+          const bucket = y === h - 1 ? facesPerTerrain : facesFoundation;
+          bucket[t].push({x:x3, y:yPos, z:z3, face, layer:y});
         }
       }
     }
   }
 
-  // --- Construire un Mesh fusionné par terrain ---
-  for(const [key, faces] of Object.entries(facesPerTerrain)){
-    if(!faces.length) continue;
-    const geo  = _buildMergedGeometry(_THREE, faces);
-    if(!geo) continue;
-    const mats = window._terrainMats[key] || window._terrainMats['grass'];
-    // [0]=side, [1]=top pour les groupes de la géométrie
-    const matArr = Array.isArray(mats) ? [mats[0], mats[2]] : [mats, mats];
+  function _addTerrainMesh(faces, key, foundation){
+    if(!faces || !faces.length) return;
+    const geo = _buildMergedGeometry(_THREE, faces);
+    if(!geo) return;
+    const matArr = _terrainMatPair(key, foundation);
     const mesh = new _THREE.Mesh(geo, matArr);
-    mesh.frustumCulled = false; // Niveau 2 : pas de culling automatique (notre géo est déjà culled)
-    mesh.castShadow    = false; // Niveau 2 : pas d'ombres (inutile en iso)
+    mesh.frustumCulled = false;
+    mesh.castShadow    = false;
     mesh.receiveShadow = false;
+    mesh.renderOrder   = foundation ? 0 : 1;
     mesh.userData.terrainKey = key;
+    mesh.userData.foundation = foundation;
     window._threeGroup.add(mesh);
     window._terrainPickMeshes.push(mesh);
+  }
+
+  // --- Fondations (couche 1 / dirt) puis surface ---
+  for(const [key, faces] of Object.entries(facesFoundation)){
+    _addTerrainMesh(faces, key, true);
+  }
+  for(const [key, faces] of Object.entries(facesPerTerrain)){
+    _addTerrainMesh(faces, key, false);
   }
 
   scene.add(window._threeGroup);
@@ -757,10 +981,9 @@ window.buildThreeTerrain = function(){
   const pct = totalFaces > 0 ? Math.round((1-totalHidden/totalFaces)*100) : 100;
   console.log(`[Three] Terrain ${COLS}×${ROWS} — ${totalFaces-totalHidden}/${totalFaces} faces (${pct}% visibles, ${100-pct}% culled)`);
 
-  // Centrer la caméra
-  if(typeof computeLandCentroid==='function'){
+  if (typeof computeLandCentroid === 'function'){
     const land = computeLandCentroid();
-    if(land){
+    if (land){
       window._threeTarget.set(
         Math.round(land.col) - offC, 0.5, Math.round(land.row) - offR
       );
@@ -768,30 +991,105 @@ window.buildThreeTerrain = function(){
     }
   }
 
-  if(typeof buildThreeDecors==='function') buildThreeDecors();
+  if (!opts?.skipDecors && typeof buildThreeDecors === 'function') buildThreeDecors();
+  if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads();
+};
+
+/** Dalle marbre incrémentale (1 mesh par case bâtiment — pas de rebuild terrain complet). */
+function _makeBuildingPadMesh(col, row){
+  const cell = grid[row] && grid[row][col];
+  if (!cell || !_cellHasBuildingPad(cell)) return null;
+  const ROWS = grid.length;
+  const COLS = grid[0].length;
+  const offR = ROWS / 2;
+  const offC = COLS / 2;
+  const terrain = cell.terrain || 'grass';
+  const h = Math.max(1, TERRAIN_HEIGHT[terrain] || 1);
+  const x3 = col - offC + 0.5;
+  const z3 = row - offR + 0.5;
+  const yPos = (h - 1) - 0.5 + 0.002;
+  const geo = _buildMergedGeometry(_THREE, [{ x: x3, y: yPos, z: z3, face: 'top', layer: h - 1 }]);
+  if (!geo) return null;
+  const matArr = _terrainMatPair('building_pad', false);
+  matArr.forEach(function(m){
+    if (!m) return;
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = -2;
+    m.polygonOffsetUnits = -2;
+  });
+  const mesh = new _THREE.Mesh(geo, matArr);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 3;
+  mesh.userData.padCol = col;
+  mesh.userData.padRow = row;
+  return mesh;
+}
+
+function _removeBuildingPadMesh(col, row){
+  const k = col + ',' + row;
+  const mesh = window._threePadMeshes.get(k);
+  if (!mesh) return;
+  if (window._threePadGroup) window._threePadGroup.remove(mesh);
+  if (mesh.geometry) mesh.geometry.dispose();
+  window._threePadMeshes.delete(k);
+}
+
+/** Met à jour les dalles sous bâtiments. cells = [{col,row},…] ou omit = resync complet. */
+window.syncThreeBuildingPads = function(cells){
+  if (!_THREE || !window._threeReady) return;
+  if (!window._threePadGroup){
+    window._threePadGroup = new _THREE.Group();
+    window._threePadGroup.name = 'buildingPads';
+    window._threeScene.add(window._threePadGroup);
+  }
+
+  const updateCell = function(col, row){
+    _removeBuildingPadMesh(col, row);
+    const mesh = _makeBuildingPadMesh(col, row);
+    if (mesh){
+      window._threePadGroup.add(mesh);
+      window._threePadMeshes.set(col + ',' + row, mesh);
+    }
+  };
+
+  if (cells && cells.length){
+    cells.forEach(function(t){ updateCell(t.col, t.row); });
+  } else {
+    window._threePadMeshes.forEach(function(m){
+      window._threePadGroup.remove(m);
+      if (m.geometry) m.geometry.dispose();
+    });
+    window._threePadMeshes.clear();
+    for (let r = 0; r < grid.length; r++){
+      for (let c = 0; c < grid[0].length; c++){
+        if (_cellHasBuildingPad(grid[r][c])) updateCell(c, r);
+      }
+    }
+  }
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+};
+
+/** Alias — accepte cells optionnel pour patch incrémental. */
+window.refreshThreeBuildingPads = function(cells){
+  syncThreeBuildingPads(cells);
 };
 
 /* ---------------------------------------------------------------
    DÉCORS — implémentés dans pixiRenderer.js (buildThreeDecors)
    --------------------------------------------------------------- */
-let _lastDecorUpdate=0;
-window.repositionDecorsThrottled = function(){
-  const now=performance.now();
-  if(now-_lastDecorUpdate < 80) return;
-  _lastDecorUpdate=now;
-  if (typeof window._repositionOverlayDecors === 'function') window._repositionOverlayDecors();
-};
 
 /* ---------------------------------------------------------------
    CONTRÔLES PAN (caméra iso fixe, déplacement dans le monde)
    --------------------------------------------------------------- */
 function _initThreeControls(){
   const el = window._threeRenderer.domElement;
-  let lastT=null, pinch=null;
+  let lastT=null;
+  const zoomLocked = typeof ZOOM_LOCKED !== 'undefined' && ZOOM_LOCKED;
 
   function pan(dx,dy){
     const t=window._threeTarget;
-    const spd=window._threeZoom*0.012;
+    const panRef = typeof THREE_ZOOM_BASE !== 'undefined' ? THREE_ZOOM_BASE : 16;
+    const spd=window._threeZoom*0.012*(16/panRef);
     t.x -= (dx*Math.cos(ISO_H) + dy*Math.sin(ISO_H)*0.5) * spd * 0.1;
     t.z -= (-dx*Math.sin(ISO_H)*0.5 + dy*Math.cos(ISO_H)) * spd * 0.1;
     const half=Math.max(grid.length,grid[0]?.length||60)/2;
@@ -799,35 +1097,11 @@ function _initThreeControls(){
     t.z=Math.max(-half,Math.min(half,t.z));
     _updateThreeCam();
     if (typeof markRenderDirty === 'function') markRenderDirty();
-  }
-
-  function zoomAt(delta, clientX, clientY){
-    const prev = window._threeZoom;
-    window._threeZoom = Math.max(4, Math.min(50, prev + delta));
-    if (window._threeZoom === prev) return;
-    // Ancrer le zoom sur le point sous le curseur
-    if (clientX != null && typeof threeRayPick === 'function'){
-      const before = threeRayPick(clientX, clientY);
-      _updateThreeCam();
-      syncThreeZoomToLevel();
-      if (before.hit){
-        const after = worldToScreen(before.x, before.y, before.z);
-        const t = window._threeTarget;
-        const spd = (window._threeZoom - prev) * 0.004;
-        t.x += (clientX - after.x) * spd * 0.08;
-        t.z += (clientY - after.y) * spd * 0.08;
-        _updateThreeCam();
-      }
-    } else {
-      _updateThreeCam();
-      syncThreeZoomToLevel();
-    }
-    if (typeof markRenderDirty === 'function') markRenderDirty();
+    if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
   }
 
   el.addEventListener('touchstart',e=>{
     if(e.touches.length===1) lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
-    if(e.touches.length===2) pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
   },{passive:true});
 
   el.addEventListener('touchmove',e=>{
@@ -836,18 +1110,10 @@ function _initThreeControls(){
       pan(e.touches[0].clientX-lastT.x, e.touches[0].clientY-lastT.y);
       lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
     }
-    if(e.touches.length===2&&pinch){
-      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      const midX=(e.touches[0].clientX+e.touches[1].clientX)/2;
-      const midY=(e.touches[0].clientY+e.touches[1].clientY)/2;
-      zoomAt((pinch-d)*0.04, midX, midY);
-      pinch=d;
-    }
   },{passive:false});
 
   el.addEventListener('touchend',e=>{
     if(e.touches.length<1)lastT=null;
-    if(e.touches.length<2)pinch=null;
   });
 
   let mDown=false,mLast=null;
@@ -858,10 +1124,51 @@ function _initThreeControls(){
     pan(e.clientX-mLast.x,e.clientY-mLast.y);
     mLast={x:e.clientX,y:e.clientY};
   });
-  el.addEventListener('wheel',e=>{
-    e.preventDefault();
-    zoomAt(e.deltaY * 0.02, e.clientX, e.clientY);
-  },{passive:false});
+  if (!zoomLocked){
+    let pinch=null;
+    function zoomAt(delta, clientX, clientY){
+      const prev = window._threeZoom;
+      window._threeZoom = Math.max(4, Math.min(50, prev + delta));
+      if (window._threeZoom === prev) return;
+      if (clientX != null && typeof threeRayPick === 'function'){
+        const before = threeRayPick(clientX, clientY);
+        _updateThreeCam();
+        syncThreeZoomToLevel();
+        if (before.hit){
+          const after = worldToScreen(before.x, before.y, before.z);
+          const t = window._threeTarget;
+          const spd = (window._threeZoom - prev) * 0.004;
+          t.x += (clientX - after.x) * spd * 0.08;
+          t.z += (clientY - after.y) * spd * 0.08;
+          _updateThreeCam();
+        }
+      } else {
+        _updateThreeCam();
+        syncThreeZoomToLevel();
+      }
+      if (typeof markRenderDirty === 'function') markRenderDirty();
+      if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
+    }
+    el.addEventListener('touchstart',e=>{
+      if(e.touches.length===2) pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      if(e.touches.length===2&&pinch){
+        const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+        const midX=(e.touches[0].clientX+e.touches[1].clientX)/2;
+        const midY=(e.touches[0].clientY+e.touches[1].clientY)/2;
+        zoomAt((pinch-d)*0.04, midX, midY);
+        pinch=d;
+      }
+    },{passive:false});
+    el.addEventListener('touchend',e=>{
+      if(e.touches.length<2) pinch=null;
+    });
+    el.addEventListener('wheel',e=>{
+      e.preventDefault();
+      zoomAt(e.deltaY * 0.02, e.clientX, e.clientY);
+    },{passive:false});
+  }
 }
 
 /* ---------------------------------------------------------------
@@ -869,8 +1176,11 @@ function _initThreeControls(){
    --------------------------------------------------------------- */
 window.renderThree = function(now){
   if(!window._threeReady) return;
+  if (typeof syncThreeWalkers === 'function'){
+    const list = (typeof walkers !== 'undefined' && Array.isArray(walkers)) ? walkers : [];
+    if (list.some(w => w.path && w.path.length > 1)) syncThreeWalkers(now);
+  }
   window._threeRenderer.render(window._threeScene, window._threeCam);
-  window.repositionDecorsThrottled();
   if (typeof renderPixiOverlay === 'function') renderPixiOverlay(now);
 };
 
@@ -889,6 +1199,11 @@ window.clientToMapWorldThree = function(clientX, clientY){
    --------------------------------------------------------------- */
 window.invalidateThreeTerrain = function(){
   if(window._threeReady) window.buildThreeTerrain();
+};
+
+window.invalidateThreeTerrainCells = function(cells){
+  if (!window._threeReady || !cells || !cells.length) return;
+  if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads(cells);
 };
 
 console.log('[threeRenderer.js] chargé');

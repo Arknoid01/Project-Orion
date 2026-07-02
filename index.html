@@ -2050,10 +2050,6 @@ h2{
  <button id="manageBtn" onclick="openManagePanel()" title="Gestion"><span id="manageBtnLabel">📊 Gestion</span></button>
 
  <div class="floatingTools">
-   <div class="zoomGroup">
-     <button class="iconBtn" onclick="zoomIn()" title="Zoom +">＋</button>
-     <button class="iconBtn" onclick="zoomOut()" title="Zoom -">−</button>
-   </div>
    <button class="iconBtn" id="hudPauseBtn" onclick="callGameAction('togglePause')" title="Pause">⏸</button>
    <button class="iconBtn" onclick="toggleDebugPanel()" title="Debug">🐛</button>
  </div>
@@ -2247,30 +2243,30 @@ h2{
 <!-- ===== Moteur de jeu réel (voir UI_MIGRATION_NOTES.md) ===== -->
 <!-- Pixi.js v8 WebGL renderer (local) -->
 <script src="js/pixi.min.js"></script>
-<script src="js/settings.js?v=2"></script>
+<script src="js/settings.js?v=5"></script>
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
-<script src="js/config.js?v=32"></script>
+<script src="js/config.js?v=44"></script>
 <script src="js/mediterraneanDecorSprites.js?v=4"></script>
 <script src="js/world.js"></script>
-<script src="js/monuments.js?v=2"></script>
+<script src="js/monuments.js?v=4"></script>
 <script src="js/procgen.js"></script>
 <script src="js/terrain.js"></script>
-<script src="js/mapgen.js?v=10"></script>
+<script src="js/mapgen.js?v=12"></script>
 <script src="js/terrainLevel.js?v=2"></script>
-<script src="js/grid.js?v=13"></script>
+<script src="js/grid.js?v=14"></script>
 <script src="js/terrainProcedural3D.js?v=2"></script>
 <script src="js/terrainVoxelBake.js?v=4"></script>
 <script src="js/terrainFlatFaces.js"></script>
 <script src="js/terrainLayers.js"></script>
 <script src="js/terrainIso.js?v=7"></script>
 <script src="js/mapView.js"></script>
-<script src="js/houses.js"></script>
-<script src="js/roadStairs.js?v=2"></script>
-<script src="js/walkers.js?v=3"></script>
-<script src="js/maintenance.js?v=2"></script>
+<script src="js/houses.js?v=3"></script>
+<script src="js/roadStairs.js?v=3"></script>
+<script src="js/walkers.js?v=6"></script>
+<script src="js/maintenance.js?v=4"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
 <script src="js/godSatisfaction.js"></script>
@@ -2286,23 +2282,22 @@ h2{
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
-<script src="js/loop.js?v=4"></script>
+<script src="js/loop.js?v=8"></script>
 <script src="js/pause.js"></script>
-<script src="js/characterSprites.js"></script>
+<script src="js/characterSprites.js?v=2"></script>
 <script src="js/forestTrees.js?v=19"></script>
 <script src="js/grassDecor.js?v=15"></script>
 <script src="js/rockDecor.js?v=2"></script>
 <script src="js/wheatCrops.js?v=5"></script>
 <script src="js/mediterraneanDecor.js?v=6"></script>
 <script src="js/camera.js"></script>
-<script src="js/zoom.js?v=4"></script>
-<script src="js/flatRenderer.js"></script>
-<script src="js/render.js?v=40"></script>
-<script src="js/pixiRenderer.js?v=11"></script>
-<script src="js/threeRenderer.js?v=12"></script>
+<script src="js/zoom.js?v=5"></script>
+<script src="js/render.js?v=47"></script>
+<script src="js/pixiRenderer.js?v=20"></script>
+<script src="js/threeRenderer.js?v=23"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
-<script src="js/migrationAgents.js?v=3"></script>
+<script src="js/migrationAgents.js?v=4"></script>
 <script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
 <script src="js/scenarios.js?v=3"></script>
@@ -2313,9 +2308,10 @@ h2{
 <script src="js/production.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/economyBalance.js"></script>
-<script src="js/ui.js?v=3"></script>
+<script src="js/ui.js?v=7"></script>
 <script src="js/observer.js"></script>
-<script src="js/main.js?v=3"></script>
+<script src="js/scriptLoader.js"></script>
+<script src="js/main.js?v=5"></script>
 
 <!-- ===== Interface (gestion des panneaux, catalogue de construction) ===== -->
 <script>

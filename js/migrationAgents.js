@@ -36,7 +36,8 @@ function destroyHouseAt(col, row){
   cell.building = null;
   cell.houseLevel = 0;
   cell.population = 0;
-  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
+  else if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
   if (typeof recomputeAllWalkers === 'function') recomputeAllWalkers();
   if (typeof recomputeBeauty === 'function') recomputeBeauty();
 }
@@ -47,6 +48,7 @@ function applyHouseGrowth(col, row){
   cell.houseLevel++;
   cell.population = HOUSE_LEVELS[cell.houseLevel].population;
   debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+  if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
 }
 
 function applyHouseSettlement(col, row){
@@ -54,6 +56,7 @@ function applyHouseSettlement(col, row){
   if (cell.building !== 'maison') return;
   cell.population = HOUSE_LEVELS[cell.houseLevel].population;
   debugInfo(`Colon installé : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+  if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
 }
 
 function applyHouseEmigration(col, row){
@@ -62,6 +65,7 @@ function applyHouseEmigration(col, row){
   cell.houseLevel--;
   cell.population = HOUSE_LEVELS[cell.houseLevel].population;
   debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+  if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
 }
 
 function pushMigrant(agent){

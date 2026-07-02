@@ -801,10 +801,10 @@ function terrainFromMaps(height, moisture, slope, col, row, heights){
 
   if (isPlain
       && moisture > MAP_WHEAT_MOISTURE
-      && moisture < 0.72
+      && moisture < 0.70
       && height >= MAP_WHEAT_MIN_HEIGHT
       && height <= MAP_WHEAT_MAX_HEIGHT
-      && slope < 0.045){
+      && slope < 0.042){
     return 'wheat';
   }
 
@@ -852,7 +852,7 @@ function enrichNaturalLandscape(heights, moisture){
     return h >= MAP_WHEAT_MIN_HEIGHT
       && h <= MAP_WHEAT_MAX_HEIGHT
       && m > MAP_WHEAT_MOISTURE
-      && m < 0.74
+      && m < 0.72
       && !isNearWater(heights, col, row);
   }
 

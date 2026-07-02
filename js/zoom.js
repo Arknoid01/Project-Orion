@@ -5,6 +5,8 @@ function getRenderDpr(){
 }
 
 function setZoom(value, anchorClientX, anchorClientY){
+  if (typeof ZOOM_LOCKED !== 'undefined' && ZOOM_LOCKED) return;
+
   if (typeof isThreeReady === 'function' && isThreeReady()
       && typeof syncZoomLevelToThree === 'function'){
     const oldZoom = zoomLevel;
@@ -49,6 +51,8 @@ let _pinchDist = null, _pinchZoom = 1, _pinchMidX = 0, _pinchMidY = 0;
 function _touchDist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
 
 function initZoom(){
+  if (typeof ZOOM_LOCKED !== 'undefined' && ZOOM_LOCKED) return;
+
   const zt = document.getElementById('canvasWrap') || document;
 
   zt.addEventListener('wheel', (e) => {

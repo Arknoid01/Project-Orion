@@ -1,7 +1,12 @@
 [
   {
-    "id": "migrant",
-    "category": "migrants",
-    "path": "assets/characters/migrants/migrant.png"
+    "id": "friendly",
+    "category": "soldiers",
+    "path": "assets/characters/soldiers/friendly.png"
+  },
+  {
+    "id": "enemy",
+    "category": "soldiers",
+    "path": "assets/characters/soldiers/enemy.png"
   }
 ]

@@ -161,7 +161,10 @@ function placeMonument(anchorCol, anchorRow, type, godKey){
   if (typeof onGodMonumentBuilt === 'function') onGodMonumentBuilt(godKey);
   spawnGodAgent(godKey, anchorCol, anchorRow, false);
   debugInfo('Temple monumental construit', { col: anchorCol, row: anchorRow, god: godKey });
-  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+  const padCells = monumentFootprintTiles(anchorCol, anchorRow, size);
+  if (typeof patchThreeDecors === 'function') patchThreeDecors(padCells);
+  if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads(padCells);
   recomputeAllWalkers();
   recomputeBeauty();
   return true;
@@ -171,6 +174,7 @@ function demolishMonument(anchorCol, anchorRow){
   const patron = grid[anchorRow][anchorCol]?.godPatron || null;
   removeGodAgentsAt(anchorCol, anchorRow);
   const size = MONUMENT_FOOTPRINT;
+  const padCells = monumentFootprintTiles(anchorCol, anchorRow, size);
   for (let r = anchorRow; r < anchorRow + size; r++){
     for (let c = anchorCol; c < anchorCol + size; c++){
       if (!inBounds(c, r)) continue;
@@ -180,7 +184,9 @@ function demolishMonument(anchorCol, anchorRow){
       cell.godPatron = null;
     }
   }
-  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof patchThreeDecors === 'function') patchThreeDecors(padCells);
+  if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads(padCells);
+  if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
   if (typeof onGodMonumentDemolished === 'function') onGodMonumentDemolished(patron);
   recomputeAllWalkers();
 }

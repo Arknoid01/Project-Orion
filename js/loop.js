@@ -25,23 +25,30 @@ function startRenderLoop(){
     // Pause totale si l'onglet est masqué (Android background).
     if (typeof document !== 'undefined' && document.hidden) return;
 
-    // Nombre de walkers / créatures actifs (proxy de "mouvement en cours").
-    const hasMoving = (typeof walkers !== 'undefined' && walkers.some(w => w.path && w.path.length > 1))
+    // Animation réelle (walkers, créatures…) — pas le simple survol / mode construction.
+    const hasAnimating = (typeof walkers !== 'undefined' && walkers.some(w => w.path && w.path.length > 1))
       || (typeof migrants !== 'undefined' && migrants.length > 0)
       || (typeof godAgents !== 'undefined' && godAgents.length > 0)
       || (typeof monster !== 'undefined' && monster)
       || (typeof hero !== 'undefined' && hero)
-      || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0)
-      || (typeof hoverTile !== 'undefined' && hoverTile)
-      || (typeof selectedBuilding !== 'undefined' && selectedBuilding)
-      || (typeof roadMode !== 'undefined' && roadMode)
-      || (typeof demolishMode !== 'undefined' && demolishMode)
-      || (typeof blockMode !== 'undefined' && blockMode)
-      || (typeof stairsMode !== 'undefined' && stairsMode);
+      || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0);
 
-    if (hasMoving) markRenderDirty();
+    const hasHoverUi = (typeof hoverTile !== 'undefined' && hoverTile)
+      && ((typeof selectedBuilding !== 'undefined' && selectedBuilding)
+        || (typeof roadMode !== 'undefined' && roadMode)
+        || (typeof demolishMode !== 'undefined' && demolishMode)
+        || (typeof blockMode !== 'undefined' && blockMode)
+        || (typeof stairsMode !== 'undefined' && stairsMode)
+        || (typeof zonePlacementStart !== 'undefined' && zonePlacementStart));
 
-    const targetFps  = _renderDirty ? RENDER_FPS_ACTIVE : RENDER_FPS_IDLE;
+    if (hasAnimating) markRenderDirty();
+
+    let targetFps  = _renderDirty ? RENDER_FPS_ACTIVE : RENDER_FPS_IDLE;
+    const fpsCap = (typeof getOverlayFpsCap === 'function') ? getOverlayFpsCap()
+      : ((typeof PERF !== 'undefined' && PERF.overlayFpsCap) ? PERF.overlayFpsCap : 60);
+    if (fpsCap) targetFps = Math.min(targetFps, fpsCap);
+    // Survol / placement sans animation : 30 fps suffisent pour la surbrillance.
+    if (!hasAnimating && hasHoverUi) targetFps = Math.min(targetFps, 30);
     const minInterval = 1000 / targetFps;
     const elapsed = now - _renderLastTime;
     if (elapsed < minInterval - 1) return;   // -1ms de marge pour éviter drift
@@ -58,7 +65,7 @@ function startRenderLoop(){
     }
 
     // Après N frames consécutives sans changement, passe en idle.
-    if (!hasMoving){
+    if (!hasAnimating){
       _renderIdleTicks++;
       if (_renderIdleTicks > 4) _renderDirty = false;
     }

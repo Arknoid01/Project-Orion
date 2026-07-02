@@ -37,9 +37,30 @@ const PERF_LEVEL = getPerfLevel();
 // decorDensity : multiplicateur appliqué à FOREST_TREE_DENSITY, WHEAT_CROP_DENSITY
 // et GRASS_DECOR_CHANCE pour réduire le nombre de drawImage() par frame en mobile.
 const PERF_PRESETS = {
-  faible: { dprCap: 1.5,  cacheScale: 2, smoothing: 'high', decorDensity: 1.0 },
-  normal: { dprCap: 1,    cacheScale: 1, smoothing: 'high', decorDensity: 0.85 },
-  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorDensity: 0.3 },
+  faible: { dprCap: 1.5,  cacheScale: 2, smoothing: 'high', decorDensity: 1.0, walkerFrameSkip: 0, walkerRenderMax: 64, overlayFpsCap: 60, decorBeautySkip: 0 },
+  normal: { dprCap: 1,    cacheScale: 1, smoothing: 'high', decorDensity: 0.85, walkerFrameSkip: 1, walkerRenderMax: 48, overlayFpsCap: 45, decorBeautySkip: 1 },
+  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorDensity: 0.3, walkerFrameSkip: 2, walkerRenderMax: 28, overlayFpsCap: 30, decorBeautySkip: 2 },
 };
 
 const PERF = PERF_PRESETS[PERF_LEVEL] || PERF_PRESETS.normal;
+
+/** Ajuste les limites walkers quand peu d'agents actifs (évite sur-throttle inutile). */
+function getWalkerCount(){
+  return (typeof walkers !== 'undefined' && Array.isArray(walkers)) ? walkers.length : 0;
+}
+
+function getWalkerFrameSkip(){
+  const n = getWalkerCount();
+  if (n <= 16) return 0;
+  return PERF.walkerFrameSkip || 0;
+}
+
+function getWalkerRenderMax(){
+  const n = getWalkerCount();
+  if (n <= 16) return Math.max(n, PERF.walkerRenderMax || 999);
+  return PERF.walkerRenderMax || 999;
+}
+
+function getOverlayFpsCap(){
+  return PERF.overlayFpsCap || 60;
+}

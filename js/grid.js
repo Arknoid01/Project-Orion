@@ -44,12 +44,26 @@ function makeEmptyCell(terrain, elevation){
 let mapDrawOrder = null;
 let terrainDataVersion = 0;
 
-function bumpTerrainVersion(){
+function bumpTerrainVersion(opts){
   terrainDataVersion++;
-  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (opts && opts.decorOnly && opts.cells && opts.cells.length){
+    if (typeof patchThreeDecors === 'function') patchThreeDecors(opts.cells);
+    else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+    return;
+  }
+  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache(opts);
   if (typeof invalidatePixiTerrain === 'function') invalidatePixiTerrain();
   if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
   if (typeof invalidateThreeTerrain === 'function') invalidateThreeTerrain();
+}
+
+/** Invalidation légère : décors Pixi sur quelques cases seulement. */
+function invalidateDecorAt(cols){
+  if (!cols || !cols.length) return;
+  if (typeof patchThreeDecors === 'function') patchThreeDecors(cols);
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
 }
 
 function invalidateMapDrawOrder(){ mapDrawOrder = null; }

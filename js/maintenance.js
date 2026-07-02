@@ -36,6 +36,7 @@ function triggerDisaster(col, row, kind){
       cell.population = HOUSE_LEVELS[cell.houseLevel].population;
       debugWarn(kind === 'fire' ? 'Incendie : maison endommagée' : 'Épidémie : maison touchée', { col, row });
       showNotification(t(kind === 'fire' ? 'maintenance.fireDamage' : 'maintenance.diseaseDamage'), 'bad');
+      if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
     }
   } else {
     if (typeof queueHouseDeparture === 'function' && queueHouseDeparture(col, row, false)){
@@ -45,10 +46,11 @@ function triggerDisaster(col, row, kind){
       cell.building = null;
       cell.houseLevel = 0;
       cell.population = 0;
-      if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+      if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
       debugWarn(kind === 'fire' ? 'Incendie : maison détruite' : 'Épidémie : maison décimée', { col, row });
       showNotification(t(kind === 'fire' ? 'maintenance.fireDestroyed' : 'maintenance.diseaseDestroyed'), 'bad');
       recomputeAllWalkers();
     }
   }
+  if (typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
 }

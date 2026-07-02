@@ -564,6 +564,33 @@ RECIPES = [
             {"sheet": SHIELD, "variant": "bronze"},
         ],
     },
+    # ========== SOLDATS (invasions / campagnes militaires) ==========
+    {
+        "id": "friendly", "category": "soldiers", "output": "friendly.png",
+        "body_type": "male",
+        "layers": [
+            {"sheet": B, "recolor": "light"},
+            {"sheet": BOOTS, "variant": "brown"},
+            {"sheet": CHAIN, "recolor": "steel"},
+            {"sheet": LEGS_ARM, "recolor": "steel"},
+            {"sheet": HELM, "recolor": "steel"},
+            {"sheet": SPEAR, "variant": "steel"},
+            {"sheet": SPARTAN, "variant": "spartan"},
+        ],
+    },
+    {
+        "id": "enemy", "category": "soldiers", "output": "enemy.png",
+        "body_type": "male",
+        "layers": [
+            {"sheet": B, "recolor": "olive"},
+            {"sheet": BOOTS, "variant": "brown"},
+            {"sheet": PANTS, "recolor": "charcoal"},
+            {"sheet": SHIRT, "recolor": "red"},
+            {"sheet": SASH, "variant": "red"},
+            {"sheet": SWORD, "variant": "steel"},
+            {"sheet": SHIELD, "variant": "crimson"},
+        ],
+    },
 ]
 
 for _recipe in RECIPES:

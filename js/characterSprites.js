@@ -31,6 +31,11 @@ function initCharacterSprites(){
       registerCharacterSprite('god_' + key, path);
     });
   }
+  if (typeof MILITARY_SOLDIER_SPRITES !== 'undefined'){
+    Object.entries(MILITARY_SOLDIER_SPRITES).forEach(([side, path]) => {
+      registerCharacterSprite('soldier_' + side, path);
+    });
+  }
 }
 
 function isCharacterSpriteReady(id){
@@ -42,6 +47,7 @@ function getCharacterDisplaySize(id){
   if (!id) return CHARACTER_DISPLAY_SIZE;
   if (id === 'migrant') return MIGRANT_DISPLAY_SIZE;
   if (id.startsWith('walker_')) return WALKER_DISPLAY_SIZE;
+  if (id.startsWith('soldier_')) return SOLDIER_DISPLAY_SIZE;
   if (id.startsWith('hero_')) return HERO_DISPLAY_SIZE;
   if (id.startsWith('god_')) return GOD_DISPLAY_SIZE;
   if (id.startsWith('monster_')) return MONSTER_DISPLAY_SIZE;

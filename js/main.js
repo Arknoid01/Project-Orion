@@ -45,7 +45,12 @@ if (loadGame()){
 setInterval(tick, 1000);
 setInterval(() => {
   if (typeof isGamePaused === 'function' && isGamePaused()) return;
-  saveGame({ silent: true });
+  const runSave = () => saveGame({ silent: true });
+  if (typeof requestIdleCallback === 'function'){
+    requestIdleCallback(runSave, { timeout: 3000 });
+  } else {
+    runSave();
+  }
 }, 10000);
 
 // Three.js (terrain) + Pixi overlay (sprites) puis boucle de rendu
@@ -66,6 +71,14 @@ async function initRenderers(){
       if (typeof applyMediterraneanViewportGrade === 'function') applyMediterraneanViewportGrade();
     } else {
       console.warn('[Main] Three.js indispo, fallback Canvas2D');
+      if (typeof loadGameScript === 'function'){
+        try {
+          await loadGameScript('js/flatRenderer.js');
+        } catch (e){
+          console.warn('[Main] flatRenderer.js non chargé', e);
+        }
+      }
+      if (typeof initPixiRenderer === 'function') await initPixiRenderer();
     }
   }
   startRenderLoop();

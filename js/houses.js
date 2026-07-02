@@ -68,6 +68,7 @@ function evaluateHouses(){
         cell.houseLevel--;
         cell.population = HOUSE_LEVELS[cell.houseLevel].population;
         debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+        markHouseVisualDirty();
       }
       return;
     }
@@ -82,6 +83,7 @@ function evaluateHouses(){
         cell.houseLevel++;
         cell.population = HOUSE_LEVELS[cell.houseLevel].population;
         debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+        markHouseVisualDirty();
       }
     } else if (cell.houseLevel > 0 && Math.random() < emigrationChance()){
       if (typeof queueEmigration === 'function' && queueEmigration(col, row)){
@@ -90,10 +92,20 @@ function evaluateHouses(){
         cell.houseLevel--;
         cell.population = HOUSE_LEVELS[cell.houseLevel].population;
         debugWarn(`Émigration : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
+        markHouseVisualDirty();
       }
     }
   });
+  if (typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
 }
+
+/** Rafraîchit le sprite overlay quand le niveau d'une maison change. */
+function markHouseVisualDirty(){
+  if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+}
+window.markHouseVisualDirty = markHouseVisualDirty;
 
 function computeTotalPopulation(){
   let total = 0;

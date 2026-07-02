@@ -123,7 +123,10 @@ function placeCellBuilding(col, row, key){
       cell.population = HOUSE_LEVELS[0].population;
     }
   }
-  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+  if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+  else if (typeof invalidateDecorAt === 'function') invalidateDecorAt([{ col, row }]);
+  if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
 }
 
 function confirmZonePlacement(c1, r1, c2, r2){
@@ -134,7 +137,8 @@ function confirmZonePlacement(c1, r1, c2, r2){
   if (!spend(cost)) return { ok: false, reason: 'afford' };
   if (roadMode){
     tiles.forEach(t => { grid[t.row][t.col].hasRoad = true; });
-    if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+    if (typeof patchThreeDecors === 'function') patchThreeDecors(tiles);
+    if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
     return { ok: true, kind: 'road', count: tiles.length, cost };
   }
   const def = BUILDING_DEFS[selectedBuilding];
@@ -729,9 +733,6 @@ on('taxRateSlider', 'input', (e) => {
   setTaxRate(e.target.value / 100);
 });
 
-on('zoomInBtn', 'click', () => zoomIn());
-on('zoomOutBtn', 'click', () => zoomOut());
-
 document.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
   if (e.key === 'q' || e.key === 'Q') rotateMapLeft();
@@ -744,18 +745,33 @@ function initCanvasListeners(){
 const _c = (typeof isThreeReady === 'function' && isThreeReady() && window._threeRenderer)
   ? window._threeRenderer.domElement
   : (document.getElementById('gameCanvas') || canvas);
+let _hoverPickAt = 0;
+let _hoverLastCol = null;
+let _hoverLastRow = null;
+
 _c.addEventListener('mousemove', (e) => {
+  const now = performance.now();
+  if (now - _hoverPickAt < 32) return;
+  _hoverPickAt = now;
+
   const pick = typeof pickTileAtScreen === 'function'
     ? pickTileAtScreen(e.clientX, e.clientY)
     : null;
   if (!pick || !pick.hit){
-    hoverTile = null;
+    if (_hoverLastCol != null){
+      hoverTile = null;
+      _hoverLastCol = _hoverLastRow = null;
+      if (typeof markRenderDirty === 'function') markRenderDirty();
+    }
     const infoMiss = document.getElementById('infoBar');
     if (infoMiss) infoMiss.textContent = t('info.hover');
     return;
   }
   const { col, row } = pick;
+  const tileChanged = col !== _hoverLastCol || row !== _hoverLastRow;
   hoverTile = { col, row };
+  _hoverLastCol = col;
+  _hoverLastRow = row;
 
   const info = document.getElementById('infoBar');
   if (info){
@@ -772,7 +788,7 @@ _c.addEventListener('mousemove', (e) => {
     }
   }
   if (supportsZonePlacement()) updateZonePlacementUI();
-  if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (tileChanged && typeof markRenderDirty === 'function') markRenderDirty();
   // Le rendu est géré par requestAnimationFrame (loop.js) — pas de render() ici.
 });
 
@@ -810,7 +826,9 @@ _c.addEventListener('click', (e) => {
         cell.building = null;
         cell.houseLevel = 0;
         cell.population = 0;
-        if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+        if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+        if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
+        if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
       }
     } else if (cell.hasRoad){
       debugInfo(cell.roadStairs ? 'Escalier supprimé' : 'Route supprimée', { col, row });
@@ -818,7 +836,8 @@ _c.addEventListener('click', (e) => {
       cell.hasRoad = false;
       cell.roadStairs = false;
       cell.patrolBlock = false;
-      if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+      if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+      if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
     }
     recomputeAllWalkers();
   } else if (blockMode){

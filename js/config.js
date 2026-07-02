@@ -31,14 +31,18 @@ const TERRAIN_CANVAS_H = 88;              // hauteur export normalisée (assets/
 const TERRAIN_FACE_ROW_FRAC = 38 / 88;    // ligne face iso dans le PNG (export normalisé)
 
 /* ===================== ZOOM ===================== */
-const ZOOM_DEFAULT = 0.55;  // ~6 tuiles visibles en largeur — vue proche style Zeus
-const ZOOM_MIN = 0.20;      // vue d'ensemble carte
-const ZOOM_MAX = 1.20;      // très proche, détail d'un bâtiment
+const ZOOM_DEFAULT = 1.22;  // vue serrée style Zeus (~3–4 tuiles en largeur)
+const ZOOM_LOCKED = true;   // zoom fixe (pas de +/-, molette ni pincement)
+const ZOOM_MIN = ZOOM_DEFAULT;
+const ZOOM_MAX = ZOOM_DEFAULT;
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
-const BUILDING_SPRITE_W = TILE_W - 4; // largeur cible à l'écran — proportionnel à TILE_W
-const BUILDING_FOOTPRINT_SCALE = 0.85; // base visuelle sur 1 tuile (un peu plus petit que la case)
+const BUILDING_SPRITE_W = TILE_W;             // largeur cible à l'écran — pleine tuile
+const BUILDING_FOOTPRINT_SCALE = 1.40;        // bâtiments imposants, débordent légèrement la case (Zeus)
+const BUILDING_FOOT_LIFT = -12;               // pied calé avec sprites plus grands
+const BUILDING_WORLD_DEPTH_PX = 2;       // enfoncement en profondeur 3D (px écran → Y monde)
+const BUILDING_GRID_NORTH_PX = 5;        // remontée le long de la grille (pied → nord, px écran)
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
 // Sprites iso « Isometric Asset - Lite » — affichés comme des bâtiments sur le terrain
@@ -212,9 +216,48 @@ const BUILDING_DEFS = {
   colonnade: { name:'building.colonnade', icon:'🏛️', color:'#e3ddcf', validTerrain:'grass', isDecoration:true, beauty:5, range:2, cost:70, upkeep:0.5, sprite:'assets/buildings/colonnade.png' },
   // ---- Temples monumentaux (2×2 cases) : alliance avec un dieu, avantages puissants ----
   // Voir monuments.js. Coût propre à chaque dieu (GODS), affiché dans la modale de choix.
-  grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:118,
+  grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:152,
     sprite:'assets/buildings/grandTemple.png', upkeep:2.5 },
 };
+
+/* ===================== SPRITES BÂTIMENTS — CORRESPONDANCES VISUELLES ===================== */
+// Les PNG générés (ComfyUI) ne correspondent pas toujours à leur nom de fichier.
+// Cette table relie chaque bâtiment du jeu à la texture la plus cohérente disponible.
+const BUILDING_SPRITE_OVERRIDES = {
+  farm:        'assets/buildings/heroTemple.png',    // domaine avec verger / cultures
+  oliveGrove:  'assets/buildings/tradingPost.png',   // oliviers en pots
+  vineyard:    'assets/buildings/armory.png',        // rangées de vignes
+  sheepFarm:   'assets/buildings/taxOffice.png',     // enclos à moutons
+  fishery:     'assets/buildings/market.png',        // étal (poisson au marché)
+  charcoalPit: 'assets/buildings/garden.png',        // végétation (forêt)
+  workshop:    'assets/buildings/foundry.png',       // temple avec statues (sculpteur)
+  oilPress:    'assets/buildings/winery.png',        // amphores d'huile
+  winery:      'assets/buildings/colonnade.png',     // petit pressoir + jarres
+  foundry:     'assets/buildings/granary.png',       // bâtiment massif
+  armory:      'assets/buildings/warehouse.png',     // entrepôt d'armes
+  barracks:    'assets/buildings/farm.png',          // grand complexe militaire
+  tradingPost: 'assets/buildings/charcoalPit.png',   // cour à colonnades + marchandises
+  heroTemple:  'assets/buildings/workshop.png',      // sanctuaire héroïque + statue
+  taxOffice:   'assets/buildings/oilPress.png',      // villa administrative
+  watchtower:  'assets/buildings/clinic.png',        // dôme visible (relais incendie)
+  statue:      'assets/buildings/oliveGrove.png',    // petit monument / statue
+  garden:      'assets/buildings/garden.png',        // jardin ornemental
+  colonnade:   'assets/buildings/charcoalPit.png',   // colonnade en L
+};
+
+function resolveBuildingSpritePath(type){
+  if (typeof BUILDING_SPRITE_OVERRIDES !== 'undefined' && BUILDING_SPRITE_OVERRIDES[type])
+    return BUILDING_SPRITE_OVERRIDES[type];
+  const def = BUILDING_DEFS[type];
+  if (def && def.sprite) return def.sprite;
+  return 'assets/buildings/' + type + '.png';
+}
+window.resolveBuildingSpritePath = resolveBuildingSpritePath;
+
+Object.keys(BUILDING_DEFS).forEach(function(key){
+  const path = resolveBuildingSpritePath(key);
+  if (BUILDING_DEFS[key] && path) BUILDING_DEFS[key].sprite = path;
+});
 
 // Biens distribués par les marchés — consommation PAR JOUR DE JEU (voir market.js).
 // Chaque bien consomme 'perHouse' unités par maison et par jour lorsque le besoin
@@ -450,7 +493,7 @@ const HOUSE_LEVELS = [
   { key:'house',     nameKey:'houseLevel.house',     population:5,  requires:['route'], sprite:'assets/houses/house.png' },
   { key:'decent',    nameKey:'houseLevel.decent',    population:9,  requires:['route','water'], sprite:'assets/houses/decent.png' },
   { key:'villa',     nameKey:'houseLevel.villa',     population:15, requires:['route','water','food'], sprite:'assets/houses/villa.png' },
-  { key:'domaine',   nameKey:'houseLevel.domaine',   population:24, requires:['route','water','food','oil','beauty'] },
+  { key:'domaine',   nameKey:'houseLevel.domaine',   population:24, requires:['route','water','food','oil','beauty'], sprite:'assets/houses/decent.png' },
   { key:'residence', nameKey:'houseLevel.residence', population:34, requires:['route','water','food','oil','wine','fish','religion','beauty'], sprite:'assets/houses/residence.png' },
   { key:'palais',    nameKey:'houseLevel.palais',    population:48, requires:['route','water','food','oil','wine','fish','clothing','religion','health','fire','beauty'], sprite:'assets/houses/palais.png' },
 ];
@@ -567,12 +610,12 @@ const MAP_FOREST_MOISTURE = 0.58;          // baissé : plus de forêt
 const MAP_FOREST_MIN_HEIGHT = 0.28;
 const MAP_FOREST_MAX_HEIGHT = 0.52;        // élargi vers le haut
 const MAP_FOREST_MAX_SLOPE = 0.052;
-const MAP_WHEAT_MOISTURE = 0.40;
-const MAP_WHEAT_MIN_HEIGHT = 0.24;
-const MAP_WHEAT_MAX_HEIGHT = 0.34;         // réduit : moins de blé
+const MAP_WHEAT_MOISTURE = 0.46;           // entre trop (0.40) et trop peu (0.52)
+const MAP_WHEAT_MIN_HEIGHT = 0.25;
+const MAP_WHEAT_MAX_HEIGHT = 0.32;
 const MAP_PLAIN_MARBLE_CHANCE = 0.014;
 const MAP_FOREST_SPREAD_CHANCE = 0.32;     // extension organique des bosquets
-const MAP_WHEAT_SPREAD_CHANCE = 0.26;      // extension des champs
+const MAP_WHEAT_SPREAD_CHANCE = 0.18;      // champs compacts mais jouables
 const MAP_GROVE_NOISE_THRESHOLD = 0.58;    // bosquets isolés sur prairie
 const MAP_RAIN_SHADOW = 0.26;
 const MAP_RAIN_SHADOW_STEPS = 20;
@@ -631,7 +674,8 @@ const ISO_DIAGONAL_FACING = {
 // Décalage vertical des pieds sur la tuile iso (ancrage du sprite).
 const CHARACTER_ISO_FOOT_PAD = 10;
 const CHARACTER_DISPLAY_SIZE = 44;       // repli générique
-const WALKER_DISPLAY_SIZE = 30;        // citoyens / services (plus petits)
+const WALKER_DISPLAY_SIZE = 34;        // citoyens / services — proportion Zeus (auto-scalé avec le zoom caméra)
+const SOLDIER_DISPLAY_SIZE = 38;       // soldats (invasions / campagnes)
 const MIGRANT_DISPLAY_SIZE = 32;       // colons arrivants / partants (sac à dos)
 const MIGRANT_SPRITE_PATH = 'assets/characters/migrants/migrant.png';
 const HERO_DISPLAY_SIZE = 50;          // héros (un peu plus grands)
@@ -648,6 +692,12 @@ const SERVICE_WALKER_SPRITES = {
   health:   'assets/characters/walkers/health.png',
   tax:      'assets/characters/walkers/tax.png',
   fire:     'assets/characters/walkers/fire.png',
+};
+
+// Soldats visuels (campagnes d'invasion / attaque) — atlas LPC 3×4
+const MILITARY_SOLDIER_SPRITES = {
+  friendly: 'assets/characters/soldiers/friendly.png',
+  enemy:    'assets/characters/soldiers/enemy.png',
 };
 
 // Dieux errants (temples monumentaux) — atlas LPC dans assets/characters/gods/

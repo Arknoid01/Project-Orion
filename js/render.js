@@ -111,15 +111,18 @@ function measureSpriteFoot(sprite){
 // Tant qu'une image n'est pas chargée, drawBuilding utilise le rendu procédural de secours.
 const BUILDING_SPRITES = {};
 Object.entries(BUILDING_DEFS).forEach(([key, def]) => {
-  if (!def.sprite) return;
+  const path = typeof resolveBuildingSpritePath === 'function'
+    ? resolveBuildingSpritePath(key)
+    : def.sprite;
+  if (!path) return;
   const img = new Image();
   img.onload = () => {
     measureSpriteFoot(img);
-    debugInfo(`Sprite chargé : ${def.sprite}`);
+    debugInfo(`Sprite chargé : ${path}`);
     render();
   };
-  img.onerror = () => debugWarn(`Sprite introuvable : ${def.sprite} (vérifie qu'il est dans assets/buildings/)`);
-  img.src = def.sprite;
+  img.onerror = () => debugWarn(`Sprite introuvable : ${path} (vérifie qu'il est dans assets/buildings/)`);
+  img.src = path;
   BUILDING_SPRITES[key] = img;
 });
 
@@ -462,13 +465,18 @@ let terrainLayerCache = null;
 let terrainLayerCacheVersion = -1;
 let terrainLayerCacheScale = 1;
 
-function invalidateTerrainLayerCache(){
+function invalidateTerrainLayerCache(opts){
   terrainLayerCache = null;
   terrainLayerCacheVersion = -1;
   if (typeof invalidateFlatMapCanvas === 'function') invalidateFlatMapCanvas();
   invalidateVisibleTilesCache();
   if (typeof isThreeReady === 'function' && isThreeReady()){
-    if (typeof buildThreeDecors === 'function') buildThreeDecors();
+    const cells = opts && opts.cells;
+    if (cells && cells.length && typeof patchThreeDecors === 'function'){
+      patchThreeDecors(cells);
+    } else if (typeof buildThreeDecors === 'function'){
+      buildThreeDecors();
+    }
     if (typeof markRenderDirty === 'function') markRenderDirty();
     return;
   }
@@ -805,33 +813,54 @@ window.buildingDrawWidthForDef = buildingDrawWidth;
 /** Calage écran Three+Pixi = même règles que drawSpriteOnTile (north → foot sud). */
 window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, opts){
   opts = opts || {};
-  if (typeof getTileScreenQuad !== 'function') return null;
-  const q = getTileScreenQuad(col, row);
-  const north = q.reduce(function(a, b){ return a.y < b.y ? a : b; });
-  const south = q.reduce(function(a, b){ return a.y > b.y ? a : b; });
-  const east  = q.reduce(function(a, b){ return a.x > b.x ? a : b; });
-  const west  = q.reduce(function(a, b){ return a.x < b.x ? a : b; });
-  const screenTileW = Math.hypot(east.x - west.x, east.y - west.y);
+  if (typeof getTileScreenDiamond !== 'function') return null;
+
+  let ySink = 0;
+  if (opts.building && typeof BUILDING_WORLD_DEPTH_PX === 'number' && BUILDING_WORLD_DEPTH_PX > 0
+      && typeof window.screenPxToWorldY === 'function'){
+    ySink = window.screenPxToWorldY(BUILDING_WORLD_DEPTH_PX, col, row);
+  }
+
+  const d = getTileScreenDiamond(col, row, ySink);
+  const screenTileW = Math.hypot(d.east.x - d.west.x, d.east.y - d.west.y);
   const tileW = typeof TILE_W !== 'undefined' ? TILE_W : 128;
   const pxScale = screenTileW / tileW;
+  const tileH = d.south.y - d.north.y;
 
   const m = sprite ? measureSpriteFoot(sprite) : null;
   const footNx = m ? m.footNx : 0.5;
   const footNy = m ? m.footNy : 1;
 
+  // Centre horizontal du losange (équivalent north.x en 2D)
+  const centerX = (d.east.x + d.west.x) * 0.5;
+
   let footY;
-  if (opts.cyIsFoot) footY = north.y;
-  else if (opts.anchorCenter) footY = north.y + (south.y - north.y) * 0.5;
-  else footY = south.y;
+  if (opts.cyIsFoot) footY = d.north.y;
+  else if (opts.anchorCenter) footY = d.north.y + tileH * 0.5;
+  else footY = d.south.y;
 
   const logicalW = targetLogicalW != null ? targetLogicalW : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : 124);
   const targetW = logicalW * pxScale;
   const srcW = (sprite && (sprite.naturalWidth || sprite.width)) || 62;
-  const lift = opts.lift != null ? opts.lift * pxScale : 0;
+  const footLift = typeof BUILDING_FOOT_LIFT === 'number' ? BUILDING_FOOT_LIFT : 0;
+  const lift = opts.lift != null ? opts.lift * pxScale : footLift;
+
+  let x = centerX;
+  let y = footY + lift;
+  const northPx = opts.building && typeof BUILDING_GRID_NORTH_PX === 'number' ? BUILDING_GRID_NORTH_PX : 0;
+  if (northPx){
+    const ax = d.north.x - centerX;
+    const ay = d.north.y - footY;
+    const len = Math.hypot(ax, ay);
+    if (len > 1e-6){
+      x += ax * northPx / len;
+      y += ay * northPx / len;
+    }
+  }
 
   return {
-    x: north.x,
-    y: footY + lift,
+    x,
+    y,
     scale: targetW / srcW,
     footNx,
     footNy,
@@ -846,14 +875,31 @@ const SPRITE_DECOR_OPTS = { lift: typeof NATURE_DECOR_LIFT === 'number' ? NATURE
 const SPRITE_FOOT_OPTS = { cyIsFoot: true, lift: 0 };
 
 // Sprite de maison à utiliser pour un niveau : le sien, sinon le plus haut niveau
-// inférieur qui a un sprite (ex. domaine/résidence/palais retombent sur villa).
-function houseSpriteForLevel(level){
+// inférieur qui a un sprite (ex. domaine sans PNG dédié retombe sur villa).
+function houseSpriteKeyForLevel(level){
   for (let i = level; i >= 0; i--){
-    const img = HOUSE_SPRITES[HOUSE_LEVELS[i].key];
-    if (img && img.complete && img.naturalWidth > 0) return img;
+    const lvl = HOUSE_LEVELS[i];
+    if (!lvl) continue;
+    if (lvl.sprite) return lvl.key;
+    const img = HOUSE_SPRITES[lvl.key];
+    if (img && img.complete && img.naturalWidth > 0) return lvl.key;
+  }
+  return HOUSE_LEVELS[0]?.key || 'hut';
+}
+
+function houseSpriteForLevel(level){
+  const key = houseSpriteKeyForLevel(level);
+  const img = HOUSE_SPRITES[key];
+  if (img && img.complete && img.naturalWidth > 0) return img;
+  for (let i = level; i >= 0; i--){
+    const img2 = HOUSE_SPRITES[HOUSE_LEVELS[i]?.key];
+    if (img2 && img2.complete && img2.naturalWidth > 0) return img2;
   }
   return null;
 }
+
+window.houseSpriteKeyForLevel = houseSpriteKeyForLevel;
+window.houseSpriteForLevel = houseSpriteForLevel;
 
 function drawBuilding(cx, cy, type, col, row){
   const def = BUILDING_DEFS[type];
@@ -1223,8 +1269,16 @@ function drawCreatures(now, viewBounds){
     getMilitarySoldiers().forEach(s => {
       const { x, y } = getMilitarySoldierScreenPos(s, now);
       if (!_posInView(x, y, viewBounds)) return;
-      const friendly = s.side === 'friendly';
-      drawAgentToken(x, y, friendly ? '🛡️' : '⚔️', friendly ? 'rgba(60,110,200,0.92)' : 'rgba(150,30,30,0.92)');
+      const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(s, now);
+      const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(s) : null;
+      const side = s.side === 'friendly' ? 'friendly' : 'enemy';
+      const drew = (typeof drawCharacterSprite === 'function')
+        && drawCharacterSprite('soldier_' + side, x, y,
+          iso ? iso.facing : (s.facing || 'down'), now, undefined, iso ? iso.mirrorX : s.mirrorX, moving);
+      if (!drew){
+        const friendly = s.side === 'friendly';
+        drawAgentToken(x, y, friendly ? '🛡️' : '⚔️', friendly ? 'rgba(60,110,200,0.92)' : 'rgba(150,30,30,0.92)');
+      }
     });
   }
 }

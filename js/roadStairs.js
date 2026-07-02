@@ -46,7 +46,8 @@ function placeStairs(col, row){
   const cell = grid[row][col];
   cell.hasRoad = true;
   cell.roadStairs = true;
-  if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+  if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+  if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
 }
 
 /** Deux cases adjacentes sont connectées pour la patrouille des walkers. */

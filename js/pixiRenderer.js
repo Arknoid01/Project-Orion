@@ -21,7 +21,66 @@ window._beautySprites    = [];     // { gfx, col, row, alpha }
 
 window._terrainDirty     = true;
 window._buildingDirty    = true;
-window._pixiBakeL = -1e9; window._pixiBakeT = -1e9;
+window._roadsDirty       = true;
+window._houseIconsDirty  = true;
+window._overlayBuildingEntries = [];
+window._overlayRoadEntries     = [];
+window._walkerSpritePool       = [];
+window._walkerGfxPool          = [];
+window._walkerPoolFrameSkip    = 0;
+window._agentCharPool          = [];
+window._agentGfxPool           = [];
+window._agentTextPool          = [];
+window._houseIconPool          = [];
+window._houseIconEntries       = [];
+window._decorBeautyTick        = 0;
+window._overlayCamKey = '';
+window._uiOverlayLastKey = '';
+window._overlayNeedsRender = true;
+window._uiQuadPool = [];
+
+window.markOverlayCameraDirty = function(){
+  window._overlayCamKey = '';
+};
+window.markOverlayDirty = function(){
+  window._overlayNeedsRender = true;
+};
+
+function _pixiOverlayDpr(){
+  return (typeof getRenderDpr === 'function')
+    ? getRenderDpr()
+    : Math.min(window.devicePixelRatio || 1, 1.5);
+}
+
+function _overlayCameraKey(){
+  const t = window._threeTarget;
+  const z = window._threeZoom || 0;
+  if (!t) return '0|0|' + z + '|' + window.innerWidth + '|' + window.innerHeight;
+  return t.x.toFixed(2) + '|' + t.z.toFixed(2) + '|' + z.toFixed(3)
+    + '|' + window.innerWidth + '|' + window.innerHeight;
+}
+
+function _overlayCameraMoved(){
+  const key = _overlayCameraKey();
+  if (key === window._overlayCamKey) return false;
+  window._overlayCamKey = key;
+  return true;
+}
+
+function _uiOverlayStateKey(){
+  if (typeof hoverTile === 'undefined' || !hoverTile) return '';
+  const parts = [hoverTile.col, hoverTile.row];
+  if (typeof selectedBuilding !== 'undefined') parts.push(selectedBuilding || '');
+  if (typeof roadMode !== 'undefined') parts.push(roadMode ? 'r' : '');
+  if (typeof demolishMode !== 'undefined') parts.push(demolishMode ? 'd' : '');
+  if (typeof blockMode !== 'undefined') parts.push(blockMode ? 'b' : '');
+  if (typeof stairsMode !== 'undefined') parts.push(stairsMode ? 's' : '');
+  if (typeof zonePlacementStart !== 'undefined' && zonePlacementStart){
+    parts.push('z', zonePlacementStart.col, zonePlacementStart.row);
+  }
+  return parts.join('|');
+}
+
 window._pixiBakeR =  1e9; window._pixiBakeB =  1e9;
 window._pixiBakeZoom = -1; window._pixiBakeVer = -1;
 
@@ -40,7 +99,7 @@ window.initPixiRenderer = async function(){
       width: window.innerWidth, height: window.innerHeight,
       backgroundColor: 0x0b2134,
       antialias: false,
-      resolution: Math.min(window.devicePixelRatio || 1, 1.5),
+      resolution: _pixiOverlayDpr(),
       autoDensity: true,
     });
     app.canvas.id = 'gameCanvas';
@@ -80,7 +139,14 @@ window.initPixiRenderer = async function(){
 window.isPixiReady       = function(){ return !!window._pixiApp; };
 window.isPixiOverlayReady = function(){ return !!window._pixiOverlayApp; };
 window.invalidatePixiTerrain  = function(){ window._terrainDirty = true; };
-window.invalidatePixiBuildings = function(){ window._buildingDirty = true; };
+window.invalidatePixiBuildings = function(){
+  window._buildingDirty = true;
+  window._roadsDirty = true;
+  window._houseIconsDirty = true;
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
+};
+window.invalidatePixiRoads = function(){ window._roadsDirty = true; if (typeof markOverlayDirty === 'function') markOverlayDirty(); };
+window.markHouseIconsDirty = function(){ window._houseIconsDirty = true; };
 
 /** Canvas Pixi transparent par-dessus Three.js (bâtiments, walkers, UI). */
 window.initPixiOverlay = async function(){
@@ -103,7 +169,7 @@ window.initPixiOverlay = async function(){
       height: view.height,
       backgroundAlpha: 0,
       antialias: false,
-      resolution: Math.min(window.devicePixelRatio || 1, 1.5),
+      resolution: _pixiOverlayDpr(),
       autoDensity: true,
     });
 
@@ -114,6 +180,7 @@ window.initPixiOverlay = async function(){
     window._overlayRoadContainer     = new PIXI.Container();
     window._overlayBuildingContainer = new PIXI.Container();
     window._overlayWalkerContainer   = new PIXI.Container();
+    window._overlayHouseIconContainer = new PIXI.Container();
     window._overlayAgentContainer    = new PIXI.Container();
     window._overlayUiContainer       = new PIXI.Container();
     window._overlayGradeContainer    = new PIXI.Container();
@@ -123,15 +190,18 @@ window.initPixiOverlay = async function(){
     app.stage.addChild(window._overlayRoadContainer);
     app.stage.addChild(window._overlayBuildingContainer);
     app.stage.addChild(window._overlayWalkerContainer);
+    app.stage.addChild(window._overlayHouseIconContainer);
     app.stage.addChild(window._overlayAgentContainer);
     app.stage.addChild(window._overlayUiContainer);
     app.stage.addChild(window._overlayGradeContainer);
 
     await window._pixiLoadTextures();
+    app.ticker.stop();
 
     window.addEventListener('resize', () => {
       app.renderer.resize(window.innerWidth, window.innerHeight);
       window._buildingDirty = true;
+      if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
       if (typeof markRenderDirty === 'function') markRenderDirty();
     });
 
@@ -178,9 +248,20 @@ function _pixiDrawTileQuad(container, col, row, fill, stroke, fillAlpha, strokeA
   container.addChild(g);
 }
 
+function _pixiDrawTileQuadPooled(container, col, row, fill, stroke, fillAlpha, strokeAlpha, pool){
+  if (typeof getTileScreenQuad !== 'function') return;
+  const q = getTileScreenQuad(col, row);
+  const gPool = pool || window._uiQuadPool;
+  const g = _pixiPoolAcquire(gPool, container, function(){ return new PIXI.Graphics(); });
+  g.clear();
+  g.poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y]);
+  if (fill != null) g.fill({ color: fill, alpha: fillAlpha != null ? fillAlpha : 0.4 });
+  if (stroke != null) g.stroke({ color: stroke, alpha: strokeAlpha != null ? strokeAlpha : 0.55, width: 1.5 });
+}
+
 /** Texture mappée sur le quad écran de la face supérieure (aligné sur le losange Three). */
-function _pixiDrawTileQuadTexture(container, col, row, texture, alpha){
-  if (!texture || typeof getTileScreenQuad !== 'function' || !PIXI.MeshGeometry) return;
+function _pixiCreateTileQuadTextureMesh(col, row, texture, alpha){
+  if (!texture || typeof getTileScreenQuad !== 'function' || !PIXI.MeshGeometry) return null;
   const q = getTileScreenQuad(col, row);
   const geometry = new PIXI.MeshGeometry({
     positions: new Float32Array([
@@ -194,12 +275,63 @@ function _pixiDrawTileQuadTexture(container, col, row, texture, alpha){
   });
   const mesh = new PIXI.Mesh({ geometry, texture });
   mesh.alpha = alpha != null ? alpha : 1;
-  container.addChild(mesh);
+  return mesh;
 }
 
-function _pixiResolveBuildingImage(texKey, type){
+function _pixiUpdateTileQuadMesh(mesh, col, row){
+  if (!mesh || typeof getTileScreenQuad !== 'function') return;
+  const q = getTileScreenQuad(col, row);
+  const geo = mesh.geometry;
+  const buf = geo.getBuffer ? geo.getBuffer('aPosition') : geo.getAttribute?.('aPosition');
+  if (!buf || !buf.data) return;
+  const p = buf.data;
+  p[0]=q[0].x; p[1]=q[0].y;
+  p[2]=q[1].x; p[3]=q[1].y;
+  p[4]=q[2].x; p[5]=q[2].y;
+  p[6]=q[3].x; p[7]=q[3].y;
+  buf.update();
+}
+
+function _pixiDrawTileQuadTexture(container, col, row, texture, alpha){
+  const mesh = _pixiCreateTileQuadTextureMesh(col, row, texture, alpha);
+  if (mesh) container.addChild(mesh);
+}
+
+function _pixiPoolAcquire(pool, container, factory){
+  const idx = pool._active || 0;
+  if (idx < pool.length){
+    const obj = pool[idx];
+    obj.visible = true;
+    if (obj.parent !== container) container.addChild(obj);
+    pool._active = idx + 1;
+    return obj;
+  }
+  const obj = factory();
+  pool.push(obj);
+  container.addChild(obj);
+  pool._active = idx + 1;
+  return obj;
+}
+
+function _pixiPoolRelease(pool){
+  const n = pool._active || 0;
+  for (let i = n; i < pool.length; i++) pool[i].visible = false;
+  pool._active = 0;
+}
+
+function _pixiHouseTexKey(houseLevel){
+  if (typeof houseSpriteKeyForLevel === 'function') return houseSpriteKeyForLevel(houseLevel || 0);
+  const lvl = (typeof HOUSE_LEVELS !== 'undefined' && HOUSE_LEVELS[houseLevel || 0])
+    ? HOUSE_LEVELS[houseLevel || 0] : null;
+  return lvl ? lvl.key : 'hut';
+}
+
+function _pixiResolveBuildingImage(texKey, type, houseLevel){
   if (typeof window.HOUSE_SPRITE_IMAGES !== 'undefined' && texKey.startsWith('house_')){
-    return window.HOUSE_SPRITE_IMAGES[texKey.slice(6)] || null;
+    const key = (typeof houseLevel === 'number' && typeof houseSpriteKeyForLevel === 'function')
+      ? houseSpriteKeyForLevel(houseLevel)
+      : texKey.slice(6);
+    return window.HOUSE_SPRITE_IMAGES[key] || null;
   }
   if (typeof window.BUILDING_SPRITE_IMAGES !== 'undefined'){
     return window.BUILDING_SPRITE_IMAGES[type] || null;
@@ -237,9 +369,23 @@ function _pixiMonumentScreenPlacement(anchorCol, anchorRow, size, img, def){
     : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : 124) * size * 0.95;
   const srcW = (img && (img.naturalWidth || img.width)) || 62;
   const m = (img && typeof measureSpriteFoot === 'function') ? measureSpriteFoot(img) : null;
+  let x = sx / n;
+  let y = sy / n;
+  const northPx = typeof BUILDING_GRID_NORTH_PX === 'number' ? BUILDING_GRID_NORTH_PX : 0;
+  if (northPx && typeof getTileScreenDiamond === 'function'){
+    const d = getTileScreenDiamond(anchorCol, anchorRow);
+    const cx = (d.east.x + d.west.x) * 0.5;
+    const ax = d.north.x - cx;
+    const ay = d.north.y - d.south.y;
+    const len = Math.hypot(ax, ay);
+    if (len > 1e-6){
+      x += ax * northPx / len;
+      y += ay * northPx / len;
+    }
+  }
   return {
-    x: sx / n,
-    y: sy / n,
+    x,
+    y,
     scale: (logicalW * pxScale) / srcW,
     footNx: m ? m.footNx : 0.5,
     footNy: m ? m.footNy : 1,
@@ -281,7 +427,10 @@ window._pixiLoadTextures = async function(){
   // Bâtiments
   if (typeof BUILDING_DEFS !== 'undefined'){
     await Promise.all(Object.keys(BUILDING_DEFS).map(async (type) => {
-      const path = `assets/buildings/${type}.png`;
+      const def = BUILDING_DEFS[type];
+      const path = (def && def.sprite)
+        || (typeof resolveBuildingSpritePath === 'function' ? resolveBuildingSpritePath(type) : null);
+      if (!path) return;
       try { window._buildingTextures[type] = await PIXI.Assets.load(path); } catch{}
     }));
   }
@@ -289,7 +438,8 @@ window._pixiLoadTextures = async function(){
   // Maisons
   if (typeof HOUSE_LEVELS !== 'undefined'){
     await Promise.all(HOUSE_LEVELS.map(async (lvl) => {
-      const path = `assets/houses/${lvl.key}.png`;
+      const path = lvl.sprite || `assets/houses/${lvl.key}.png`;
+      if (!lvl.sprite && !lvl.key) return;
       try { window._buildingTextures['house_' + lvl.key] = await PIXI.Assets.load(path); } catch{}
     }));
   }
@@ -365,6 +515,9 @@ async function _pixiLoadCharacterSheets(){
   }
   if (typeof GOD_SPRITES !== 'undefined'){
     await Promise.all(Object.entries(GOD_SPRITES).map(([key, path])=> _pixiLoadCharacterSheet('god_' + key, path)));
+  }
+  if (typeof MILITARY_SOLDIER_SPRITES !== 'undefined'){
+    await Promise.all(Object.entries(MILITARY_SOLDIER_SPRITES).map(([side, path])=> _pixiLoadCharacterSheet('soldier_' + side, path)));
   }
 }
 
@@ -470,6 +623,7 @@ window._buildBuildings = function(visible, overlay){
   const container = overlay ? window._overlayBuildingContainer : window._buildingContainer;
   if (!container) return;
   container.removeChildren();
+  if (overlay) window._overlayBuildingEntries = [];
 
   visible.forEach(function(item){
     const col = item.col, row = item.row;
@@ -486,44 +640,27 @@ window._buildBuildings = function(visible, overlay){
     }
 
     const isHouse = type === 'maison' || (def && def.isHouse);
-    const texKey = isHouse
-      ? 'house_' + (typeof HOUSE_LEVELS !== 'undefined' && HOUSE_LEVELS[cell.houseLevel || 0]
-        ? HOUSE_LEVELS[cell.houseLevel || 0].key : 'hut')
-      : type;
-    const tex = window._buildingTextures[texKey] || window._buildingTextures[type];
+    const houseKey = isHouse ? _pixiHouseTexKey(cell.houseLevel) : null;
+    const texKey = isHouse ? ('house_' + houseKey) : type;
+    const tex = window._buildingTextures[texKey]
+      || (isHouse ? window._buildingTextures['house_' + _pixiHouseTexKey(cell.houseLevel)] : null)
+      || window._buildingTextures[type];
 
     if (overlay && typeof isThreeReady === 'function' && isThreeReady()){
-      const img = _pixiResolveBuildingImage(texKey, type);
+      const img = _pixiResolveBuildingImage(texKey, type, isHouse ? cell.houseLevel : undefined);
       if (tex){
         const spr = new PIXI.Sprite(tex);
-        let placement;
-        if (def && def.isMonument){
-          const anchor = (typeof monumentAnchorAt === 'function')
-            ? monumentAnchorAt(col, row) : { col, row };
-          placement = _pixiMonumentScreenPlacement(anchor.col, anchor.row, def.footprint || 2, img, def);
-        } else if (typeof spritePlacementOnTileScreen === 'function'){
-          const drawW = typeof buildingDrawWidthForDef === 'function'
-            ? buildingDrawWidthForDef(def || {}, img)
-            : null;
-          placement = spritePlacementOnTileScreen(col, row, img, drawW);
-        }
-        _pixiApplyTileScreenPlacement(spr, placement);
         container.addChild(spr);
+        window._overlayBuildingEntries.push({
+          spr, col, row, texKey, type, def, img, houseLevel: isHouse ? cell.houseLevel : undefined,
+          isMonument: !!(def && def.isMonument),
+        });
       } else if (def){
-        const span = typeof getTileScreenSpan === 'function' ? getTileScreenSpan(col, row) : null;
         const g = new PIXI.Graphics();
-        const sz = span
-          ? span.buildingWidth * (def.isMonument ? (def.footprint || 2) * 0.55 : 0.35)
-          : _pixiThreeScale((typeof TILE_W !== 'undefined' ? TILE_W : 128) * 0.35);
-        g.roundRect(-sz, -sz * 1.2, sz * 2, sz * 1.2, 4);
-        g.fill({ color: parseInt(String(def.color || '#8b6914').replace('#', ''), 16) || 0x8b6914 });
-        if (span){
-          g.x = span.foot.x;
-          g.y = span.foot.y;
-        } else {
-          _pixiAtGrid(col, row, g, 0);
-        }
         container.addChild(g);
+        window._overlayBuildingEntries.push({
+          spr: g, col, row, texKey, type, def, img: null, isMonument: !!(def && def.isMonument), fallback: true,
+        });
       }
       return;
     }
@@ -534,7 +671,7 @@ window._buildBuildings = function(visible, overlay){
 
     if (tex){
       const spr = new PIXI.Sprite(tex);
-      const img = _pixiResolveBuildingImage(texKey, type);
+      const img = _pixiResolveBuildingImage(texKey, type, isHouse ? cell.houseLevel : undefined);
       const drawW = typeof buildingDrawWidthForDef === 'function'
         ? buildingDrawWidthForDef(def || {}, img)
         : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : TILE_W - 4);
@@ -555,17 +692,109 @@ window._buildBuildings = function(visible, overlay){
   window._buildingDirty = false;
 };
 
+/** Repositionne les bâtiments overlay (caméra / zoom) sans recréer les sprites. */
+window._repositionOverlayBuildings = function(){
+  if (!window._overlayBuildingEntries || !window._overlayBuildingEntries.length) return;
+  window._overlayBuildingEntries.forEach(function(e){
+    if (e.fallback && e.def){
+      const span = typeof getTileScreenSpan === 'function' ? getTileScreenSpan(e.col, e.row) : null;
+      const g = e.spr;
+      g.clear();
+      const sz = span
+        ? span.buildingWidth * (e.def.isMonument ? (e.def.footprint || 2) * 0.55 : 0.35)
+        : _pixiThreeScale((typeof TILE_W !== 'undefined' ? TILE_W : 128) * 0.35);
+      g.roundRect(-sz, -sz * 1.2, sz * 2, sz * 1.2, 4);
+      g.fill({ color: parseInt(String(e.def.color || '#8b6914').replace('#', ''), 16) || 0x8b6914 });
+      if (span){ g.x = span.foot.x; g.y = span.foot.y; }
+      else { _pixiAtGrid(e.col, e.row, g, 0); }
+      return;
+    }
+    let placement = null;
+    if (e.isMonument && typeof monumentAnchorAt === 'function'){
+      const anchor = monumentAnchorAt(e.col, e.row);
+      placement = _pixiMonumentScreenPlacement(anchor.col, anchor.row, e.def.footprint || 2, e.img, e.def);
+    } else if (typeof spritePlacementOnTileScreen === 'function'){
+      const isHouse = e.type === 'maison' || (e.def && e.def.isHouse);
+      const houseLevel = isHouse
+        ? (grid[e.row] && grid[e.row][e.col] ? grid[e.row][e.col].houseLevel : e.houseLevel)
+        : undefined;
+      const img = isHouse
+        ? _pixiResolveBuildingImage(e.texKey, e.type, houseLevel)
+        : e.img;
+      const drawW = typeof buildingDrawWidthForDef === 'function'
+        ? buildingDrawWidthForDef(e.def || {}, img)
+        : null;
+      placement = spritePlacementOnTileScreen(e.col, e.row, img, drawW, { building: true });
+    }
+    _pixiApplyTileScreenPlacement(e.spr, placement);
+  });
+};
+
 /* =========================================================
-   WALKERS
+   WALKERS — pool de sprites (pas de removeChildren / new Sprite par frame)
    ========================================================= */
 window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
   const container = overlay ? window._overlayWalkerContainer : window._walkerContainer;
-  if (!container) return;
-  container.removeChildren();
-  if (!Array.isArray(walkers)) return;
+  if (!container || !Array.isArray(walkers)) return;
 
-  walkers.forEach(function(w){
-    if (!w || !w.path || w.path.length <= 1) return;
+  // Mode Three.js : walkers rendus en sprites 3D (syncThreeWalkers) — overlay Pixi allégé.
+  if (overlay && typeof isThreeReady === 'function' && isThreeReady()){
+    const spritePool = window._walkerSpritePool;
+    const gfxPool    = window._walkerGfxPool;
+    if (spritePool.length || gfxPool.length){
+      spritePool._active = 0;
+      gfxPool._active = 0;
+      _pixiPoolRelease(spritePool);
+      _pixiPoolRelease(gfxPool);
+    }
+    return;
+  }
+
+  const skip = (typeof getWalkerFrameSkip === 'function')
+    ? getWalkerFrameSkip()
+    : ((typeof PERF !== 'undefined' && PERF.walkerFrameSkip) ? PERF.walkerFrameSkip : 0);
+  if (skip > 0){
+    window._walkerPoolFrameSkip = (window._walkerPoolFrameSkip + 1) % (skip + 1);
+    if (window._walkerPoolFrameSkip !== 0) return;
+  }
+
+  const spritePool = window._walkerSpritePool;
+  const gfxPool    = window._walkerGfxPool;
+  spritePool._active = 0;
+  gfxPool._active = 0;
+
+  const maxRender = (typeof getWalkerRenderMax === 'function')
+    ? getWalkerRenderMax()
+    : ((typeof PERF !== 'undefined' && PERF.walkerRenderMax) ? PERF.walkerRenderMax : 999);
+  const frameMs = typeof WALKER_ANIM_FRAME_MS !== 'undefined' ? WALKER_ANIM_FRAME_MS : 200;
+  const frameIdxBase = Math.floor(now / frameMs);
+  const size = typeof WALKER_DISPLAY_SIZE !== 'undefined' ? WALKER_DISPLAY_SIZE : 30;
+  const baseScale = overlay ? _pixiThreeScale(size) / 96 : size / 96;
+  const pad = overlay ? 80 : 80;
+  let drawn = 0;
+
+  let sortCol = camX, sortRow = camY;
+  if (overlay && window._threeTarget && window._threeGridOffset){
+    sortCol = window._threeTarget.x + window._threeGridOffset.offC;
+    sortRow = window._threeTarget.z + window._threeGridOffset.offR;
+  } else if (!overlay && typeof tileCenter === 'function'){
+    const c = tileCenter(Math.floor(camX / (typeof TILE_W !== 'undefined' ? TILE_W : 64)), Math.floor(camY / (typeof TILE_H !== 'undefined' ? TILE_H : 32)));
+    if (c){ sortCol = c.x; sortRow = c.y; }
+  }
+  const order = walkers.length <= maxRender ? walkers : walkers.slice().sort(function(a, b){
+    const pa = a.path && a.path[a.pathIndex | 0];
+    const pb = b.path && b.path[b.pathIndex | 0];
+    if (!pa) return 1;
+    if (!pb) return -1;
+    const da = Math.abs(pa.col - sortCol) + Math.abs(pa.row - sortRow);
+    const db = Math.abs(pb.col - sortCol) + Math.abs(pb.row - sortRow);
+    return da - db;
+  });
+
+  for (let wi = 0; wi < order.length; wi++){
+    if (drawn >= maxRender) break;
+    const w = order[wi];
+    if (!w || !w.path || w.path.length <= 1) continue;
 
     let px, py;
     if (overlay && typeof getWalkerWorld3ScreenPos === 'function'){
@@ -573,13 +802,13 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
       px = s.x; py = s.y;
     } else {
       const pos = typeof getWalkerScreenPos === 'function' ? getWalkerScreenPos(w, now) : null;
-      if (!pos) return;
+      if (!pos) continue;
       px = pos.x; py = pos.y;
-      if (px < camX-80 || px > camX+vwW+80) return;
-      if (py < camY-80 || py > camY+vhW+80) return;
+      if (px < camX - pad || px > camX + vwW + pad) continue;
+      if (py < camY - pad || py > camY + vhW + pad) continue;
     }
 
-    if (overlay && (px < -80 || px > vwW + 80 || py < -80 || py > vhW + 80)) return;
+    if (overlay && (px < -pad || px > vwW + pad || py < -pad || py > vhW + pad)) continue;
 
     const id   = 'walker_' + w.serviceType;
     const anim = window._walkerTextures[id];
@@ -589,32 +818,32 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
       const dirKey  = iso ? iso.facing : (w.facing || 'left');
       const mirror  = iso ? iso.mirrorX : w.mirrorX;
       const dirIdx  = anim.dirRow[dirKey] || 0;
-      const frameMs = typeof WALKER_ANIM_FRAME_MS !== 'undefined' ? WALKER_ANIM_FRAME_MS : 200;
-      const frameIdx= Math.floor(now / frameMs) % anim.frames[dirIdx].length;
-      const tex     = anim.frames[dirIdx][frameIdx];
+      const frames  = anim.frames[dirIdx];
+      const frameIdx= frameIdxBase % (frames.length || 1);
+      const tex     = frames[frameIdx];
 
-      const spr = new PIXI.Sprite(tex);
-      const size = typeof WALKER_DISPLAY_SIZE !== 'undefined' ? WALKER_DISPLAY_SIZE : 30;
-      const scale = overlay
-        ? _pixiThreeScale(size) / 96
-        : size / 96;
-      spr.scale.set(mirror ? -scale : scale, scale);
+      const spr = _pixiPoolAcquire(spritePool, container, function(){ return new PIXI.Sprite(tex); });
+      spr.texture = tex;
+      spr.scale.set(mirror ? -baseScale : baseScale, baseScale);
       spr.anchor.set(0.5, 1);
       spr.x = px;
       spr.y = py;
-      container.addChild(spr);
     } else {
-      const g = new PIXI.Graphics();
-      const r = overlay ? _pixiThreeScale(10) : 10;
-      g.circle(px, py - r, r);
       const color = (typeof SERVICE_COLORS !== 'undefined' && SERVICE_COLORS[w.serviceType])
-        ? parseInt((SERVICE_COLORS[w.serviceType]||'#e8c468').replace('#',''), 16)
+        ? parseInt((SERVICE_COLORS[w.serviceType] || '#e8c468').replace('#', ''), 16)
         : 0xe8c468;
-      g.fill({color});
-      g.stroke({color:0x000000, alpha:0.5, width:1.5});
-      container.addChild(g);
+      const r = overlay ? _pixiThreeScale(10) : 10;
+      const g = _pixiPoolAcquire(gfxPool, container, function(){ return new PIXI.Graphics(); });
+      g.clear();
+      g.circle(px, py - r, r);
+      g.fill({ color });
+      g.stroke({ color: 0x000000, alpha: 0.5, width: 1.5 });
     }
-  });
+    drawn++;
+  }
+
+  _pixiPoolRelease(spritePool);
+  _pixiPoolRelease(gfxPool);
 };
 
 /* =========================================================
@@ -776,13 +1005,77 @@ window.buildThreeDecors = function(){
 
   window._repositionOverlayDecors();
   console.log('[Pixi overlay] Décors:', window._decorSprites.length);
+  if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
+};
+
+function _removeDecorsAt(col, row){
+  window._decorSprites = window._decorSprites.filter(function(d){
+    if (d.col === col && d.row === row){
+      d.gfx.destroy();
+      return false;
+    }
+    return true;
+  });
+  window._beautySprites = window._beautySprites.filter(function(d){
+    if (d.col === col && d.row === row){
+      d.gfx.destroy();
+      return false;
+    }
+    return true;
+  });
+}
+
+/** Met à jour les décors sur quelques cases (sans rescan 120×120). */
+window.patchThreeDecors = function(cells){
+  if (!window._pixiOverlayApp || !Array.isArray(grid) || !grid.length) return;
+  if (!cells || !cells.length){
+    window.buildThreeDecors();
+    return;
+  }
+
+  const decorParent = window._overlayDecorContainer;
+  const beautyParent = window._overlayBeautyContainer;
+  const threshold = typeof BEAUTY_THRESHOLD !== 'undefined' ? BEAUTY_THRESHOLD : 10;
+
+  cells.forEach(function(t){
+    const col = t.col;
+    const row = t.row;
+    if (!inBounds(col, row)) return;
+    _removeDecorsAt(col, row);
+    const cell = grid[row][col];
+    if (!cell) return;
+
+    _pixiDecorSpecsForCell(col, row, cell).forEach(function(spec){
+      _pixiAddDecorSprite(decorParent, col, row, spec.img, spec.targetW, spec.opts);
+    });
+
+    if (cell.beauty > 0 && beautyParent && typeof getTileScreenQuad === 'function'){
+      const alpha = Math.min(0.4, (cell.beauty / threshold) * 0.4);
+      const q = getTileScreenQuad(col, row);
+      const g = new PIXI.Graphics();
+      g.poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y]);
+      g.fill({ color: 0xd6af46, alpha });
+      beautyParent.addChild(g);
+      window._beautySprites.push({ gfx: g, col, row, alpha });
+    }
+  });
+
+  if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
 };
 
 window._repositionOverlayDecors = function(){
   if (!window._threeCam || typeof worldToScreen !== 'function' || typeof gridToWorld3Anchor !== 'function') return;
   const vw = window.innerWidth, vh = window.innerHeight;
+  const gridRect = (typeof getThreeVisibleGridRect === 'function')
+    ? getThreeVisibleGridRect(3) : null;
 
   window._decorSprites.forEach(function(d){
+    if (gridRect && (d.col < gridRect.minCol || d.col > gridRect.maxCol
+        || d.row < gridRect.minRow || d.row > gridRect.maxRow)){
+      d.gfx.visible = false;
+      return;
+    }
     if (typeof spritePlacementOnTileScreen !== 'function') return;
     const pl = spritePlacementOnTileScreen(d.col, d.row, { naturalWidth: d.imgW, width: d.imgW }, d.targetW, {
       lift: d.lift || 0,
@@ -798,18 +1091,29 @@ window._repositionOverlayDecors = function(){
   });
 
   window._beautySprites.forEach(function(d){
+    if (gridRect && (d.col < gridRect.minCol || d.col > gridRect.maxCol
+        || d.row < gridRect.minRow || d.row > gridRect.maxRow)){
+      d.gfx.visible = false;
+      return;
+    }
     if (typeof getTileScreenQuad !== 'function') return;
     const q = getTileScreenQuad(d.col, d.row);
+    const cx = (q[0].x + q[2].x) * 0.5;
+    const cy = (q[0].y + q[2].y) * 0.5;
+    const visible = cx > -80 && cx < vw + 80 && cy > -80 && cy < vh + 80;
+    d.gfx.visible = visible;
+    if (!visible) return;
+    const skipBeauty = (typeof PERF !== 'undefined' && PERF.decorBeautySkip > 0)
+      && (window._decorBeautyTick % (PERF.decorBeautySkip + 1)) !== 0;
+    if (skipBeauty) return;
     d.gfx.clear();
     d.gfx.poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y]);
     d.gfx.fill({ color: 0xd6af46, alpha: d.alpha });
-    const cx = (q[0].x + q[2].x) * 0.5;
-    const cy = (q[0].y + q[2].y) * 0.5;
-    d.gfx.visible = cx > -80 && cx < vw + 80 && cy > -80 && cy < vh + 80;
   });
+  window._decorBeautyTick++;
 };
 
-function _pixiDrawCharacterSprite(container, id, s, agent, now, animate){
+function _pixiDrawCharacterSprite(container, id, s, agent, now, animate, charPool){
   const anim = window._characterTextures[id];
   if (!anim) return false;
   const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(agent) : null;
@@ -831,12 +1135,13 @@ function _pixiDrawCharacterSprite(container, id, s, agent, now, animate){
     : (typeof CHARACTER_DISPLAY_SIZE !== 'undefined' ? CHARACTER_DISPLAY_SIZE : 40);
   const footPad = typeof CHARACTER_ISO_FOOT_PAD === 'number' ? CHARACTER_ISO_FOOT_PAD : 8;
   const scale = _pixiThreeScale(size) / _PIXI_CHAR_FRAME;
-  const spr = new PIXI.Sprite(tex);
+  const pool = charPool || window._agentCharPool;
+  const spr = _pixiPoolAcquire(pool, container, function(){ return new PIXI.Sprite(tex); });
+  spr.texture = tex;
   spr.scale.set(mirror ? -scale : scale, scale);
   spr.anchor.set(0.5, 1);
   spr.x = s.x;
   spr.y = s.y + _pixiThreeScale(footPad);
-  container.addChild(spr);
   return true;
 }
 
@@ -847,10 +1152,20 @@ function _pixiApplyOverlayGrade(){
 /* =========================================================
    ROUTES / ESCALIERS / BORNES (overlay Three)
    ========================================================= */
+function _pixiFillTileQuadGfx(gfx, col, row, fill, stroke, fillAlpha, strokeAlpha){
+  if (!gfx || typeof getTileScreenQuad !== 'function') return;
+  const q = getTileScreenQuad(col, row);
+  gfx.clear();
+  gfx.poly([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y]);
+  if (fill != null) gfx.fill({ color: fill, alpha: fillAlpha != null ? fillAlpha : 0.4 });
+  if (stroke != null) gfx.stroke({ color: stroke, alpha: strokeAlpha != null ? strokeAlpha : 0.55, width: 1.5 });
+}
+
 window._buildRoadsOverlay = function(){
   const container = window._overlayRoadContainer;
   if (!container || !Array.isArray(grid)) return;
   container.removeChildren();
+  window._overlayRoadEntries = [];
 
   const drawOrder = typeof getMapDrawOrder === 'function' ? getMapDrawOrder() : [];
   drawOrder.forEach(function(item){
@@ -860,23 +1175,50 @@ window._buildRoadsOverlay = function(){
 
     if (cell.hasRoad){
       if (window._roadTexture){
-        _pixiDrawTileQuadTexture(container, col, row, window._roadTexture, 1);
+        const mesh = _pixiCreateTileQuadTextureMesh(col, row, window._roadTexture, 1);
+        if (mesh){
+          container.addChild(mesh);
+          window._overlayRoadEntries.push({ kind: 'tex', mesh, col, row });
+        }
       } else {
-        _pixiDrawTileQuad(container, col, row, 0x6a5030, 0x3a2810, 0.55, 0.35);
+        const g = new PIXI.Graphics();
+        container.addChild(g);
+        _pixiFillTileQuadGfx(g, col, row, 0x6a5030, 0x3a2810, 0.55, 0.35);
+        window._overlayRoadEntries.push({ kind: 'road_gfx', gfx: g, col, row });
       }
     }
 
     if (cell.roadStairs){
-      _pixiDrawTileQuad(container, col, row, 0xc9a83c, 0x6a5020, 0.45, 0.7);
+      const g = new PIXI.Graphics();
+      container.addChild(g);
+      _pixiFillTileQuadGfx(g, col, row, 0xc9a83c, 0x6a5020, 0.45, 0.7);
+      window._overlayRoadEntries.push({ kind: 'stairs', gfx: g, col, row });
     }
     if (cell.hasRoad && cell.patrolBlock){
-      const w = gridToWorld3Anchor(col, row);
-      const s = worldToScreen(w.x, w.y, w.z);
       const g = new PIXI.Graphics();
-      const r = _pixiThreeScale(8);
-      g.circle(s.x, s.y - r, r);
-      g.fill({ color: 0xff4444, alpha: 0.75 });
       container.addChild(g);
+      window._overlayRoadEntries.push({ kind: 'block', gfx: g, col, row });
+    }
+  });
+  window._repositionOverlayRoads();
+};
+
+window._repositionOverlayRoads = function(){
+  if (!window._overlayRoadEntries) return;
+  window._overlayRoadEntries.forEach(function(e){
+    if (e.kind === 'tex' && e.mesh){
+      _pixiUpdateTileQuadMesh(e.mesh, e.col, e.row);
+    } else if (e.kind === 'road_gfx' && e.gfx){
+      _pixiFillTileQuadGfx(e.gfx, e.col, e.row, 0x6a5030, 0x3a2810, 0.55, 0.35);
+    } else if (e.kind === 'stairs' && e.gfx){
+      _pixiFillTileQuadGfx(e.gfx, e.col, e.row, 0xc9a83c, 0x6a5020, 0.45, 0.7);
+    } else if (e.kind === 'block' && e.gfx && typeof gridToWorld3Anchor === 'function'){
+      const w = gridToWorld3Anchor(e.col, e.row);
+      const s = worldToScreen(w.x, w.y, w.z);
+      const r = _pixiThreeScale(8);
+      e.gfx.clear();
+      e.gfx.circle(s.x, s.y - r, r);
+      e.gfx.fill({ color: 0xff4444, alpha: 0.75 });
     }
   });
 };
@@ -884,45 +1226,56 @@ window._buildRoadsOverlay = function(){
 /* =========================================================
    AGENTS (monstres, héros, migrants, militaire, dieux)
    ========================================================= */
-function _pixiAgentToken(container, s, icon, color){
-  const g = new PIXI.Graphics();
+function _pixiAgentToken(container, s, icon, color, gfxPool, textPool){
   const r = _pixiThreeScale(12);
+  const gPool = gfxPool || window._agentGfxPool;
+  const tPool = textPool || window._agentTextPool;
+  const g = _pixiPoolAcquire(gPool, container, function(){ return new PIXI.Graphics(); });
+  g.clear();
   g.circle(s.x, s.y - r * 0.6, r);
   g.fill({ color, alpha: 0.92 });
   g.stroke({ color: 0x000000, alpha: 0.55, width: 1.5 });
-  container.addChild(g);
   if (icon){
-    const t = new PIXI.Text({ text: icon, style: { fontFamily: 'serif', fontSize: _pixiThreeScale(14) } });
+    const t = _pixiPoolAcquire(tPool, container, function(){
+      return new PIXI.Text({ text: '', style: { fontFamily: 'serif', fontSize: 14 } });
+    });
+    t.text = icon;
+    t.style.fontSize = _pixiThreeScale(14);
     t.anchor.set(0.5, 0.5);
     t.x = s.x;
     t.y = s.y - r * 0.65;
-    container.addChild(t);
   }
 }
 
 window._buildAgentsOverlay = function(now){
   const container = window._overlayAgentContainer;
   if (!container || typeof getGridAgentScreenPos !== 'function') return;
-  container.removeChildren();
+
+  const charPool = window._agentCharPool;
+  const gfxPool  = window._agentGfxPool;
+  const textPool = window._agentTextPool;
+  charPool._active = 0;
+  gfxPool._active = 0;
+  textPool._active = 0;
 
   if (typeof monster !== 'undefined' && monster){
     const s = getGridAgentScreenPos(monster.prevCol, monster.prevRow, monster.col, monster.row, now);
     const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(monster, now);
-    if (!_pixiDrawCharacterSprite(container, 'monster_' + monster.typeKey, s, monster, now, moving)){
-      _pixiAgentToken(container, s, monster.icon, 0x961e1e);
+    if (!_pixiDrawCharacterSprite(container, 'monster_' + monster.typeKey, s, monster, now, moving, charPool)){
+      _pixiAgentToken(container, s, monster.icon, 0x961e1e, gfxPool, textPool);
     }
   }
   if (typeof hero !== 'undefined' && hero){
     const s = getGridAgentScreenPos(hero.prevCol, hero.prevRow, hero.col, hero.row, now);
-    if (!hero.typeKey || !_pixiDrawCharacterSprite(container, 'hero_' + hero.typeKey, s, hero, now, true)){
-      _pixiAgentToken(container, s, hero.icon || '🦸', 0x3c6ec8);
+    if (!hero.typeKey || !_pixiDrawCharacterSprite(container, 'hero_' + hero.typeKey, s, hero, now, true, charPool)){
+      _pixiAgentToken(container, s, hero.icon || '🦸', 0x3c6ec8, gfxPool, textPool);
     }
   }
   if (Array.isArray(godAgents)){
     godAgents.forEach(function(agent){
       const s = getGridAgentScreenPos(agent.prevCol, agent.prevRow, agent.col, agent.row, now);
-      if (!_pixiDrawCharacterSprite(container, 'god_' + agent.godKey, s, agent, now, true)){
-        _pixiAgentToken(container, s, agent.icon, 0xd6af46);
+      if (!_pixiDrawCharacterSprite(container, 'god_' + agent.godKey, s, agent, now, true, charPool)){
+        _pixiAgentToken(container, s, agent.icon, 0xd6af46, gfxPool, textPool);
       }
     });
   }
@@ -930,46 +1283,76 @@ window._buildAgentsOverlay = function(now){
     migrants.forEach(function(m){
       const s = getGridAgentScreenPos(m.prevCol, m.prevRow, m.col, m.row, now);
       const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(m, now);
-      if (!_pixiDrawCharacterSprite(container, 'migrant', s, m, now, moving)){
-        _pixiAgentToken(container, s, m.type === 'in' ? '🧳' : '🚶', m.type === 'in' ? 0x50a05a : 0xb4783c);
+      if (!_pixiDrawCharacterSprite(container, 'migrant', s, m, now, moving, charPool)){
+        _pixiAgentToken(container, s, m.type === 'in' ? '🧳' : '🚶', m.type === 'in' ? 0x50a05a : 0xb4783c, gfxPool, textPool);
       }
     });
   }
   if (typeof getMilitarySoldiers === 'function'){
     getMilitarySoldiers().forEach(function(soldier){
       const s = getGridAgentScreenPos(soldier.prevCol, soldier.prevRow, soldier.col, soldier.row, now);
-      const friendly = soldier.side === 'friendly';
-      _pixiAgentToken(container, s, friendly ? '🛡️' : '⚔️', friendly ? 0x3c6ec8 : 0x961e1e);
+      const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(soldier, now);
+      const side = soldier.side === 'friendly' ? 'friendly' : 'enemy';
+      if (!_pixiDrawCharacterSprite(container, 'soldier_' + side, s, soldier, now, moving, charPool)){
+        const friendly = soldier.side === 'friendly';
+        _pixiAgentToken(container, s, friendly ? '🛡️' : '⚔️', friendly ? 0x3c6ec8 : 0x961e1e, gfxPool, textPool);
+      }
     });
   }
+
+  _pixiPoolRelease(charPool);
+  _pixiPoolRelease(gfxPool);
+  _pixiPoolRelease(textPool);
 };
 
 /* =========================================================
    ICÔNES STATUT MAISONS
    ========================================================= */
+window._rebuildHouseIconEntries = function(){
+  window._houseIconEntries = [];
+  if (!Array.isArray(grid) || typeof forEachBuilding !== 'function' || typeof getHouseStatusIcons !== 'function') return;
+  forEachBuilding(function(type, col, row){
+    if (type !== 'maison') return;
+    const cell = grid[row][col];
+    const icons = getHouseStatusIcons(col, row, cell);
+    if (icons.length) window._houseIconEntries.push({ col, row, icons });
+  });
+};
+
 window._buildHouseIconsOverlay = function(){
-  const container = window._overlayAgentContainer;
+  const container = window._overlayHouseIconContainer;
   if (!container || typeof getHouseStatusIcons !== 'function') return;
 
-  for (let row = 0; row < grid.length; row++){
-    for (let col = 0; col < grid[0].length; col++){
-      const cell = grid[row][col];
-      if (!cell || cell.building !== 'maison') continue;
-      const icons = getHouseStatusIcons(col, row, cell);
-      if (!icons.length) continue;
-      const w = gridToWorld3Anchor(col, row);
-      const s = worldToScreen(w.x, w.y, w.z);
-      const spacing = _pixiThreeScale(12);
-      const startX = s.x - ((icons.length - 1) * spacing) / 2;
-      icons.forEach(function(icon, i){
-        const t = new PIXI.Text({ text: icon, style: { fontFamily: 'serif', fontSize: _pixiThreeScale(11) } });
-        t.anchor.set(0.5, 0.5);
-        t.x = startX + i * spacing;
-        t.y = s.y - _pixiThreeScale(36);
-        container.addChild(t);
+  if (window._houseIconsDirty){
+    window._houseIconsDirty = false;
+    window._rebuildHouseIconEntries();
+  }
+
+  const pool = window._houseIconPool;
+  pool._active = 0;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const pad = 120;
+  const entries = window._houseIconEntries;
+
+  for (let ei = 0; ei < entries.length; ei++){
+    const entry = entries[ei];
+    const w = gridToWorld3Anchor(entry.col, entry.row);
+    const s = worldToScreen(w.x, w.y, w.z);
+    if (s.x < -pad || s.x > vw + pad || s.y < -pad || s.y > vh + pad) continue;
+    const spacing = _pixiThreeScale(12);
+    const startX = s.x - ((entry.icons.length - 1) * spacing) / 2;
+    for (let i = 0; i < entry.icons.length; i++){
+      const t = _pixiPoolAcquire(pool, container, function(){
+        return new PIXI.Text({ text: '', style: { fontFamily: 'serif', fontSize: 12 } });
       });
+      t.text = entry.icons[i];
+      t.style.fontSize = _pixiThreeScale(11);
+      t.anchor.set(0.5, 0.5);
+      t.x = startX + i * spacing;
+      t.y = s.y - _pixiThreeScale(36);
     }
   }
+  _pixiPoolRelease(pool);
 };
 
 /* =========================================================
@@ -978,8 +1361,30 @@ window._buildHouseIconsOverlay = function(){
 window._buildUI = function(overlay){
   const container = overlay ? window._overlayUiContainer : window._uiContainer;
   if (!container) return;
-  container.removeChildren();
-  if (typeof hoverTile === 'undefined' || !hoverTile || !inBounds(hoverTile.col, hoverTile.row)) return;
+
+  if (overlay){
+    const uiKey = _uiOverlayStateKey();
+    if (!uiKey){
+      window._uiQuadPool._active = 0;
+      _pixiPoolRelease(window._uiQuadPool);
+      window._uiOverlayLastKey = '';
+      return;
+    }
+    if (uiKey === window._uiOverlayLastKey) return;
+    window._uiOverlayLastKey = uiKey;
+    window._uiQuadPool._active = 0;
+  } else {
+    container.removeChildren();
+  }
+
+  if (typeof hoverTile === 'undefined' || !hoverTile || !inBounds(hoverTile.col, hoverTile.row)){
+    if (overlay) _pixiPoolRelease(window._uiQuadPool);
+    return;
+  }
+
+  const drawQuad = overlay
+    ? function(c, r, fill, stroke, fa, sa){ _pixiDrawTileQuadPooled(container, c, r, fill, stroke, fa, sa); }
+    : function(c, r, fill, stroke, fa, sa){ _pixiDrawTileQuad(container, c, r, fill, stroke, fa, sa); };
 
   if (overlay && typeof isThreeReady === 'function' && isThreeReady()
       && typeof getTileScreenQuad === 'function'){
@@ -993,9 +1398,10 @@ window._buildUI = function(overlay){
         const ok = (typeof roadMode !== 'undefined' && roadMode)
           ? (typeof canPlaceRoadTerrain === 'function' && canPlaceRoadTerrain(tile.col, tile.row))
           : (typeof canPlaceTerrain === 'function' && canPlaceTerrain(tile.col, tile.row));
-        _pixiDrawTileQuad(container, tile.col, tile.row, ok ? 0x78ff78 : 0xff3c3c, 0x000000, ok ? 0.45 : 0.25, 0.35);
+        drawQuad(tile.col, tile.row, ok ? 0x78ff78 : 0xff3c3c, 0x000000, ok ? 0.45 : 0.25, 0.35);
       });
-      _pixiDrawTileQuad(container, zonePlacementStart.col, zonePlacementStart.row, 0xd2a24a, 0xd2a24a, 0.55, 0.9);
+      drawQuad(zonePlacementStart.col, zonePlacementStart.row, 0xd2a24a, 0xd2a24a, 0.55, 0.9);
+      if (overlay) _pixiPoolRelease(window._uiQuadPool);
       return;
     }
 
@@ -1003,7 +1409,8 @@ window._buildUI = function(overlay){
       const ok = (typeof roadMode !== 'undefined' && roadMode)
         ? (typeof canPlaceRoad === 'function' && canPlaceRoad(hoverTile.col, hoverTile.row))
         : (typeof canPlace === 'function' && canPlace(hoverTile.col, hoverTile.row));
-      _pixiDrawTileQuad(container, hoverTile.col, hoverTile.row, ok ? 0xd2a24a : 0xff3c3c, 0x000000, ok ? 0.35 : 0.35, 0.4);
+      drawQuad(hoverTile.col, hoverTile.row, ok ? 0xd2a24a : 0xff3c3c, 0x000000, ok ? 0.35 : 0.35, 0.4);
+      if (overlay) _pixiPoolRelease(window._uiQuadPool);
       return;
     }
 
@@ -1031,8 +1438,9 @@ window._buildUI = function(overlay){
 
     tiles.forEach(function(t){
       if (!inBounds(t.col, t.row)) return;
-      _pixiDrawTileQuad(container, t.col, t.row, fill, 0x000000, 0.35, 0.4);
+      drawQuad(t.col, t.row, fill, 0x000000, 0.35, 0.4);
     });
+    if (overlay) _pixiPoolRelease(window._uiQuadPool);
     return;
   }
 
@@ -1110,19 +1518,51 @@ window.renderPixi = function(now){
 window.renderPixiOverlay = function(now){
   if (!window._pixiOverlayApp) return;
 
-  window._repositionOverlayDecors();
+  const camMoved = _overlayCameraMoved();
+  const hasAnimating = (typeof migrants !== 'undefined' && migrants.length > 0)
+    || (typeof godAgents !== 'undefined' && godAgents.length > 0)
+    || (typeof monster !== 'undefined' && monster)
+    || (typeof hero !== 'undefined' && hero)
+    || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0)
+    || (typeof walkers !== 'undefined' && walkers.some(function(w){ return w.path && w.path.length > 1; }));
+  const hasUi = (typeof hoverTile !== 'undefined' && hoverTile)
+    && ((typeof selectedBuilding !== 'undefined' && selectedBuilding)
+      || (typeof roadMode !== 'undefined' && roadMode)
+      || (typeof demolishMode !== 'undefined' && demolishMode)
+      || (typeof blockMode !== 'undefined' && blockMode)
+      || (typeof stairsMode !== 'undefined' && stairsMode)
+      || (typeof zonePlacementStart !== 'undefined' && zonePlacementStart));
+
+  const needsRender = camMoved || window._overlayNeedsRender || window._buildingDirty
+    || window._roadsDirty || window._houseIconsDirty || hasAnimating || hasUi;
+  if (!needsRender) return;
+
+  window._overlayNeedsRender = false;
 
   if (Array.isArray(grid)){
     const drawOrder = typeof getMapDrawOrder === 'function' ? getMapDrawOrder() : [];
-    window._buildRoadsOverlay();
-    window._buildBuildings(drawOrder, true);
+    if (window._roadsDirty){
+      window._buildRoadsOverlay();
+      window._roadsDirty = false;
+    } else if (camMoved){
+      window._repositionOverlayRoads();
+    }
+    if (window._buildingDirty){
+      window._buildBuildings(drawOrder, true);
+      window._repositionOverlayBuildings();
+    } else if (camMoved){
+      window._repositionOverlayBuildings();
+    }
   }
+
+  if (camMoved) window._repositionOverlayDecors();
 
   window._buildWalkers(now, 0, 0, window.innerWidth, window.innerHeight, true);
   window._buildAgentsOverlay(now);
-  window._buildHouseIconsOverlay();
+  if (camMoved || window._houseIconsDirty) window._buildHouseIconsOverlay();
   window._buildUI(true);
   _pixiApplyOverlayGrade();
+  window._pixiOverlayApp.render();
 };
 
 console.log('[pixiRenderer.js] chargé ✓');
