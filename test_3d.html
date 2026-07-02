@@ -15,7 +15,7 @@ function log(msg){ document.getElementById('log').textContent += msg + '\n'; con
 <script type="module">
 try {
   log('Import Three.js...');
-  const THREE = await import('./js/three.min.js');
+  const THREE = await import('./js/three.module.min.js');
   log('THREE chargé ! revision=' + THREE.REVISION);
 
   // Test minimal : juste un cube rouge
