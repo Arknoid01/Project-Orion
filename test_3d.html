@@ -18,8 +18,8 @@
 </head>
 <body>
 <div id="info">1 doigt = tourner · 2 doigts = zoom · double-tap = vue iso</div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.min.js"></script>
-<script>
+<script type="module">
+import * as THREE from './js/three.min.js';
 /* ===================== SCENE ===================== */
 const scene    = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb); // ciel bleu
