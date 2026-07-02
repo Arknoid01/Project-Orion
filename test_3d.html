@@ -229,7 +229,7 @@ async function initPixi(){
   });
   pixiApp = app;
   console.log('[Pixi] OK pour les décors');
-  drawDecors();
+  buildDecors();
 }
 
 // Projette une position 3D en 2D écran via la caméra Three.js
@@ -242,50 +242,62 @@ function project3D(x3, y3, z3){
   };
 }
 
-let _lastDecorDraw = 0;
-function drawDecors(force){
-  const now = performance.now();
-  if(!force && now - _lastDecorDraw < 100) return; // max 10fps pour les décors
-  _lastDecorDraw = now;
+/* ---- DÉCORS PIXI : créés une fois, repositionnés au scroll ---- */
+const decorSprites = []; // {gfx, worldX, worldY, worldZ}
+
+const TREE_CHANCE = 0.5;
+function buildDecors(){
+  // Détruire les anciens proprement
+  for(const d of decorSprites) d.gfx.destroy();
+  decorSprites.length = 0;
   if(!pixiApp) return;
   pixiApp.stage.removeChildren();
 
-  const TREE_CHANCE = 0.5;
   const offset = GRID / 2;
-
   for(let x=0;x<GRID;x++){
     for(let z=0;z<GRID;z++){
       const h = noise(x, z, 42);
       const terrain = getTerrain(h);
       if(terrain !== 'forest') continue;
-      if(Math.sin(x*13.7+z*7.3) * .5 + .5 > TREE_CHANCE) continue;
+      if(Math.sin(x*13.7+z*7.3)*.5+.5 > TREE_CHANCE) continue;
 
       const elev = TERRAIN_MATS['forest'].elev;
-      const worldX = x - offset + .5;
-      const worldY = elev + .5; // sommet du cube
-      const worldZ = z - offset + .5;
-
-      // Projette en 2D
-      const pos = project3D(worldX, worldY, worldZ);
-
-      // Arbre simple : cercle vert + tronc brun
-      const treeSize = 18 / zoomLevel * 16;
-
       const g = new PIXI.Graphics();
-      // Tronc
-      g.rect(-treeSize*.15, 0, treeSize*.3, treeSize*.4);
-      g.fill({color: 0x5c3d1a});
-      // Feuillage
-      g.circle(0, -treeSize*.3, treeSize*.5);
-      g.fill({color: 0x2a6a1a});
-      g.circle(0, -treeSize*.55, treeSize*.4);
-      g.fill({color: 0x3a8a2a});
-
-      g.x = pos.x;
-      g.y = pos.y;
+      const S = 18;
+      g.rect(-S*.15, 0, S*.3, S*.4); g.fill({color:0x5c3d1a});
+      g.circle(0, -S*.3, S*.5); g.fill({color:0x2a6a1a});
+      g.circle(0, -S*.55, S*.4); g.fill({color:0x3a8a2a});
       pixiApp.stage.addChild(g);
+
+      decorSprites.push({
+        gfx: g,
+        worldX: x - offset + .5,
+        worldY: elev + .5,
+        worldZ: z - offset + .5,
+      });
     }
   }
+  updateDecorPositions();
+}
+
+function updateDecorPositions(){
+  if(!pixiApp) return;
+  for(const d of decorSprites){
+    const pos = project3D(d.worldX, d.worldY, d.worldZ);
+    d.gfx.x = pos.x;
+    d.gfx.y = pos.y;
+    // Masquer si hors écran
+    d.gfx.visible = pos.x > -50 && pos.x < window.innerWidth+50
+                 && pos.y > -50 && pos.y < window.innerHeight+50;
+  }
+}
+
+let _lastDecorUpdate = 0;
+function drawDecors(force){
+  const now = performance.now();
+  if(!force && now - _lastDecorUpdate < 80) return;
+  _lastDecorUpdate = now;
+  updateDecorPositions(); // juste x/y — pas de recréation
 }
 
 await initPixi();
@@ -356,8 +368,8 @@ window.addEventListener('resize',()=>{
 });
 
 /* ---- BOUTONS GRILLE ---- */
-document.getElementById('btnGrid60').onclick = ()=>{ GRID=60; buildTerrain(); drawDecors(); };
-document.getElementById('btnGrid120').onclick = ()=>{ GRID=120; buildTerrain(); drawDecors(); };
+document.getElementById('btnGrid60').onclick = ()=>{ GRID=60; buildTerrain(); buildDecors(); };
+document.getElementById('btnGrid120').onclick = ()=>{ GRID=120; buildTerrain(); buildDecors(); };
 
 /* ================================================================
    FPS COUNTER + BOUCLE
@@ -368,7 +380,7 @@ const fpsEl = document.getElementById('fps');
 (function loop(){
   requestAnimationFrame(loop);
   renderer.render(scene, cam);
-  drawDecors(); // throttlé à 100ms — zéro impact au 60fps
+  drawDecors(); // juste repositionnement x/y — pas de recréation
   frames++;
   const now=performance.now();
   if(now-lastFps > 500){
