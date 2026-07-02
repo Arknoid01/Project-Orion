@@ -242,7 +242,11 @@ function project3D(x3, y3, z3){
   };
 }
 
-function drawDecors(){
+let _lastDecorDraw = 0;
+function drawDecors(force){
+  const now = performance.now();
+  if(!force && now - _lastDecorDraw < 100) return; // max 10fps pour les décors
+  _lastDecorDraw = now;
   if(!pixiApp) return;
   pixiApp.stage.removeChildren();
 
@@ -301,7 +305,7 @@ function panCamera(dx, dy){
   camTarget.addScaledVector(forwardV,  dy * panSpeed * zoomLevel * 0.04);
   camTarget.y = 0;
   updateCam();
-  drawDecors(); // reproject les arbres
+  // drawDecors appelé depuis boucle principale
 }
 
 el.addEventListener('touchstart',e=>{
@@ -318,7 +322,7 @@ el.addEventListener('touchmove',e=>{
   if(e.touches.length===2&&pinch){
     const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
     zoomLevel=Math.max(4,Math.min(40,zoomLevel*pinch/d));
-    pinch=d; updateCam(); drawDecors();
+    pinch=d; updateCam();
   }
 },{passive:false});
 
@@ -338,7 +342,7 @@ window.addEventListener('mousemove',e=>{
 });
 el.addEventListener('wheel',e=>{
   zoomLevel=Math.max(4,Math.min(40,zoomLevel+e.deltaY*.02));
-  updateCam(); drawDecors();
+  updateCam();
 },{passive:true});
 
 window.addEventListener('resize',()=>{
@@ -348,7 +352,7 @@ window.addEventListener('resize',()=>{
   cv.height=window.innerHeight*Math.min(window.devicePixelRatio,1.5);
   cv.style.width=window.innerWidth+'px';
   cv.style.height=window.innerHeight+'px';
-  updateCam(); drawDecors();
+  updateCam();
 });
 
 /* ---- BOUTONS GRILLE ---- */
@@ -364,6 +368,7 @@ const fpsEl = document.getElementById('fps');
 (function loop(){
   requestAnimationFrame(loop);
   renderer.render(scene, cam);
+  drawDecors(); // throttlé à 100ms — zéro impact au 60fps
   frames++;
   const now=performance.now();
   if(now-lastFps > 500){
