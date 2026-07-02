@@ -3,49 +3,226 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Test 3D</title>
-<style>*{margin:0;padding:0}html,body{width:100%;height:100%;background:#111;overflow:hidden}
-#log{position:fixed;top:0;left:0;right:0;color:#0f0;font:12px monospace;padding:8px;background:rgba(0,0,0,.8);z-index:999;white-space:pre-wrap;max-height:40vh;overflow:auto}</style>
+<title>Olympos 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+#info{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:20px;font:13px sans-serif;pointer-events:none;white-space:nowrap}
+</style>
 </head>
 <body>
-<div id="log">Chargement Three.js...\n</div>
-<script>
-function log(msg){ document.getElementById('log').textContent += msg + '\n'; console.log(msg); }
-</script>
+<div id="info">1 doigt = tourner · 2 doigts = zoom · double-tap = vue iso</div>
 <script type="module">
-try {
-  log('Import Three.js...');
-  const THREE = await import('./js/three.module.min.js');
-  log('THREE chargé ! revision=' + THREE.REVISION);
+import * as THREE from './js/three.module.min.js';
 
-  // Test minimal : juste un cube rouge
-  const renderer = new THREE.WebGLRenderer({ antialias:false });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-  log('Renderer créé');
+/* ---- RENDERER ---- */
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = false;
+document.body.appendChild(renderer.domElement);
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x336699);
+/* ---- SCENE ---- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 30, 60);
 
-  const cam = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
-  cam.position.set(3, 3, 3);
-  cam.lookAt(0, 0, 0);
+/* ---- LUMIERE ---- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(8, 12, 6);
+scene.add(sun);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 1));
+/* ---- CAMERA ORTHOGRAPHIQUE ISO ---- */
+let zoomLevel = 14;
+let angleH = Math.PI / 4;
+let angleV = Math.atan(1 / Math.sqrt(2)); // 35.26° = iso parfait
 
-  const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(1,1,1),
-    new THREE.MeshLambertMaterial({ color: 0x44aa44 })
+function makeCam(){
+  const a = window.innerWidth / window.innerHeight;
+  const c = new THREE.OrthographicCamera(
+    -zoomLevel*a/2, zoomLevel*a/2,
+     zoomLevel/2,  -zoomLevel/2,
+    -200, 200
   );
-  scene.add(cube);
-  log('Cube ajouté — lancement boucle');
-
-  (function loop(){ requestAnimationFrame(loop); cube.rotation.y += 0.01; renderer.render(scene, cam); })();
-
-} catch(e) {
-  log('ERREUR: ' + e.message);
-  log(e.stack || '(pas de stack)');
+  return c;
 }
+let cam = makeCam();
+
+function updateCam(){
+  const d = 40;
+  cam.position.set(
+    d * Math.cos(angleV) * Math.sin(angleH),
+    d * Math.sin(angleV),
+    d * Math.cos(angleV) * Math.cos(angleH)
+  );
+  cam.lookAt(0, 0, 0);
+  cam.updateProjectionMatrix();
+}
+updateCam();
+
+/* ---- TEXTURE ---- */
+function makePixelCanvas(topHex, sideHex, darkHex){
+  const S = 16;
+  function fill(ctx, hex, x, y){
+    ctx.fillStyle = hex;
+    ctx.fillRect(x, y, S, S);
+    for(let i=0;i<30;i++){
+      const px = Math.floor(Math.random()*S/2)*2+x;
+      const py = Math.floor(Math.random()*S/2)*2+y;
+      ctx.fillStyle = Math.random()>.5 ? lighten(hex,.15) : darken(hex,.2);
+      ctx.fillRect(px,py,2,2);
+    }
+  }
+  const cv = document.createElement('canvas');
+  cv.width = S*3; cv.height = S;
+  const ctx = cv.getContext('2d');
+  fill(ctx, topHex, 0, 0);
+  fill(ctx, sideHex, S, 0);
+  fill(ctx, darkHex||darken(sideHex,.7), S*2, 0);
+  return cv;
+}
+
+function hex2rgb(h){const n=parseInt(h.slice(1),16);return[n>>16&255,(n>>8)&255,n&255];}
+function rgb2hex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');}
+function darken(h,f){const[r,g,b]=hex2rgb(h);return rgb2hex(r*f,g*f,b*f);}
+function lighten(h,f){const[r,g,b]=hex2rgb(h);return rgb2hex(r+255*f,g+255*f,b+255*f);}
+
+function atlasSlice(canvas, slotX, slotW, slotH){
+  const cv = document.createElement('canvas');
+  cv.width = slotW; cv.height = slotH;
+  cv.getContext('2d').drawImage(canvas, slotX, 0, slotW, slotH, 0, 0, slotW, slotH);
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+  return t;
+}
+
+function makeMats(topHex, sideHex){
+  const S = 16;
+  const atlas = makePixelCanvas(topHex, sideHex);
+  const top  = atlasSlice(atlas, 0,   S, S);
+  const side = atlasSlice(atlas, S,   S, S);
+  const bot  = atlasSlice(atlas, S*2, S, S);
+  const mats = [side,side,top,bot,side,side].map(t=>new THREE.MeshLambertMaterial({map:t}));
+  return mats;
+}
+
+// Essaie de charger la vraie texture grass
+const loader = new THREE.TextureLoader();
+let grassTopTex = null;
+try {
+  grassTopTex = await new Promise((res,rej)=>{
+    loader.load('assets/textures/flat/game/grass_top.png', res, null, rej);
+  });
+  grassTopTex.magFilter = THREE.NearestFilter;
+  grassTopTex.minFilter = THREE.NearestFilter;
+} catch(e){ /* pas de texture, fallback procédural */ }
+
+const MATS = {
+  grass: makeMats('#4d9e38','#7a5230'),
+  dirt:  makeMats('#7a5230','#6a4220'),
+  sand:  makeMats('#d4b870','#c4a860'),
+  water: makeMats('#3a86c8','#2a76b8'),
+  rock:  makeMats('#8a8070','#6a6050'),
+  forest:makeMats('#3a6e2a','#2a5e1a'),
+};
+
+// Remplace la face haut herbe par la vraie texture si dispo
+if (grassTopTex){
+  const m = new THREE.MeshLambertMaterial({map: grassTopTex});
+  MATS.grass[2] = m; // face haut
+}
+
+/* ---- GRILLE ---- */
+const GRID = 24;
+const geo  = new THREE.BoxGeometry(1,1,1);
+const group = new THREE.Group();
+
+for(let x=0;x<GRID;x++){
+  for(let z=0;z<GRID;z++){
+    const nx=x/GRID*8, nz=z/GRID*8;
+    const n=(Math.sin(nx)*Math.cos(nz)+Math.sin(nx*1.9)*Math.cos(nz*2.1))*.5+.5;
+    const h=Math.max(1,Math.round(n*4));
+
+    let key = h<=1?'sand':h>=4?'rock':'grass';
+    // Quelques forêts aléatoires (seed fixe)
+    if(h===2&&Math.sin(x*7.3+z*3.1)>.6) key='forest';
+
+    for(let y=0;y<h;y++){
+      const mat = y===h-1 ? MATS[key] : MATS.dirt;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x-GRID/2+.5, y-.5, z-GRID/2+.5);
+      group.add(mesh);
+    }
+  }
+}
+scene.add(group);
+
+/* ---- CONTROLS ---- */
+const el = renderer.domElement;
+let lastT=null, pinch=null, lastTap=0;
+
+el.addEventListener('touchstart',e=>{
+  if(e.touches.length===1) lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  if(e.touches.length===2) pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  const now=Date.now();
+  if(now-lastTap<300){ angleH=Math.PI/4; angleV=Math.atan(1/Math.sqrt(2)); updateCam(); }
+  lastTap=now;
+},{passive:true});
+
+el.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&lastT){
+    angleH-=(e.touches[0].clientX-lastT.x)*.008;
+    angleV=Math.max(.05,Math.min(Math.PI/2-.05,angleV-(e.touches[0].clientY-lastT.y)*.005));
+    updateCam();
+    lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  }
+  if(e.touches.length===2&&pinch){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    zoomLevel=Math.max(4,Math.min(40,zoomLevel*pinch/d));
+    pinch=d;
+    const a=window.innerWidth/window.innerHeight;
+    cam.left=-zoomLevel*a/2;cam.right=zoomLevel*a/2;
+    cam.top=zoomLevel/2;cam.bottom=-zoomLevel/2;
+    cam.updateProjectionMatrix();
+  }
+},{passive:false});
+
+el.addEventListener('touchend',e=>{
+  if(e.touches.length<1)lastT=null;
+  if(e.touches.length<2)pinch=null;
+});
+
+let mDown=false,mLast=null;
+el.addEventListener('mousedown',e=>{mDown=true;mLast={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>mDown=false);
+window.addEventListener('mousemove',e=>{
+  if(!mDown||!mLast)return;
+  angleH-=(e.clientX-mLast.x)*.005;
+  angleV=Math.max(.05,Math.min(Math.PI/2-.05,angleV-(e.clientY-mLast.y)*.004));
+  updateCam(); mLast={x:e.clientX,y:e.clientY};
+});
+el.addEventListener('wheel',e=>{
+  zoomLevel=Math.max(4,Math.min(40,zoomLevel+e.deltaY*.02));
+  const a=window.innerWidth/window.innerHeight;
+  cam.left=-zoomLevel*a/2;cam.right=zoomLevel*a/2;
+  cam.top=zoomLevel/2;cam.bottom=-zoomLevel/2;
+  cam.updateProjectionMatrix();
+},{passive:true});
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  const a=window.innerWidth/window.innerHeight;
+  cam.left=-zoomLevel*a/2;cam.right=zoomLevel*a/2;
+  cam.top=zoomLevel/2;cam.bottom=-zoomLevel/2;
+  cam.updateProjectionMatrix();
+});
+
+/* ---- BOUCLE ---- */
+(function loop(){ requestAnimationFrame(loop); renderer.render(scene,cam); })();
+console.log('[3D] Three.js r'+THREE.REVISION+' — grille '+GRID+'x'+GRID);
 </script>
 </body>
 </html>
