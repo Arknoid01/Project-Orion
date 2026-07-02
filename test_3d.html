@@ -3,190 +3,322 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Olympos 3D</title>
+<title>Olympos 3D — Test terrain</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000}
-#info{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:20px;font:13px sans-serif;pointer-events:none;white-space:nowrap}
+#ui{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
+#ui button{padding:8px 14px;border-radius:20px;border:none;background:rgba(0,0,0,.6);color:#fff;font:13px sans-serif;touch-action:manipulation}
+#fps{position:fixed;top:8px;right:8px;color:#0f0;font:12px monospace;background:rgba(0,0,0,.6);padding:4px 8px;border-radius:8px;z-index:10}
+#info{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:20px;font:13px sans-serif;pointer-events:none}
 </style>
 </head>
 <body>
-<div id="info">1 doigt = tourner · 2 doigts = zoom · double-tap = vue iso</div>
+<div id="ui">
+  <button id="btnGrid60">60×60</button>
+  <button id="btnGrid120">120×120</button>
+</div>
+<div id="fps">-- fps</div>
+<div id="info">1 doigt = pan · 2 doigts = zoom</div>
+<!-- Canvas Pixi par-dessus Three.js -->
+<canvas id="pixiCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:2"></canvas>
+<script src="js/pixi.min.js"></script>
 <script type="module">
 import * as THREE from './js/three.module.min.js';
 
-/* ---- RENDERER ---- */
-const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+/* ================================================================
+   CONFIG
+   ================================================================ */
+let GRID = 60;
+const ISO_ANGLE_H = Math.PI / 4;         // 45° — vue iso fixe
+const ISO_ANGLE_V = Math.atan(1/Math.sqrt(2)); // 35.26°
+
+/* ================================================================
+   THREE.JS — TERRAIN
+   ================================================================ */
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = false;
+renderer.domElement.style.cssText = 'position:fixed;inset:0;z-index:1';
 document.body.appendChild(renderer.domElement);
 
-/* ---- SCENE ---- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 30, 60);
+scene.fog = new THREE.Fog(0x87ceeb, 50, 90);
 
-/* ---- LUMIERE ---- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+// Lumières
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 const sun = new THREE.DirectionalLight(0xffffff, 0.9);
-sun.position.set(8, 12, 6);
+sun.position.set(8, 16, 6);
 scene.add(sun);
 
-/* ---- CAMERA ORTHOGRAPHIQUE ISO ---- */
-let zoomLevel = 14;
-let angleH = Math.PI / 4;
-let angleV = Math.atan(1 / Math.sqrt(2)); // 35.26° = iso parfait
-
-function makeCam(){
-  const a = window.innerWidth / window.innerHeight;
-  const c = new THREE.OrthographicCamera(
-    -zoomLevel*a/2, zoomLevel*a/2,
-     zoomLevel/2,  -zoomLevel/2,
-    -200, 200
-  );
-  return c;
-}
-let cam = makeCam();
+// Caméra orthographique ISO fixe
+let zoomLevel = 16;
+const cam = new THREE.OrthographicCamera(-1,1,1,-1,-200,200);
 
 function updateCam(){
-  const d = 40;
-  cam.position.set(
-    d * Math.cos(angleV) * Math.sin(angleH),
-    d * Math.sin(angleV),
-    d * Math.cos(angleV) * Math.cos(angleH)
-  );
-  cam.lookAt(0, 0, 0);
+  const a = window.innerWidth / window.innerHeight;
+  cam.left   = -zoomLevel*a/2; cam.right  = zoomLevel*a/2;
+  cam.top    =  zoomLevel/2;   cam.bottom = -zoomLevel/2;
   cam.updateProjectionMatrix();
+  const d = 50;
+  cam.position.set(
+    d * Math.cos(ISO_ANGLE_V) * Math.sin(ISO_ANGLE_H) + camTarget.x,
+    d * Math.sin(ISO_ANGLE_V)                         + camTarget.y,
+    d * Math.cos(ISO_ANGLE_V) * Math.cos(ISO_ANGLE_H) + camTarget.z
+  );
+  cam.lookAt(camTarget);
 }
+const camTarget = new THREE.Vector3(0, 0, 0);
 updateCam();
 
-/* ---- TEXTURE ---- */
-function makePixelCanvas(topHex, sideHex, darkHex){
+/* ---- TEXTURES PIXEL ART ---- */
+function makePixelTex(topHex, sideHex){
   const S = 16;
-  function fill(ctx, hex, x, y){
-    ctx.fillStyle = hex;
-    ctx.fillRect(x, y, S, S);
-    for(let i=0;i<30;i++){
-      const px = Math.floor(Math.random()*S/2)*2+x;
-      const py = Math.floor(Math.random()*S/2)*2+y;
-      ctx.fillStyle = Math.random()>.5 ? lighten(hex,.15) : darken(hex,.2);
-      ctx.fillRect(px,py,2,2);
-    }
-  }
   const cv = document.createElement('canvas');
-  cv.width = S*3; cv.height = S;
+  cv.width = S; cv.height = S;
   const ctx = cv.getContext('2d');
-  fill(ctx, topHex, 0, 0);
-  fill(ctx, sideHex, S, 0);
-  fill(ctx, darkHex||darken(sideHex,.7), S*2, 0);
-  return cv;
-}
-
-function hex2rgb(h){const n=parseInt(h.slice(1),16);return[n>>16&255,(n>>8)&255,n&255];}
-function rgb2hex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');}
-function darken(h,f){const[r,g,b]=hex2rgb(h);return rgb2hex(r*f,g*f,b*f);}
-function lighten(h,f){const[r,g,b]=hex2rgb(h);return rgb2hex(r+255*f,g+255*f,b+255*f);}
-
-function atlasSlice(canvas, slotX, slotW, slotH){
-  const cv = document.createElement('canvas');
-  cv.width = slotW; cv.height = slotH;
-  cv.getContext('2d').drawImage(canvas, slotX, 0, slotW, slotH, 0, 0, slotW, slotH);
-  const t = new THREE.CanvasTexture(cv);
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
+  ctx.fillStyle = sideHex;
+  ctx.fillRect(0, 0, S, S);
+  for(let i=0;i<40;i++){
+    const px=Math.floor(Math.random()*S/2)*2;
+    const py=Math.floor(Math.random()*S/2)*2;
+    const f=Math.random()>.5?.85:1.15;
+    const [r,g,b]=h2r(sideHex);
+    ctx.fillStyle=r2h(r*f,g*f,b*f);
+    ctx.fillRect(px,py,2,2);
+  }
+  const t=new THREE.CanvasTexture(cv);
+  t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter;
   return t;
 }
+function h2r(h){const n=parseInt(h.slice(1),16);return[n>>16&255,(n>>8)&255,n&255];}
+function r2h(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');}
 
-function makeMats(topHex, sideHex){
-  const S = 16;
-  const atlas = makePixelCanvas(topHex, sideHex);
-  const top  = atlasSlice(atlas, 0,   S, S);
-  const side = atlasSlice(atlas, S,   S, S);
-  const bot  = atlasSlice(atlas, S*2, S, S);
-  const mats = [side,side,top,bot,side,side].map(t=>new THREE.MeshLambertMaterial({map:t}));
-  return mats;
-}
-
-// Essaie de charger la vraie texture grass
-const loader = new THREE.TextureLoader();
-let grassTopTex = null;
-try {
-  grassTopTex = await new Promise((res,rej)=>{
-    loader.load('assets/textures/flat/game/grass_top.png', res, null, rej);
-  });
-  grassTopTex.magFilter = THREE.NearestFilter;
-  grassTopTex.minFilter = THREE.NearestFilter;
-} catch(e){ /* pas de texture, fallback procédural */ }
-
-const MATS = {
-  grass: makeMats('#4d9e38','#7a5230'),
-  dirt:  makeMats('#7a5230','#6a4220'),
-  sand:  makeMats('#d4b870','#c4a860'),
-  water: makeMats('#3a86c8','#2a76b8'),
-  rock:  makeMats('#8a8070','#6a6050'),
-  forest:makeMats('#3a6e2a','#2a5e1a'),
+// Matériaux par terrain
+const TERRAIN_MATS = {
+  grass: { top:'#5aaa38', side:'#7a5230', elev:1 },
+  wheat: { top:'#d4a830', side:'#b89820', elev:1 },
+  forest:{ top:'#2a7a1a', side:'#1a5a0a', elev:1 },
+  hill:  { top:'#6ab048', side:'#5a4020', elev:2 },
+  sand:  { top:'#d4b870', side:'#c4a860', elev:0 },
+  water: { top:'#3a86c8', side:'#2a66a8', elev:-1 },
+  rock:  { top:'#8a8070', side:'#6a6050', elev:3 },
+  marble:{ top:'#ddd8c8', side:'#ccc8b8', elev:2 },
 };
 
-// Remplace la face haut herbe par la vraie texture si dispo
-if (grassTopTex){
-  const m = new THREE.MeshLambertMaterial({map: grassTopTex});
-  MATS.grass[2] = m; // face haut
+function makeMats(topHex, sideHex){
+  const top  = makePixelTex(topHex, topHex);
+  const side = makePixelTex(sideHex, sideHex);
+  const bot  = makePixelTex(r2h(...h2r(sideHex).map(v=>v*.6)), sideHex);
+  return [side,side,top,bot,side,side].map(t=>new THREE.MeshLambertMaterial({map:t}));
 }
 
-/* ---- GRILLE ---- */
-const GRID = 24;
-const geo  = new THREE.BoxGeometry(1,1,1);
-const group = new THREE.Group();
+// Pré-créer les matériaux
+const MATS = {};
+for(const [key,def] of Object.entries(TERRAIN_MATS)){
+  MATS[key] = makeMats(def.top, def.side);
+}
 
-for(let x=0;x<GRID;x++){
-  for(let z=0;z<GRID;z++){
-    const nx=x/GRID*8, nz=z/GRID*8;
-    const n=(Math.sin(nx)*Math.cos(nz)+Math.sin(nx*1.9)*Math.cos(nz*2.1))*.5+.5;
-    const h=Math.max(1,Math.round(n*4));
+/* ---- GÉNÉRATION BRUIT SIMPLE ---- */
+function noise(x, z, seed=0){
+  const s = seed * 127.1;
+  return (Math.sin(x*.13+s)*Math.cos(z*.11+s)
+        + Math.sin(x*.27+s*2)*Math.cos(z*.31+s*2)*.5
+        + Math.sin(x*.07+s*3)*Math.cos(z*.05+s*3)*.25) / 1.75 * .5 + .5;
+}
 
-    let key = h<=1?'sand':h>=4?'rock':'grass';
-    // Quelques forêts aléatoires (seed fixe)
-    if(h===2&&Math.sin(x*7.3+z*3.1)>.6) key='forest';
+function getTerrain(h){
+  if(h < .18) return 'water';
+  if(h < .28) return 'sand';
+  if(h < .55) return 'grass';
+  if(h < .68) return 'hill';
+  if(h < .80) return 'forest';
+  return 'rock';
+}
 
-    for(let y=0;y<h;y++){
-      const mat = y===h-1 ? MATS[key] : MATS.dirt;
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x-GRID/2+.5, y-.5, z-GRID/2+.5);
-      group.add(mesh);
+/* ---- INSTANCED MESH (1 draw call par type) ---- */
+let terrainGroup = null;
+const geo = new THREE.BoxGeometry(1,1,1);
+
+function buildTerrain(){
+  if(terrainGroup) scene.remove(terrainGroup);
+  terrainGroup = new THREE.Group();
+
+  // Compter les instances par type
+  const counts = {};
+  const cells = [];
+  for(let x=0;x<GRID;x++){
+    for(let z=0;z<GRID;z++){
+      const h = noise(x, z, 42);
+      const terrain = getTerrain(h);
+      const elev = TERRAIN_MATS[terrain].elev;
+      const stackH = Math.max(1, elev + 1);
+      cells.push({x, z, terrain, h, stackH});
+      counts[terrain] = (counts[terrain]||0) + stackH;
+    }
+  }
+
+  // Créer un InstancedMesh par matériau (6 faces → 6 matériaux)
+  // Simplifié : on utilise un seul matériau unifié par terrain
+  const simpleMATS = {};
+  for(const [key,def] of Object.entries(TERRAIN_MATS)){
+    const top  = makePixelTex(def.top, def.top);
+    const side = makePixelTex(def.side, def.side);
+    simpleMATS[key] = new THREE.MeshLambertMaterial({
+      map: top, // face haut
+    });
+  }
+
+  // Un InstancedMesh par terrain
+  const meshes = {};
+  for(const [key, count] of Object.entries(counts)){
+    meshes[key] = new THREE.InstancedMesh(geo, MATS[key], count);
+    meshes[key].instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    terrainGroup.add(meshes[key]);
+  }
+
+  // Remplir les matrices
+  const idx = {};
+  const mat4 = new THREE.Matrix4();
+  const offset = GRID / 2;
+
+  for(const cell of cells){
+    const {x, z, terrain, stackH} = cell;
+    for(let y=0; y<stackH; y++){
+      const t = y === stackH-1 ? terrain : 'grass'; // couches inférieures = dirt
+      if(!meshes[t]) continue;
+      if(idx[t] === undefined) idx[t] = 0;
+      mat4.makeTranslation(x - offset + .5, y - .5, z - offset + .5);
+      meshes[t].setMatrixAt(idx[t]++, mat4);
+    }
+  }
+
+  // Finaliser
+  for(const mesh of Object.values(meshes)){
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  scene.add(terrainGroup);
+  console.log('[3D] Terrain', GRID+'x'+GRID, '— instances:', Object.entries(counts).map(([k,v])=>`${k}:${v}`).join(' '));
+}
+
+buildTerrain();
+
+/* ================================================================
+   PIXI.JS — DÉCORS (arbres sur cases forêt)
+   ================================================================ */
+let pixiApp = null;
+
+async function initPixi(){
+  if(!window.PIXI){ console.warn('Pixi non dispo'); return; }
+
+  const cv = document.getElementById('pixiCanvas');
+  cv.width  = window.innerWidth  * Math.min(window.devicePixelRatio, 1.5);
+  cv.height = window.innerHeight * Math.min(window.devicePixelRatio, 1.5);
+  cv.style.width  = window.innerWidth  + 'px';
+  cv.style.height = window.innerHeight + 'px';
+
+  const app = new PIXI.Application();
+  await app.init({
+    canvas: cv,
+    width:  cv.width, height: cv.height,
+    backgroundAlpha: 0,
+    antialias: false,
+    resolution: 1,
+  });
+  pixiApp = app;
+  console.log('[Pixi] OK pour les décors');
+  drawDecors();
+}
+
+// Projette une position 3D en 2D écran via la caméra Three.js
+function project3D(x3, y3, z3){
+  const v = new THREE.Vector3(x3, y3, z3);
+  v.project(cam);
+  return {
+    x: (v.x + 1) / 2 * window.innerWidth,
+    y: (-v.y + 1) / 2 * window.innerHeight,
+  };
+}
+
+function drawDecors(){
+  if(!pixiApp) return;
+  pixiApp.stage.removeChildren();
+
+  const TREE_CHANCE = 0.5;
+  const offset = GRID / 2;
+
+  for(let x=0;x<GRID;x++){
+    for(let z=0;z<GRID;z++){
+      const h = noise(x, z, 42);
+      const terrain = getTerrain(h);
+      if(terrain !== 'forest') continue;
+      if(Math.sin(x*13.7+z*7.3) * .5 + .5 > TREE_CHANCE) continue;
+
+      const elev = TERRAIN_MATS['forest'].elev;
+      const worldX = x - offset + .5;
+      const worldY = elev + .5; // sommet du cube
+      const worldZ = z - offset + .5;
+
+      // Projette en 2D
+      const pos = project3D(worldX, worldY, worldZ);
+
+      // Arbre simple : cercle vert + tronc brun
+      const treeSize = 18 / zoomLevel * 16;
+
+      const g = new PIXI.Graphics();
+      // Tronc
+      g.rect(-treeSize*.15, 0, treeSize*.3, treeSize*.4);
+      g.fill({color: 0x5c3d1a});
+      // Feuillage
+      g.circle(0, -treeSize*.3, treeSize*.5);
+      g.fill({color: 0x2a6a1a});
+      g.circle(0, -treeSize*.55, treeSize*.4);
+      g.fill({color: 0x3a8a2a});
+
+      g.x = pos.x;
+      g.y = pos.y;
+      pixiApp.stage.addChild(g);
     }
   }
 }
-scene.add(group);
 
-/* ---- CONTROLS ---- */
+await initPixi();
+
+/* ================================================================
+   PAN CAMÉRA (déplacement dans le monde)
+   ================================================================ */
+const panSpeed = 0.05;
+let lastT = null, pinch = null;
 const el = renderer.domElement;
-let lastT=null, pinch=null, lastTap=0;
+
+function panCamera(dx, dy){
+  // Déplace dans le plan iso (perpendiculaire à la vue)
+  const rightV  = new THREE.Vector3().crossVectors(cam.getWorldDirection(new THREE.Vector3()), cam.up).normalize();
+  const forwardV = new THREE.Vector3().set(-Math.cos(ISO_ANGLE_H), 0, Math.cos(ISO_ANGLE_H - Math.PI/2)).normalize();
+  camTarget.addScaledVector(rightV,   -dx * panSpeed * zoomLevel * 0.04);
+  camTarget.addScaledVector(forwardV,  dy * panSpeed * zoomLevel * 0.04);
+  camTarget.y = 0;
+  updateCam();
+  drawDecors(); // reproject les arbres
+}
 
 el.addEventListener('touchstart',e=>{
   if(e.touches.length===1) lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
   if(e.touches.length===2) pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-  const now=Date.now();
-  if(now-lastTap<300){ angleH=Math.PI/4; angleV=Math.atan(1/Math.sqrt(2)); updateCam(); }
-  lastTap=now;
 },{passive:true});
 
 el.addEventListener('touchmove',e=>{
   e.preventDefault();
   if(e.touches.length===1&&lastT){
-    angleH-=(e.touches[0].clientX-lastT.x)*.008;
-    angleV=Math.max(.05,Math.min(Math.PI/2-.05,angleV-(e.touches[0].clientY-lastT.y)*.005));
-    updateCam();
+    panCamera(e.touches[0].clientX-lastT.x, e.touches[0].clientY-lastT.y);
     lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
   }
   if(e.touches.length===2&&pinch){
     const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
     zoomLevel=Math.max(4,Math.min(40,zoomLevel*pinch/d));
-    pinch=d;
-    const a=window.innerWidth/window.innerHeight;
-    cam.left=-zoomLevel*a/2;cam.right=zoomLevel*a/2;
-    cam.top=zoomLevel/2;cam.bottom=-zoomLevel/2;
-    cam.updateProjectionMatrix();
+    pinch=d; updateCam(); drawDecors();
   }
 },{passive:false});
 
@@ -195,34 +327,52 @@ el.addEventListener('touchend',e=>{
   if(e.touches.length<2)pinch=null;
 });
 
+// Souris desktop
 let mDown=false,mLast=null;
 el.addEventListener('mousedown',e=>{mDown=true;mLast={x:e.clientX,y:e.clientY};});
 window.addEventListener('mouseup',()=>mDown=false);
 window.addEventListener('mousemove',e=>{
   if(!mDown||!mLast)return;
-  angleH-=(e.clientX-mLast.x)*.005;
-  angleV=Math.max(.05,Math.min(Math.PI/2-.05,angleV-(e.clientY-mLast.y)*.004));
-  updateCam(); mLast={x:e.clientX,y:e.clientY};
+  panCamera(e.clientX-mLast.x, e.clientY-mLast.y);
+  mLast={x:e.clientX,y:e.clientY};
 });
 el.addEventListener('wheel',e=>{
   zoomLevel=Math.max(4,Math.min(40,zoomLevel+e.deltaY*.02));
-  const a=window.innerWidth/window.innerHeight;
-  cam.left=-zoomLevel*a/2;cam.right=zoomLevel*a/2;
-  cam.top=zoomLevel/2;cam.bottom=-zoomLevel/2;
-  cam.updateProjectionMatrix();
+  updateCam(); drawDecors();
 },{passive:true});
 
 window.addEventListener('resize',()=>{
   renderer.setSize(window.innerWidth,window.innerHeight);
-  const a=window.innerWidth/window.innerHeight;
-  cam.left=-zoomLevel*a/2;cam.right=zoomLevel*a/2;
-  cam.top=zoomLevel/2;cam.bottom=-zoomLevel/2;
-  cam.updateProjectionMatrix();
+  const cv=document.getElementById('pixiCanvas');
+  cv.width=window.innerWidth*Math.min(window.devicePixelRatio,1.5);
+  cv.height=window.innerHeight*Math.min(window.devicePixelRatio,1.5);
+  cv.style.width=window.innerWidth+'px';
+  cv.style.height=window.innerHeight+'px';
+  updateCam(); drawDecors();
 });
 
-/* ---- BOUCLE ---- */
-(function loop(){ requestAnimationFrame(loop); renderer.render(scene,cam); })();
-console.log('[3D] Three.js r'+THREE.REVISION+' — grille '+GRID+'x'+GRID);
+/* ---- BOUTONS GRILLE ---- */
+document.getElementById('btnGrid60').onclick = ()=>{ GRID=60; buildTerrain(); drawDecors(); };
+document.getElementById('btnGrid120').onclick = ()=>{ GRID=120; buildTerrain(); drawDecors(); };
+
+/* ================================================================
+   FPS COUNTER + BOUCLE
+   ================================================================ */
+let frames=0, lastFps=performance.now();
+const fpsEl = document.getElementById('fps');
+
+(function loop(){
+  requestAnimationFrame(loop);
+  renderer.render(scene, cam);
+  frames++;
+  const now=performance.now();
+  if(now-lastFps > 500){
+    fpsEl.textContent = Math.round(frames*1000/(now-lastFps)) + ' fps';
+    frames=0; lastFps=now;
+  }
+})();
+
+console.log('[3D+Pixi] Prêt — Three.js r'+THREE.REVISION);
 </script>
 </body>
 </html>
