@@ -4,21 +4,222 @@
 // de l'UI) : { title, tiles: [{icon, title, status, rows: [[label, valeur, classeCss?]]}], actions }
 // Au plus 4 tuiles affichées (limite du nombre de .obsTile statiques dans le HTML).
 
+const WALKER_SERVICE_NEEDS = ['water', 'religion', 'health', 'fire'];
+const MARKET_NEEDS = ['food', 'oil', 'wine', 'fish', 'clothing'];
+
+/** Case actuellement inspectée dans l'observateur ({ col, row }). */
+let observerTile = null;
+/** Favori carte — recentrer via l'observateur ou le bouton épingler. */
+let observerPinnedTile = null;
+window.observerPinnedTile = null;
+
+function _syncObserverPin(tile){
+  observerPinnedTile = tile;
+  window.observerPinnedTile = tile;
+}
+
+function buildObserverActionsHtml(col, row, cell){
+  const pinned = observerPinnedTile && observerPinnedTile.col === col && observerPinnedTile.row === row;
+  const def = cell.building ? BUILDING_DEFS[cell.building] : null;
+  const showCoverage = !!(def && def.isService) || cell.building === 'maison';
+  const canDemolish = !!(cell.building || cell.hasRoad);
+  const pinLabel = pinned ? t('observer.unpin') : t('observer.pin');
+
+  let html = '<div class="actionGrid">';
+  html += `<button class="actionBtn" onclick="observerCenterOnTile()">📍 ${t('observer.center')}</button>`;
+  html += `<button class="actionBtn" onclick="observerTogglePin()">⭐ ${pinLabel}</button>`;
+  if (showCoverage){
+    html += `<button class="actionBtn" onclick="observerShowCoverage()">🗺️ ${t('observer.coverage')}</button>`;
+  }
+  if (canDemolish){
+    html += `<button class="actionBtn" onclick="observerDemolishTile()">🔨 ${t('observer.demolish')}</button>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function observerActionsPayload(col, row, cell){
+  return {
+    actions: true,
+    actionsTitle: t('observer.actions'),
+    actionsHtml: buildObserverActionsHtml(col, row, cell),
+  };
+}
+
+function observerCenterOnTile(){
+  if (!observerTile) return;
+  const { col, row } = observerTile;
+  if (typeof isThreeReady === 'function' && isThreeReady() && typeof centerThreeOnTile === 'function'){
+    centerThreeOnTile(col, row);
+  } else if (typeof tileCenter === 'function' && typeof centerCameraOn === 'function'){
+    const c = tileCenter(col, row);
+    centerCameraOn(c.x, c.y);
+  }
+  if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (typeof closePanels === 'function') closePanels();
+}
+
+function observerTogglePin(){
+  if (!observerTile) return;
+  const { col, row } = observerTile;
+  if (observerPinnedTile && observerPinnedTile.col === col && observerPinnedTile.row === row){
+    _syncObserverPin(null);
+    if (typeof showNotification === 'function') showNotification(t('observer.unpinned'), 'info');
+  } else {
+    _syncObserverPin({ col, row });
+    if (typeof showNotification === 'function') showNotification(t('observer.pinned'), 'good');
+  }
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
+  const cell = grid[row][col];
+  let data;
+  if (cell.building === 'maison') data = buildHouseObserverData(cell, col, row);
+  else if (cell.building) data = buildBuildingObserverData(cell.building, col, row);
+  else data = buildTileObserverData(cell, col, row);
+  if (typeof setObserverTiles === 'function') setObserverTiles(data);
+}
+
+function observerShowCoverage(){
+  if (!observerTile) return;
+  const { col, row } = observerTile;
+  const cell = grid[row][col];
+  const walker = walkers.find(w => w.col === col && w.row === row);
+  let roads = [];
+  let houses = [];
+  let origin = { col, row };
+
+  if (walker){
+    const def = BUILDING_DEFS[walker.type];
+    if (typeof computeServiceReach === 'function'){
+      roads = computeServiceReach(col, row, def.range);
+    }
+    houses = walker.servedHouses.slice();
+  } else if (cell.building === 'maison'){
+    origin = null;
+    walkers.forEach(w => {
+      if (!w.servedHouses.some(h => h.col === col && h.row === row)) return;
+      const def = BUILDING_DEFS[w.type];
+      if (typeof computeServiceReach === 'function'){
+        roads = roads.concat(computeServiceReach(w.col, w.row, def.range));
+      }
+      houses.push({ col, row });
+    });
+    // dédoublonner routes
+    const seen = new Set();
+    roads = roads.filter(t => {
+      const k = t.col + ',' + t.row;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  } else {
+    if (typeof showNotification === 'function') showNotification(t('observer.noCoverage'), 'info');
+    return;
+  }
+
+  if (typeof setObserverCoverage === 'function'){
+    setObserverCoverage({ origin, roads, houses, until: performance.now() + 12000 });
+  }
+  if (typeof showNotification === 'function'){
+    showNotification(t('observer.coverageShown', { roads: roads.length, houses: houses.length }), 'info');
+  }
+  if (typeof closePanels === 'function') closePanels();
+}
+
+function observerDemolishTile(){
+  if (!observerTile) return;
+  const { col, row } = observerTile;
+  if (typeof demolishAtTile === 'function' && demolishAtTile(col, row)){
+    observerTile = null;
+    if (typeof clearObserverCoverage === 'function') clearObserverCoverage();
+    if (typeof closePanels === 'function') closePanels();
+  } else if (typeof showNotification === 'function'){
+    showNotification(t('observer.cantDemolish'), 'bad');
+  }
+}
+
+function setObserverTileContext(col, row){
+  observerTile = { col, row };
+  if (typeof renderInspector === 'function') renderInspector(col, row);
+}
+
+function needStatusDetail(need, col, row){
+  const ok = NEED_CHECKERS[need] && NEED_CHECKERS[need](col, row);
+  if (ok) return ['✔', 'ok'];
+
+  if (need === 'route'){
+    return [t('needHint.noRoute'), 'bad'];
+  }
+  if (need === 'beauty'){
+    const charm = Math.round((grid[row][col].beauty || 0));
+    return [`${charm}/${BEAUTY_THRESHOLD}`, 'bad'];
+  }
+  if (WALKER_SERVICE_NEEDS.includes(need)){
+    const type = need === 'fire' ? 'fire' : need;
+    const w = typeof findServingWalker === 'function' ? findServingWalker(type, col, row) : null;
+    if (w) return ['✔', 'ok'];
+    const hasService = walkers.some(x => x.serviceType === type);
+    if (!hasService) return [t('needHint.noService.' + need), 'bad'];
+    if (!hasAdjacentRoad(col, row)) return [t('needHint.noRoute'), 'bad'];
+    return [t('needHint.outOfRange.' + need), 'bad'];
+  }
+  if (MARKET_NEEDS.includes(need)){
+    const marketWalker = typeof findServingWalker === 'function' ? findServingWalker('market', col, row) : null;
+    if (!walkers.some(w => w.serviceType === 'market')){
+      return [t('needHint.noService.market'), 'bad'];
+    }
+    if (!marketWalker){
+      if (!hasAdjacentRoad(col, row)) return [t('needHint.noRoute'), 'bad'];
+      return [t('needHint.outOfRange.market'), 'bad'];
+    }
+    return [t('needHint.noStock.' + need), 'bad'];
+  }
+  return ['✖', 'bad'];
+}
+
+function buildNeedRows(requires, col, row){
+  if (!requires || !requires.length) return [[t('need.none'), '—']];
+  return requires.map(need => {
+    const [detail, cls] = needStatusDetail(need, col, row);
+    return [t('need.' + need), detail, cls];
+  });
+}
+
 function buildHouseObserverData(cell, col, row){
   const levelDef = HOUSE_LEVELS[cell.houseLevel];
   const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
-
-  const needsRows = nextDef
-    ? nextDef.requires.map(need => {
-        const ok = NEED_CHECKERS[need](col, row);
-        return [t('need.' + need), ok ? '✔' : '✖', ok ? 'ok' : 'bad'];
-      })
+  const currentRows = buildNeedRows(levelDef.requires, col, row);
+  const currentMet = levelDef.requires.filter(n => NEED_CHECKERS[n] && NEED_CHECKERS[n](col, row)).length;
+  const nextRows = nextDef
+    ? buildNeedRows(nextDef.requires, col, row)
     : [[t('need.maxLevel'), '—']];
-  const metCount = nextDef ? nextDef.requires.filter(n => NEED_CHECKERS[n](col, row)).length : 0;
+  const nextMet = nextDef
+    ? nextDef.requires.filter(n => NEED_CHECKERS[n] && NEED_CHECKERS[n](col, row)).length
+    : 0;
 
   const fireOk = isHouseServedBy('fire', col, row);
   const healthOk = isHouseServedBy('health', col, row);
   const emig = emigrationChance();
+
+  const serviceRows = [];
+  if (cell.houseLevel >= 1){
+    serviceRows.push([
+      t('need.water'),
+      ...needStatusDetail('water', col, row),
+    ]);
+  }
+  if (cell.houseLevel >= 3){
+    serviceRows.push([
+      t('need.food'),
+      ...needStatusDetail('food', col, row),
+    ]);
+  }
+  for (const need of ['religion', 'health', 'fire']){
+    const neededNow = levelDef.requires.includes(need)
+      || (nextDef && nextDef.requires.includes(need));
+    if (neededNow) serviceRows.push([t('need.' + need), ...needStatusDetail(need, col, row)]);
+  }
 
   const riskRows = [
     [t('inspector.fireRisk'), fireOk ? '✔' : '✖', fireOk ? 'ok' : 'bad'],
@@ -35,16 +236,24 @@ function buildHouseObserverData(cell, col, row){
       ],
     },
     {
-      icon: '📋', title: t('inspector.nextNeeds'), status: nextDef ? `${metCount}/${nextDef.requires.length}` : '—',
-      rows: needsRows,
+      icon: '📋',
+      title: cell.houseLevel > 0 ? t('inspector.currentNeeds') : t('inspector.nextNeeds'),
+      status: cell.houseLevel > 0 ? `${currentMet}/${levelDef.requires.length}` : (nextDef ? `${nextMet}/${nextDef.requires.length}` : '—'),
+      rows: cell.houseLevel > 0 ? currentRows : nextRows,
     },
     {
-      icon: '🛡️', title: t('inspector.fireRisk'), status: (fireOk && healthOk) ? 'OK' : '⚠️',
+      icon: '🛒',
+      title: nextDef ? t('inspector.nextNeeds') : t('inspector.services'),
+      status: nextDef ? `${nextMet}/${nextDef.requires.length}` : '',
+      rows: nextDef ? nextRows : (serviceRows.length ? serviceRows : [[t('need.maxLevel'), '—']]),
+    },
+    {
+      icon: '🛡️', title: t('inspector.risks'), status: (fireOk && healthOk) ? 'OK' : '⚠️',
       rows: riskRows,
     },
   ];
 
-  return { title: t(levelDef.nameKey), tiles, actions: true };
+  return { title: t(levelDef.nameKey), tiles, ...observerActionsPayload(col, row, cell) };
 }
 
 function buildBuildingObserverData(type, col, row){
@@ -83,11 +292,15 @@ function buildBuildingObserverData(type, col, row){
     const walker = walkers.find(w => w.col === col && w.row === row);
     const served = walker ? walker.servedHouses.length : 0;
     const connected = !!walker && walker.path.length > 1;
+    const reach = typeof serviceCoverageTileCount === 'function'
+      ? serviceCoverageTileCount(col, row, def.range)
+      : def.range;
     tiles.push({
       icon: '🚶', title: t('inspector.service'), status: `${served}/${def.capacity}`,
       rows: [
         [t('inspector.service'), t('service.' + def.serviceType)],
-        [t('inspector.range'), def.range],
+        [t('inspector.patrolRange'), `${def.range} ${t('inspector.tilesAlongRoad')}`],
+        [t('inspector.coverageArea'), `${reach} ${t('inspector.roadTiles')}`],
         [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
       ],
     });
@@ -122,14 +335,15 @@ function buildBuildingObserverData(type, col, row){
     ] });
   }
 
-  return { title: t(def.name), tiles: tiles.slice(0, 4), actions: true };
+  return { title: t(def.name), tiles: tiles.slice(0, 4), ...observerActionsPayload(col, row, grid[row][col]) };
 }
 
-function buildTileObserverData(cell){
+function buildTileObserverData(cell, col, row){
   const title = cell.hasRoad ? t('inspector.tileTitleRoad') : t('inspector.tileTitleEmpty');
   const rows = [[t('inspector.terrain'), t('terrainName.' + cell.terrain)]];
   if (cell.beauty) rows.push([t('inspector.beauty'), `${Math.round(cell.beauty)}/${BEAUTY_THRESHOLD}`]);
-  return { title, tiles: [{ icon: cell.hasRoad ? '🛣️' : '🌿', title, status: '', rows }], actions: false };
+  const payload = (col != null && row != null) ? observerActionsPayload(col, row, cell) : { actions: false };
+  return { title, tiles: [{ icon: cell.hasRoad ? '🛣️' : '🌿', title, status: '', rows }], ...payload };
 }
 
 // Vue d'ensemble de la cité (bouton "Gestion de la ville" du menu).
@@ -191,8 +405,6 @@ function buildCityObserverData(){
       },
     ],
     actions: false,
-    // Actions non constructibles (déplacées hors du catalogue) : offrande, festival,
-    // commerce extérieur, invocation de héros. Affichées dans la tuile d'actions.
     actionsTitle: t('cityActions.title'),
     actionsHtml: `<div class="actionGrid">
       <button class="actionBtn" onclick="cityManagementAction('makeOffering')">🏺 ${t('action.offeringShort')}</button>
@@ -225,6 +437,9 @@ function buildWalkerObserverData(walker){
   const def = BUILDING_DEFS[walker.type];
   const current = walker.path[walker.pathIndex];
   const connected = walker.path.length > 1;
+  const reach = typeof serviceCoverageTileCount === 'function'
+    ? serviceCoverageTileCount(walker.col, walker.row, def.range)
+    : walker.path.length;
 
   return {
     title: `${def.icon} ${t('inspector.service')} : ${t('service.' + walker.serviceType)}`,
@@ -234,13 +449,15 @@ function buildWalkerObserverData(walker){
         rows: [
           [t('inspector.service'), t('service.' + walker.serviceType)],
           ['Départ', `${t(def.name)} (${walker.col},${walker.row})`],
+          [t('inspector.patrolRange'), `${def.range} ${t('inspector.tilesAlongRoad')}`],
+          [t('inspector.coverageArea'), `${reach} ${t('inspector.roadTiles')}`],
           [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
         ],
       },
       {
         icon: '🏠', title: t('inspector.served'), status: `${walker.servedHouses.length}/${def.capacity}`,
         rows: walker.servedHouses.length
-          ? walker.servedHouses.slice(0, 6).map(h => [`Maison (${h.col},${h.row})`, '✔', 'ok'])
+          ? walker.servedHouses.slice(0, 8).map(h => [`Maison (${h.col},${h.row})`, '✔', 'ok'])
           : [[t('inspector.served'), '0', 'bad']],
       },
       {
@@ -248,11 +465,11 @@ function buildWalkerObserverData(walker){
         rows: [
           ['Position actuelle', current ? `${current.col},${current.row}` : '—'],
           ['Direction', walker.isoDiagonal ? walker.isoDiagonal.toUpperCase() : walker.facing],
-          ['Longueur du trajet', walker.path.length],
+          [t('inspector.coverageHint'), t('inspector.coverageHintDetail')],
         ],
       },
     ],
-    actions: false,
+    ...observerActionsPayload(walker.col, walker.row, grid[walker.row][walker.col]),
   };
 }
 
@@ -262,6 +479,7 @@ function openWalkerObserver(walker){
   const backdrop = document.getElementById('backdrop');
   if (!panel) return;
 
+  setObserverTileContext(walker.col, walker.row);
   const data = buildWalkerObserverData(walker);
   if (typeof closePanels === 'function') closePanels();
   if (titleEl) titleEl.textContent = t('observer.prefix') + data.title;
@@ -360,7 +578,7 @@ function buildTradeObserverData(){
 
 function openTradePanel(){
   const panel = document.getElementById('observerPanel');
-  if (!panel) return; // ancienne interface : pas d'observateur
+  if (!panel) return;
   const data = buildTradeObserverData();
   if (typeof closePanels === 'function') closePanels();
   const titleEl = document.getElementById('observerTitle');
@@ -372,7 +590,6 @@ function openTradePanel(){
   tradeScreenOpen = true;
 }
 
-// Rappelée par toggleCityExport/toggleCityImport (trade.js) pour rafraîchir l'écran s'il est ouvert.
 function refreshTradeScreen(){
   if (tradeScreenOpen && document.getElementById('observerPanel') && document.getElementById('observerPanel').classList.contains('open')){
     openTradePanel();
@@ -391,12 +608,14 @@ function openTileObserver(col, row){
   let data;
   if (cell.building === 'maison') data = buildHouseObserverData(cell, col, row);
   else if (cell.building) data = buildBuildingObserverData(cell.building, col, row);
-  else data = buildTileObserverData(cell);
+  else data = buildTileObserverData(cell, col, row);
+
+  setObserverTileContext(col, row);
 
   const titleEl = document.getElementById('observerTitle');
   const panel = document.getElementById('observerPanel');
   const backdrop = document.getElementById('backdrop');
-  if (!panel) return; // ancienne interface : pas d'observateur, rien à faire
+  if (!panel) return;
 
   if (typeof closePanels === 'function') closePanels();
   if (titleEl) titleEl.textContent = t('observer.prefix') + data.title;

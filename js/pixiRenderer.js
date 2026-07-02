@@ -144,6 +144,7 @@ window.invalidatePixiBuildings = function(){
   window._roadsDirty = true;
   window._houseIconsDirty = true;
   if (typeof markOverlayDirty === 'function') markOverlayDirty();
+  if (typeof invalidateCityMap === 'function') invalidateCityMap();
 };
 window.invalidatePixiRoads = function(){ window._roadsDirty = true; if (typeof markOverlayDirty === 'function') markOverlayDirty(); };
 window.markHouseIconsDirty = function(){ window._houseIconsDirty = true; };
@@ -737,19 +738,6 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
   const container = overlay ? window._overlayWalkerContainer : window._walkerContainer;
   if (!container || !Array.isArray(walkers)) return;
 
-  // Mode Three.js : walkers rendus en sprites 3D (syncThreeWalkers) — overlay Pixi allégé.
-  if (overlay && typeof isThreeReady === 'function' && isThreeReady()){
-    const spritePool = window._walkerSpritePool;
-    const gfxPool    = window._walkerGfxPool;
-    if (spritePool.length || gfxPool.length){
-      spritePool._active = 0;
-      gfxPool._active = 0;
-      _pixiPoolRelease(spritePool);
-      _pixiPoolRelease(gfxPool);
-    }
-    return;
-  }
-
   const skip = (typeof getWalkerFrameSkip === 'function')
     ? getWalkerFrameSkip()
     : ((typeof PERF !== 'undefined' && PERF.walkerFrameSkip) ? PERF.walkerFrameSkip : 0);
@@ -1146,8 +1134,53 @@ function _pixiDrawCharacterSprite(container, id, s, agent, now, animate, charPoo
 }
 
 function _pixiApplyOverlayGrade(){
-  // Grade plein ecran via applyMediterraneanViewportGrade() (render.js) en mode Three.
+  const container = window._overlayGradeContainer;
+  if (!container) return;
+  container.removeChildren();
+
+  const cov = window._observerCoverage;
+  if (cov){
+    if (cov.until && performance.now() > cov.until){
+      window._observerCoverage = null;
+    } else {
+      (cov.roads || []).forEach(function(t){
+        if (typeof _pixiDrawTileQuad === 'function'){
+          _pixiDrawTileQuad(container, t.col, t.row, 0x4da6ff, 0x2266aa, 0.32, 0.45);
+        }
+      });
+      (cov.houses || []).forEach(function(t){
+        if (typeof _pixiDrawTileQuad === 'function'){
+          _pixiDrawTileQuad(container, t.col, t.row, 0x78ff78, 0x338833, 0.42, 0.55);
+        }
+      });
+      if (cov.origin && typeof _pixiDrawTileQuad === 'function'){
+        _pixiDrawTileQuad(container, cov.origin.col, cov.origin.row, 0xffd700, 0xaa8800, 0.48, 0.75);
+      }
+    }
+  }
+
+  if (typeof window.observerPinnedTile !== 'undefined' && window.observerPinnedTile
+      && typeof _pixiDrawTileQuad === 'function'){
+    _pixiDrawTileQuad(
+      container,
+      window.observerPinnedTile.col,
+      window.observerPinnedTile.row,
+      0xffe066, 0xffaa00, 0.28, 0.85,
+    );
+  }
 }
+
+window.setObserverCoverage = function(payload){
+  window._observerCoverage = payload;
+  window._overlayNeedsRender = true;
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+};
+
+window.clearObserverCoverage = function(){
+  window._observerCoverage = null;
+  window._overlayNeedsRender = true;
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+};
 
 /* =========================================================
    ROUTES / ESCALIERS / BORNES (overlay Three)
@@ -1533,8 +1566,9 @@ window.renderPixiOverlay = function(now){
       || (typeof stairsMode !== 'undefined' && stairsMode)
       || (typeof zonePlacementStart !== 'undefined' && zonePlacementStart));
 
+  const hasCoverage = !!(window._observerCoverage || window.observerPinnedTile);
   const needsRender = camMoved || window._overlayNeedsRender || window._buildingDirty
-    || window._roadsDirty || window._houseIconsDirty || hasAnimating || hasUi;
+    || window._roadsDirty || window._houseIconsDirty || hasAnimating || hasUi || hasCoverage;
   if (!needsRender) return;
 
   window._overlayNeedsRender = false;

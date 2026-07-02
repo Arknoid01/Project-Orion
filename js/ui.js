@@ -411,6 +411,71 @@ function cancelSelection(){
   updateBuildInfoPanel(null);
 }
 
+/* ===================== MODE CLIC CARTE ===================== */
+// observer : clic ouvre l'observateur · explore : clic centre la caméra sans panneau
+const MAP_CLICK_MODE_KEY = 'orion_map_click_mode';
+let mapClickMode = 'observer';
+
+function loadMapClickMode(){
+  try {
+    const saved = localStorage.getItem(MAP_CLICK_MODE_KEY);
+    if (saved === 'explore' || saved === 'observer') mapClickMode = saved;
+  } catch { /* localStorage indisponible */ }
+}
+
+function saveMapClickMode(){
+  try { localStorage.setItem(MAP_CLICK_MODE_KEY, mapClickMode); } catch { /* ignore */ }
+}
+
+function centerViewOnTile(col, row){
+  if (typeof isThreeReady === 'function' && isThreeReady() && typeof centerThreeOnTile === 'function'){
+    centerThreeOnTile(col, row);
+  } else if (typeof tileCenter === 'function' && typeof centerCameraOn === 'function'){
+    const c = tileCenter(col, row);
+    centerCameraOn(c.x, c.y);
+  }
+  if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
+}
+window.centerViewOnTile = centerViewOnTile;
+
+function updateMapModeBtn(){
+  const btn = document.getElementById('mapModeBtn');
+  if (!btn) return;
+  const isObserver = mapClickMode === 'observer';
+  btn.textContent = isObserver ? '👁️' : '🚶';
+  btn.classList.toggle('active', !isObserver);
+  btn.title = typeof t === 'function'
+    ? (isObserver ? t('hud.mapModeObserver') : t('hud.mapModeExplore'))
+    : '';
+  btn.setAttribute('aria-pressed', isObserver ? 'false' : 'true');
+}
+window.updateMapModeBtn = updateMapModeBtn;
+
+function setMapClickMode(mode){
+  if (mode !== 'observer' && mode !== 'explore') return;
+  mapClickMode = mode;
+  saveMapClickMode();
+  if (mode === 'explore' && typeof closePanels === 'function') closePanels();
+  updateMapModeBtn();
+  const info = document.getElementById('infoBar');
+  if (info && typeof t === 'function'){
+    info.textContent = mode === 'explore' ? t('info.exploreMode') : t('info.hover');
+  }
+}
+window.setMapClickMode = setMapClickMode;
+
+function toggleMapClickMode(){
+  setMapClickMode(mapClickMode === 'observer' ? 'explore' : 'observer');
+}
+window.toggleMapClickMode = toggleMapClickMode;
+
+function getMapClickMode(){
+  return mapClickMode;
+}
+window.getMapClickMode = getMapClickMode;
+
+loadMapClickMode();
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') cancelSelection();
 });
@@ -799,6 +864,48 @@ _c.addEventListener('contextmenu', (e) => {
   render();
 });
 
+/** Démolition d'une case (bâtiment, route, monument) — utilisé par le mode démolition et l'observateur. */
+function demolishAtTile(col, row){
+  if (!inBounds(col, row)) return false;
+  const cell = grid[row][col];
+  const anchor = (typeof monumentAnchorAt === 'function') ? monumentAnchorAt(col, row) : null;
+
+  if (anchor && grid[anchor.row][anchor.col].building){
+    const ac = grid[anchor.row][anchor.col];
+    debugInfo('Démolition : temple monumental', anchor);
+    notifyDemolishRefund(ac.building, ac.godPatron);
+    demolishMonument(anchor.col, anchor.row);
+  } else if (cell.building){
+    if (cell.building === 'maison' && typeof queueHouseDeparture === 'function' && queueHouseDeparture(col, row, false)){
+      debugInfo(`Démolition : ${t(BUILDING_DEFS.maison.name)}`, { col, row });
+      notifyDemolishRefund('maison');
+    } else {
+      debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
+      notifyDemolishRefund(cell.building);
+      cell.building = null;
+      cell.houseLevel = 0;
+      cell.population = 0;
+      if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+      if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
+      if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+    }
+  } else if (cell.hasRoad){
+    debugInfo(cell.roadStairs ? 'Escalier supprimé' : 'Route supprimée', { col, row });
+    notifyDemolishRefund(cell.roadStairs ? 'stairs' : 'road');
+    cell.hasRoad = false;
+    cell.roadStairs = false;
+    cell.patrolBlock = false;
+    if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+    if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
+  } else {
+    return false;
+  }
+  recomputeAllWalkers();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+  return true;
+}
+window.demolishAtTile = demolishAtTile;
+
 _c.addEventListener('click', (e) => {
   const pick = typeof pickTileAtScreen === 'function'
     ? pickTileAtScreen(e.clientX, e.clientY)
@@ -810,36 +917,7 @@ _c.addEventListener('click', (e) => {
   const cell = grid[row][col];
 
   if (demolishMode){
-    const anchor = (typeof monumentAnchorAt === 'function') ? monumentAnchorAt(col, row) : null;
-    if (anchor && grid[anchor.row][anchor.col].building){
-      const ac = grid[anchor.row][anchor.col];
-      debugInfo('Démolition : temple monumental', anchor);
-      notifyDemolishRefund(ac.building, ac.godPatron);
-      demolishMonument(anchor.col, anchor.row);
-    } else if (cell.building){
-      if (cell.building === 'maison' && typeof queueHouseDeparture === 'function' && queueHouseDeparture(col, row, false)){
-        debugInfo(`Démolition : ${t(BUILDING_DEFS.maison.name)}`, { col, row });
-        notifyDemolishRefund('maison');
-      } else {
-        debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
-        notifyDemolishRefund(cell.building);
-        cell.building = null;
-        cell.houseLevel = 0;
-        cell.population = 0;
-        if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
-        if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
-        if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
-      }
-    } else if (cell.hasRoad){
-      debugInfo(cell.roadStairs ? 'Escalier supprimé' : 'Route supprimée', { col, row });
-      notifyDemolishRefund(cell.roadStairs ? 'stairs' : 'road');
-      cell.hasRoad = false;
-      cell.roadStairs = false;
-      cell.patrolBlock = false;
-      if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
-      if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
-    }
-    recomputeAllWalkers();
+    demolishAtTile(col, row);
   } else if (blockMode){
     if (canToggleBlock(col, row)){
       cell.patrolBlock = !cell.patrolBlock;
@@ -873,20 +951,23 @@ _c.addEventListener('click', (e) => {
       recomputeAllWalkers();
     }
   } else if (!demolishMode && !roadMode && !blockMode && !stairsMode && !selectedBuilding){
-    // Aucun mode actif : on inspecte ce qui a été tapé -- un marcheur en mouvement
-    // s'il est sous le doigt, sinon la case (ouvre l'observateur, nouvelle UI).
-    const now = performance.now();
-    const hitWalker = (typeof findWalkerNear === 'function')
-      ? findWalkerNear(
-          (typeof isThreeReady === 'function' && isThreeReady()) ? e.clientX : pick.mx,
-          (typeof isThreeReady === 'function' && isThreeReady()) ? e.clientY : pick.my,
-          now,
-        )
-      : null;
-    if (hitWalker && typeof openWalkerObserver === 'function'){
-      openWalkerObserver(hitWalker);
-    } else if (typeof openTileObserver === 'function'){
-      openTileObserver(col, row);
+    if (mapClickMode === 'explore'){
+      centerViewOnTile(col, row);
+    } else {
+      // Mode observateur : marcheur sous le doigt, sinon la case.
+      const now = performance.now();
+      const hitWalker = (typeof findWalkerNear === 'function')
+        ? findWalkerNear(
+            (typeof isThreeReady === 'function' && isThreeReady()) ? e.clientX : pick.mx,
+            (typeof isThreeReady === 'function' && isThreeReady()) ? e.clientY : pick.my,
+            now,
+          )
+        : null;
+      if (hitWalker && typeof openWalkerObserver === 'function'){
+        openWalkerObserver(hitWalker);
+      } else if (typeof openTileObserver === 'function'){
+        openTileObserver(col, row);
+      }
     }
   }
   recomputeBeauty(); // retour visuel immédiat du cachet (le tick le recalcule aussi)
@@ -901,3 +982,4 @@ _c.addEventListener('click', (e) => {
 // Appel immédiat pour le mode Canvas2D normal (sans Pixi)
 // En mode Pixi, initCanvasListeners() sera rappelé après remplacement du canvas
 initCanvasListeners();
+updateMapModeBtn();

@@ -66,9 +66,23 @@ function sortRoadExits(hubCol, hubRow, exits){
   });
 }
 
+/** Vérifie que deux cases du trajet sont identiques ou voisines (4-dir). */
+function pathStepOk(a, b){
+  if (!a || !b) return false;
+  if (a.col === b.col && a.row === b.row) return true;
+  return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+}
+
+/** Ajoute le retour le long d'un bras de route jusqu'au hub (pas de téléportation). */
+function appendArmReturn(path, arm, hub){
+  if (!arm.length) return;
+  for (let i = arm.length - 2; i >= 0; i--) path.push({ col: arm[i].col, row: arm[i].row });
+  path.push({ col: hub.col, row: hub.row });
+}
+
 // Trajet de patrouille le long des routes. Sur une route droite (hub + 2 directions),
-// le path enchaîne : bâtiment → hub → bras A → hub → bras B → hub — le ping-pong
-// alterne ainsi un passage complet à droite puis à gauche (et inversement au retour).
+// le path enchaîne : bâtiment → hub → bras A → retour hub → bras B → retour hub.
+// Chaque segment consécutif est adjacent — le ping-pong visual retrace le trajet normalement.
 function computePatrolPath(startCol, startRow, maxSteps){
   const path = [{ col: startCol, row: startRow }];
   const entries = roadNeighbors(startCol, startRow);
@@ -84,11 +98,11 @@ function computePatrolPath(startCol, startRow, maxSteps){
   if (exits.length === 2){
     const half = Math.max(1, Math.floor((maxSteps - 1) / 2));
     const armA = walkRoadArm(exits[0].col, exits[0].row, hub.col, hub.row, half);
-    const armB = walkRoadArm(exits[1].col, exits[1].row, hub.col, hub.row, half);
     path.push(...armA);
-    path.push({ col: hub.col, row: hub.row });
+    appendArmReturn(path, armA, hub);
+    const armB = walkRoadArm(exits[1].col, exits[1].row, hub.col, hub.row, half);
     path.push(...armB);
-    path.push({ col: hub.col, row: hub.row });
+    appendArmReturn(path, armB, hub);
     return path;
   }
 
@@ -105,22 +119,46 @@ function computePatrolPath(startCol, startRow, maxSteps){
 }
 
 /* ===================== COUVERTURE DE MAISONS ===================== */
-function computeServedHouses(path, capacity){
-  const served = [];
+/** Cases atteignables depuis le bâtiment de service (BFS routes, maxSteps). */
+function computeServiceReach(serviceCol, serviceRow, maxSteps){
+  const result = [{ col: serviceCol, row: serviceRow }];
+  const visited = new Set([tileKey(serviceCol, serviceRow)]);
+  const queue = [{ col: serviceCol, row: serviceRow, dist: 0 }];
+  while (queue.length){
+    const cur = queue.shift();
+    if (cur.dist >= maxSteps) continue;
+    for (const n of roadNeighbors(cur.col, cur.row)){
+      const k = tileKey(n.col, n.row);
+      if (visited.has(k)) continue;
+      visited.add(k);
+      result.push(n);
+      queue.push({ col: n.col, row: n.row, dist: cur.dist + 1 });
+    }
+  }
+  return result;
+}
+
+/** Maisons orthogonalement adjacentes à une case de couverture, triées par distance au hub. */
+function computeServedHouses(serviceCol, serviceRow, maxSteps, capacity){
+  const coverage = computeServiceReach(serviceCol, serviceRow, maxSteps);
+  const candidates = [];
   const seen = new Set();
-  for (const tile of path){
-    if (served.length >= capacity) break;
+  for (const tile of coverage){
     const neighbors = [[tile.col - 1, tile.row], [tile.col + 1, tile.row], [tile.col, tile.row - 1], [tile.col, tile.row + 1]];
     for (const [c, r] of neighbors){
-      if (served.length >= capacity) break;
       if (!inBounds(c, r) || grid[r][c].building !== 'maison') continue;
       const k = tileKey(c, r);
       if (seen.has(k)) continue;
       seen.add(k);
-      served.push({ col: c, row: r });
+      candidates.push({
+        col: c,
+        row: r,
+        dist: Math.abs(c - serviceCol) + Math.abs(r - serviceRow),
+      });
     }
   }
-  return served;
+  candidates.sort((a, b) => a.dist - b.dist || a.col - b.col || a.row - b.row);
+  return candidates.slice(0, capacity).map(({ col, row }) => ({ col, row }));
 }
 
 /* ===================== RECALCUL / DEPLACEMENT ===================== */
@@ -130,20 +168,33 @@ function recomputeAllWalkers(){
     const def = BUILDING_DEFS[type];
     if (!def.isService) return;
     const path = computePatrolPath(col, row, def.range);
-    const servedHouses = computeServedHouses(path, def.capacity);
-    walkers.push({ col, row, type, serviceType: def.serviceType, path, pathIndex: 0, prevPathIndex: 0, direction: 1, facing: 'down', mirrorX: false, servedHouses });
+    const servedHouses = computeServedHouses(col, row, def.range, def.capacity);
+    walkers.push({
+      col, row, type, serviceType: def.serviceType, path,
+      pathIndex: 0, prevPathIndex: 0, direction: 1,
+      facing: 'down', mirrorX: false, servedHouses,
+      moveStartTime: performance.now(),
+    });
   });
   debugInfo(`Patrouilles recalculées : ${walkers.length} bâtiment(s) de service actif(s)`);
   if (typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
+  if (typeof invalidateCityMap === 'function') invalidateCityMap();
 }
 
 function advanceWalkers(){
+  const now = performance.now();
   walkers.forEach(w => {
     if (w.path.length <= 1) return; // pas connecté à une route, ne bouge pas
     w.prevPathIndex = w.pathIndex;
     w.pathIndex += w.direction;
-    if (w.pathIndex >= w.path.length - 1){ w.pathIndex = w.path.length - 1; w.direction = -1; }
-    else if (w.pathIndex <= 0){ w.pathIndex = 0; w.direction = 1; }
+    if (w.pathIndex >= w.path.length - 1){
+      w.pathIndex = w.path.length - 1;
+      w.direction = -1;
+    } else if (w.pathIndex <= 0){
+      w.pathIndex = 0;
+      w.direction = 1;
+    }
+    w.moveStartTime = now;
 
     const from = w.path[w.prevPathIndex];
     const to = w.path[w.pathIndex];
@@ -155,6 +206,16 @@ function advanceWalkers(){
 
 function isHouseServedBy(serviceType, col, row){
   return walkers.some(w => w.serviceType === serviceType && w.servedHouses.some(h => h.col === col && h.row === row));
+}
+
+/** Walker qui dessert une maison pour un type de service (null si aucun). */
+function findServingWalker(serviceType, col, row){
+  return walkers.find(w => w.serviceType === serviceType && w.servedHouses.some(h => h.col === col && h.row === row)) || null;
+}
+
+/** Nombre de cases route atteignables depuis un service (pour l'observateur). */
+function serviceCoverageTileCount(serviceCol, serviceRow, maxSteps){
+  return computeServiceReach(serviceCol, serviceRow, maxSteps).length;
 }
 
 /** true si l'agent utilise la sémantique patrouille (pathIndex = case courante, direction ±1). */
@@ -213,9 +274,20 @@ function getWalkerInterp(walker, now){
     return { col: walker.col ?? 0, row: walker.row ?? 0, t: 0, fromTile, toTile };
   }
 
-  const elapsed = now - (typeof lastTickTimestamp !== 'undefined' ? lastTickTimestamp : 0);
   const tickMs = typeof TICK_DURATION_MS !== 'undefined' ? TICK_DURATION_MS : 1000;
-  const t = (fromIdx === toIdx) ? 0 : Math.min(1, Math.max(0, elapsed / tickMs));
+  const start = Number.isFinite(walker.moveStartTime) ? walker.moveStartTime
+    : (typeof lastTickTimestamp !== 'undefined' ? lastTickTimestamp : now);
+  const elapsed = now - start;
+
+  // Même case (doublon dans le trajet) : pas de pause d'une seconde entière.
+  if (fromTile.col === toTile.col && fromTile.row === toTile.row){
+    return {
+      fromTile, toTile, fromIdx, toIdx, t: 1,
+      col: toTile.col, row: toTile.row,
+    };
+  }
+
+  const t = Math.min(1, Math.max(0, elapsed / tickMs));
   return {
     fromTile,
     toTile,

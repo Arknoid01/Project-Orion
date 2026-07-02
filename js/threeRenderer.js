@@ -1176,9 +1176,12 @@ function _initThreeControls(){
    --------------------------------------------------------------- */
 window.renderThree = function(now){
   if(!window._threeReady) return;
-  if (typeof syncThreeWalkers === 'function'){
+  // Walkers en overlay Pixi (au-dessus des routes) — pas en sprites Three.js.
+  if (!window._pixiOverlayApp && typeof syncThreeWalkers === 'function'){
     const list = (typeof walkers !== 'undefined' && Array.isArray(walkers)) ? walkers : [];
     if (list.some(w => w.path && w.path.length > 1)) syncThreeWalkers(now);
+  } else if (window._threeWalkerGroup){
+    window._threeWalkerGroup.visible = false;
   }
   window._threeRenderer.render(window._threeScene, window._threeCam);
   if (typeof renderPixiOverlay === 'function') renderPixiOverlay(now);

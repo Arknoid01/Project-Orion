@@ -170,6 +170,7 @@ function resolveAttack(city){
 
   updateResourceBar();
   if (typeof renderWorldMap === 'function') renderWorldMap();
+  if (typeof checkObjectives === 'function') checkObjectives();
   saveGame({ silent: true });
 }
 

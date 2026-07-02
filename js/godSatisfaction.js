@@ -99,6 +99,10 @@ function adjustGodSatisfaction(key, delta){
   godSatisfaction[key] = Math.max(0, Math.min(GOD_SAT_MAX, godSatisfaction[key] + delta));
 }
 
+function getGodSatisfactionValue(godKey){
+  return typeof godSatisfaction[godKey] === 'number' ? Math.round(godSatisfaction[godKey]) : 0;
+}
+
 function syncGlobalFavor(){
   const vals = GODS.map(g => godSatisfaction[g.key]).filter(v => typeof v === 'number');
   favor = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 50;
@@ -179,10 +183,14 @@ function triggerGodWrath(godKey){
       triggerGodEarthquake(godKey);
       break;
     case 'monster':
-      if (!monster && typeof spawnMonster === 'function'){
-        spawnMonster({ godKey });
-      } else {
-        showNotification(t('god.wrath.monster', { icon: god?.icon || '👹', god: name }), 'bad');
+      if (typeof spawnMonster === 'function' && spawnMonster({ godKey })){
+        // Notification gérée dans spawnMonster.
+      } else if (monster){
+        showNotification(t('god.wrath.monsterAlready', {
+          icon: god?.icon || '👹',
+          god: name,
+          monster: t('monster.name.' + monster.typeKey),
+        }), 'bad');
       }
       break;
     case 'storm':
@@ -327,6 +335,7 @@ function applyFestivalToGods(){
 function onGodMonumentBuilt(godKey){
   adjustGodSatisfaction(godKey, GOD_SAT_MONUMENT_GAIN);
   syncGlobalFavor();
+  if (typeof checkObjectives === 'function') checkObjectives();
 }
 
 function onGodMonumentDemolished(godKey){

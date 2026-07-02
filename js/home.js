@@ -2,7 +2,7 @@
 // Écrans : accueil → nouvelle partie (scénarios) / charger / crédits
 
 function showMenuScreen(screenId){
-  ['homeScreen', 'newGameScreen', 'creditsScreen'].forEach(id => {
+  ['homeScreen', 'newGameScreen', 'campaignMenuScreen', 'campaignEpisodeScreen', 'creditsScreen'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('menu-screen-hidden', id !== screenId);
   });
@@ -17,6 +17,11 @@ function showNewGameScreen(){
   showMenuScreen('newGameScreen');
   renderScenarioList();
 }
+
+function showCampaignMenuScreen(){
+  if (typeof showCampaignMenu === 'function') showCampaignMenu();
+}
+window.showCampaignMenuScreen = showCampaignMenuScreen;
 
 function showCreditsScreen(){
   showMenuScreen('creditsScreen');

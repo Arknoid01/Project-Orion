@@ -126,10 +126,19 @@ function getHouseStatusIcons(col, row, cell){
   if (!isHouseServedBy('fire', col, row)) icons.push(NEED_ICONS.fire);
   if (!isHouseServedBy('health', col, row)) icons.push(NEED_ICONS.health);
 
+  const currentDef = HOUSE_LEVELS[cell.houseLevel];
+  if (currentDef && cell.houseLevel > 0){
+    for (const need of currentDef.requires){
+      if (need === 'fire' || need === 'health') continue;
+      if (!NEED_CHECKERS[need](col, row)) icons.push(NEED_ICONS[need]);
+    }
+  }
+
   const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
   if (nextDef){
     for (const need of nextDef.requires){
-      if (need === 'fire' || need === 'health') continue; // déjà couverts ci-dessus
+      if (need === 'fire' || need === 'health') continue;
+      if (currentDef && currentDef.requires.includes(need)) continue;
       if (!NEED_CHECKERS[need](col, row)) icons.push(NEED_ICONS[need]);
     }
   }

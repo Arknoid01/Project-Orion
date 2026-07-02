@@ -9,9 +9,22 @@ const OBJECTIVE_METRICS = {
   favor:        () => favor,
   citiesConquered: () => (worldCities || []).filter(c => c.conquered).length,
   barracks:     () => (typeof countBarracks === 'function') ? countBarracks() : 0,
+  militaryPoints: () => (typeof getMilitaryPoints === 'function') ? getMilitaryPoints() : 0,
   coloniesCompleted: () => (typeof completedColonies !== 'undefined') ? completedColonies.length : 0,
   marbleStock:  () => Math.floor(resources.marble || 0),
   wineStock:    () => Math.floor(resources.wine || 0),
+  wheatStock:   () => Math.floor(resources.wheat || 0),
+  coalStock:    () => Math.floor(resources.coal || 0),
+  bronzeStock:  () => Math.floor(resources.bronze || 0),
+  sculptureStock: () => Math.floor(resources.sculpture || 0),
+  tradePosts:   () => (typeof countTradePosts === 'function') ? countTradePosts() : 0,
+  workshops:    () => {
+    let n = 0;
+    if (typeof forEachBuilding === 'function'){
+      forEachBuilding((type) => { if (type === 'workshop') n++; });
+    }
+    return n;
+  },
 };
 
 // Index du niveau "villa" repéré par sa clé (et non "dernier niveau"), pour rester
@@ -27,12 +40,37 @@ function hasVillaSomewhere(){
   return found;
 }
 
+function evaluateObjectiveMetric(obj){
+  if (!obj || !obj.metric) return 0;
+  if (obj.metric === 'godTemple' && obj.godKey){
+    return (typeof hasGodTemple === 'function' && hasGodTemple(obj.godKey)) ? 1 : 0;
+  }
+  if (obj.metric === 'godSatisfaction' && obj.godKey){
+    return (typeof getGodSatisfactionValue === 'function')
+      ? getGodSatisfactionValue(obj.godKey)
+      : 0;
+  }
+  const fn = OBJECTIVE_METRICS[obj.metric];
+  return typeof fn === 'function' ? fn() : 0;
+}
+
+function getObjectiveDisplayName(obj){
+  if (!obj) return '';
+  if (obj.metric === 'godTemple' && obj.godKey){
+    return t('campaign.objective.godTemple', { god: t('god.' + obj.godKey) });
+  }
+  if (obj.metric === 'godSatisfaction' && obj.godKey){
+    return t('campaign.objective.godSatisfaction', { god: t('god.' + obj.godKey) });
+  }
+  return t(obj.nameKey);
+}
+
 /* ===================== VERIFICATION ===================== */
 function checkObjectives(){
   const objectives = (typeof activeObjectives !== 'undefined') ? activeObjectives : OBJECTIVES;
   let allDone = true;
   objectives.forEach(obj => {
-    obj.current = OBJECTIVE_METRICS[obj.metric]();
+    obj.current = evaluateObjectiveMetric(obj);
     obj.done = obj.current >= obj.target;
     if (!obj.done) allDone = false;
   });
@@ -45,8 +83,13 @@ function checkObjectives(){
 
   if (allDone && !victoryAnnounced){
     victoryAnnounced = true;
-    showNotification(t('objective.victory'), 'good');
-    debugInfo('Victoire : tous les objectifs sont atteints !');
+    if (typeof isCampaignActive === 'function' && isCampaignActive()
+        && typeof onCampaignEpisodeVictory === 'function'){
+      onCampaignEpisodeVictory();
+    } else {
+      showNotification(t('objective.victory'), 'good');
+      debugInfo('Victoire : tous les objectifs sont atteints !');
+    }
   }
 
   renderObjectivesPanel();
@@ -63,7 +106,7 @@ function renderObjectivesPanel(){
   list.innerHTML = objectives.map(obj => {
     const icon = obj.done ? '✅' : '⏳';
     const current = Math.floor(obj.current || 0);
-    return `<li class="${obj.done ? 'objective-done' : ''}">${icon} ${t(obj.nameKey)} (${current}/${obj.target})</li>`;
+    return `<li class="${obj.done ? 'objective-done' : ''}">${icon} ${getObjectiveDisplayName(obj)} (${current}/${obj.target})</li>`;
   }).join('');
 
   if (victoryBanner) victoryBanner.style.display = victoryAnnounced ? '' : 'none';

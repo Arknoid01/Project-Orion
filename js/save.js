@@ -3,7 +3,7 @@
 // github.io, pas seulement ce projet — un nom générique risquerait une collision
 // avec un autre des projets hébergés sur arknoid01.github.io.
 const SAVE_KEY = 'olympos_save_v1';
-const SAVE_VERSION = 7;
+const SAVE_VERSION = 8;
 
 function serializeGridForSave(sourceGrid){
   const out = [];
@@ -63,6 +63,8 @@ function saveGame(opts){
       militaryCampaign: (typeof serializeMilitaryCampaign === 'function') ? serializeMilitaryCampaign() : null,
       scenarioId: currentScenarioId,
       mapSeed: (typeof mapSeed !== 'undefined') ? mapSeed : 0,
+      ...(typeof serializeMapMetadataForSave === 'function' ? serializeMapMetadataForSave() : {}),
+      ...(typeof serializeCampaignForSave === 'function' ? serializeCampaignForSave() : {}),
       tickCount: (typeof DEBUG !== 'undefined' && DEBUG) ? DEBUG.tickCount : 0,
       lang: currentLang,
       ...(typeof serializeGodDispositions === 'function' ? serializeGodDispositions() : {}),
@@ -131,7 +133,7 @@ function loadGame(){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
-  if (payload.version !== SAVE_VERSION && payload.version !== 6 && payload.version !== 5 && payload.version !== 4 && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
+  if (payload.version !== SAVE_VERSION && payload.version !== 7 && payload.version !== 6 && payload.version !== 5 && payload.version !== 4 && payload.version !== 3 && payload.version !== 2 && payload.version !== 1){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return false;
   }
@@ -143,7 +145,13 @@ function loadGame(){
   try {
     grid = sanitizeGrid(payload.grid);
     if (typeof payload.mapSeed === 'number') mapSeed = payload.mapSeed;
-    if (typeof applyHeightMapToGrid === 'function') applyHeightMapToGrid(mapSeed);
+    if (typeof restoreMapMetadataFromSave === 'function') restoreMapMetadataFromSave(payload);
+    if (typeof applyHeightMapToGrid === 'function'){
+      applyHeightMapToGrid(mapSeed, {
+        landStyleRestored: !!(payload.mapLandStyle),
+        skipEdgePolish: true,
+      });
+    }
     else if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
     // Fusion avec des valeurs par défaut complètes : une sauvegarde plus ancienne
     // n'a pas les nouvelles ressources (huile, vin...) — sans ça elles seraient
@@ -189,9 +197,15 @@ function loadGame(){
     } else if (typeof resetMilitaryAgents === 'function'){
       resetMilitaryAgents();
     }
-    if (payload.scenarioId && typeof applyScenarioObjectives === 'function'){
+    if (typeof restoreCampaignFromSave === 'function') restoreCampaignFromSave(payload);
+
+    if (payload.scenarioId){
       currentScenarioId = payload.scenarioId;
-      applyScenarioObjectives(getScenario(currentScenarioId));
+      if (String(payload.scenarioId).startsWith('campaign:')){
+        if (typeof restoreCampaignObjectivesAfterLoad === 'function') restoreCampaignObjectivesAfterLoad();
+      } else if (typeof applyScenarioObjectives === 'function'){
+        applyScenarioObjectives(getScenario(currentScenarioId));
+      }
     }
     DEBUG.tickCount = payload.tickCount || 0;
     if (payload.lang) currentLang = payload.lang;

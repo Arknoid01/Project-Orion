@@ -400,6 +400,7 @@ const TERRAIN_BLOCK_FACES = {
   stone:  { top: 'stone',      left: 'stone', right: 'stone' },
   sand:   { top: 'sand_top',   left: 'sand',  right: 'sand' },
   forest: { top: 'forest_top', left: 'dirt',  right: 'dirt' },
+  hill:   { top: 'grass_top',  left: 'dirt',  right: 'dirt' },
 };
 
 const TERRAIN_USE_BLOCKS = true;
@@ -436,10 +437,11 @@ const TERRAIN_BLOCK_SPRITES = {
   marble: 'assets/tiles/blocks/marble.png',
   sand:   'assets/tiles/blocks/sand.png',
   forest: 'assets/tiles/blocks/forest.png',
+  hill:   'assets/tiles/blocks/hill.png',
 };
 // terrain jeu → clé bloc (sommet de pile) ; wheat/marble = teinte dérivée (cf. TERRAIN_BLOCK_TINTS)
 const TERRAIN_BLOCK_MAP = {
-  grass: 'grass', wheat: 'wheat', forest: 'forest', hill: 'grass',
+  grass: 'grass', wheat: 'wheat', forest: 'forest', hill: 'hill',
   sand: 'sand', water: null, rock: 'stone', marble: 'marble',
 };
 // Parois latérales selon biome / niveau de pile
@@ -641,6 +643,14 @@ const MAP_LAND_BRIDGE_LIFT = 0.34;
 const MAP_LAND_BRIDGE_WIND = 0.38;         // sinuosité du chemin d'accès
 const MAP_MOUNTAIN_MIN_LAND = 0.30;        // évite les massifs sur les bords d'île
 const MAP_MOUNTAIN_MIN_HEIGHT = 0.30;      // montagnes réservées aux vraies hauteurs
+
+// Zone de départ : ressources minimales près du centroïde + retry de seed
+const MAP_START_ZONE_RADIUS = 18;
+const MAP_START_MIN_WHEAT = 4;
+const MAP_START_MIN_FOREST = 4;
+const MAP_START_MIN_MARBLE = 2;
+const MAP_GEN_MAX_ATTEMPTS = 8;
+const MAP_GEN_USE_WORKER = true;
 
 /* ===================== MAINTENANCE (INCENDIES / MALADIES) ===================== */
 // Voir maintenance.js. Premiers chiffres, pas encore équilibrés en conditions réelles

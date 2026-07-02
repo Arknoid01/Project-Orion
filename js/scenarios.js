@@ -64,6 +64,7 @@ function applyScenarioObjectives(scenario){
 async function startScenario(scenarioId){
   const scenario = getScenario(scenarioId);
   currentScenarioId = scenario.id;
+  if (typeof clearActiveCampaign === 'function') clearActiveCampaign();
   applyScenarioObjectives(scenario);
   if (typeof showGenLoading === 'function') showGenLoading();
   try {
@@ -81,7 +82,11 @@ async function startScenario(scenarioId){
 }
 
 async function resetGameForScenario(scenario){
-  await initGrid();
+  if (typeof clearMapGenProfile === 'function') clearMapGenProfile();
+  await initGrid({
+    seed: scenario.mapSeed,
+    mapGenOptions: { mapProfile: scenario.mapProfile || null },
+  });
   resources = mergeResources(
     typeof STARTING_RESOURCES !== 'undefined' ? STARTING_RESOURCES : {},
   );
@@ -108,6 +113,9 @@ async function resetGameForScenario(scenario){
   defeatReason = null;
   festivalTicksLeft = 0;
   generateWorldCities(scenario.worldCityCount);
+  if (typeof configureWorldTradeForMapProfile === 'function'){
+    configureWorldTradeForMapProfile(scenario.mapProfile);
+  }
   initDiplomacy();
   initTrade();
   initArmy();
@@ -145,3 +153,9 @@ function renderScenarioList(){
     </button>`;
   }).join('');
 }
+
+function showCampaignMenu(){
+  showMenuScreen('campaignMenuScreen');
+  if (typeof renderCampaignPathList === 'function') renderCampaignPathList();
+}
+window.showCampaignMenu = showCampaignMenu;

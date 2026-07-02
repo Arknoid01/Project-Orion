@@ -2,7 +2,7 @@
 """
 Découpe une grande image (île / carte) en losanges iso alignés sur la grille Olympos.
 
-Produit assets/maps/terrain_baked.png (3960×2040) : chaque case = losange 64×32
+Produit assets/maps/terrain_baked.png (30720×8080) : chaque case = losange 128×64
 prélevé sur l'image source aux coordonnées monde du jeu.
 
 Usage :
@@ -22,15 +22,15 @@ from PIL import Image, ImageDraw
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "assets", "maps")
 
-# Aligné sur js/config.js
-GRID_COLS = 60
-GRID_ROWS = 60
-TILE_W = 64
-TILE_H = 32
-OFFSET_X = 1952
+# Aligné sur js/config.js (120×120, tuiles 128×64)
+GRID_COLS = 120
+GRID_ROWS = 120
+TILE_W = 128
+TILE_H = 64
+OFFSET_X = (GRID_COLS + GRID_ROWS) * TILE_W // 2
 OFFSET_Y = 80
-WORLD_WIDTH = 3960
-WORLD_HEIGHT = 2040
+WORLD_WIDTH = (GRID_COLS + GRID_ROWS) * TILE_W
+WORLD_HEIGHT = (GRID_COLS + GRID_ROWS) * TILE_H + 400
 
 
 def tile_center(col: int, row: int) -> tuple[float, float]:

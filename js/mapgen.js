@@ -74,15 +74,152 @@ function showGenError(err){
 }
 
 let mapSeed = 0;
+let activeMapGenProfile = null;
 let mapLandStyle = 'continent';
 let mapWalkerEntry = null;
 let mapEntryCorridorCells = null;
 
 function pickMapLandStyle(seed){
+  if (typeof MapgenNumeric !== 'undefined'){
+    return MapgenNumeric.pickMapLandStyle(seed, collectMapGenConfig());
+  }
   const mode = typeof MAP_LAND_STYLE === 'string' ? MAP_LAND_STYLE : 'mixed';
   if (mode === 'continent' || mode === 'island') return mode;
   const chance = typeof MAP_ISLAND_CHANCE === 'number' ? MAP_ISLAND_CHANCE : 0.38;
   return mulberry32(seed + 44000)() < chance ? 'island' : 'continent';
+}
+
+function collectMapGenConfig(){
+  return {
+    cols: GRID_COLS,
+    rows: GRID_ROWS,
+    migrantEntryCol: typeof MIGRANT_ENTRY_COL === 'number' ? MIGRANT_ENTRY_COL : Math.floor(GRID_COLS / 2),
+    migrantEntryRow: typeof MIGRANT_ENTRY_ROW === 'number' ? MIGRANT_ENTRY_ROW : GRID_ROWS - 1,
+    MAP_LAND_STYLE: typeof MAP_LAND_STYLE === 'string' ? MAP_LAND_STYLE : 'mixed',
+    MAP_ISLAND_CHANCE: typeof MAP_ISLAND_CHANCE === 'number' ? MAP_ISLAND_CHANCE : 0.42,
+    MAP_LAND_BASE_BIAS: typeof MAP_LAND_BASE_BIAS === 'number' ? MAP_LAND_BASE_BIAS : 0.048,
+    MAP_NOISE_SCALE: MAP_NOISE_SCALE,
+    MAP_HEIGHT_OCTAVES: MAP_HEIGHT_OCTAVES,
+    MAP_RIDGE_STRENGTH: MAP_RIDGE_STRENGTH,
+    MAP_DETAIL_STRENGTH: MAP_DETAIL_STRENGTH,
+    MAP_RANGE_STRENGTH: typeof MAP_RANGE_STRENGTH === 'number' ? MAP_RANGE_STRENGTH : 0.24,
+    MAP_RANGE_SCALE_MUL: typeof MAP_RANGE_SCALE_MUL === 'number' ? MAP_RANGE_SCALE_MUL : 0.44,
+    MAP_MOUNTAIN_CENTER_BOOST: typeof MAP_MOUNTAIN_CENTER_BOOST === 'number' ? MAP_MOUNTAIN_CENTER_BOOST : 0.07,
+    MAP_DOMAIN_WARP: typeof MAP_DOMAIN_WARP === 'number' ? MAP_DOMAIN_WARP : 0.40,
+    MAP_ISLAND_STRENGTH: typeof MAP_ISLAND_STRENGTH === 'number' ? MAP_ISLAND_STRENGTH : 0.92,
+    MAP_ISLAND_RADIUS: typeof MAP_ISLAND_RADIUS === 'number' ? MAP_ISLAND_RADIUS : 0.47,
+    MAP_VALLEY_STRENGTH: typeof MAP_VALLEY_STRENGTH === 'number' ? MAP_VALLEY_STRENGTH : 0.10,
+    MAP_HEIGHT_SMOOTH_PASSES: typeof MAP_HEIGHT_SMOOTH_PASSES === 'number' ? MAP_HEIGHT_SMOOTH_PASSES : 1,
+    MAP_WATER_THRESHOLD: MAP_WATER_THRESHOLD,
+    MAP_RAIN_SHADOW: typeof MAP_RAIN_SHADOW === 'number' ? MAP_RAIN_SHADOW : 0.26,
+    MAP_RAIN_SHADOW_STEPS: typeof MAP_RAIN_SHADOW_STEPS === 'number' ? MAP_RAIN_SHADOW_STEPS : 20,
+    MAP_WIND_X: typeof MAP_WIND_X === 'number' ? MAP_WIND_X : 0.62,
+    MAP_WIND_Y: typeof MAP_WIND_Y === 'number' ? MAP_WIND_Y : 0.28,
+    MAP_EDGE_WATER_LEVEL: typeof MAP_EDGE_WATER_LEVEL === 'number' ? MAP_EDGE_WATER_LEVEL : 0.055,
+    MAP_ISLAND_EDGE_BORDER: typeof MAP_ISLAND_EDGE_BORDER === 'number' ? MAP_ISLAND_EDGE_BORDER : 4,
+    MAP_CONTINENT_EDGE_BORDER: typeof MAP_CONTINENT_EDGE_BORDER === 'number' ? MAP_CONTINENT_EDGE_BORDER : 1,
+    MAP_FLATTEN_RADIUS: typeof MAP_FLATTEN_RADIUS === 'number' ? MAP_FLATTEN_RADIUS : 12,
+    MAP_FLATTEN_STRENGTH: typeof MAP_FLATTEN_STRENGTH === 'number' ? MAP_FLATTEN_STRENGTH : 0.34,
+    MAP_FLATTEN_EDGE_JITTER: typeof MAP_FLATTEN_EDGE_JITTER === 'number' ? MAP_FLATTEN_EDGE_JITTER : 2.8,
+    MAP_FLATTEN_LOCAL_VARIATION: typeof MAP_FLATTEN_LOCAL_VARIATION === 'number' ? MAP_FLATTEN_LOCAL_VARIATION : 0.34,
+    MAP_PLAYABLE_ELEVATION: typeof MAP_PLAYABLE_ELEVATION === 'number' ? MAP_PLAYABLE_ELEVATION : 0.36,
+    MAP_LAND_BRIDGE_LIFT: typeof MAP_LAND_BRIDGE_LIFT === 'number' ? MAP_LAND_BRIDGE_LIFT : 0.34,
+    MAP_LAND_BRIDGE_WIND: typeof MAP_LAND_BRIDGE_WIND === 'number' ? MAP_LAND_BRIDGE_WIND : 0.38,
+    MAP_ENTRY_CORRIDOR_WIDTH: typeof MAP_ENTRY_CORRIDOR_WIDTH === 'number' ? MAP_ENTRY_CORRIDOR_WIDTH : 3,
+    MAP_MOUNTAIN_MIN_LAND: typeof MAP_MOUNTAIN_MIN_LAND === 'number' ? MAP_MOUNTAIN_MIN_LAND : 0.30,
+    MAP_MOUNTAIN_MIN_HEIGHT: typeof MAP_MOUNTAIN_MIN_HEIGHT === 'number' ? MAP_MOUNTAIN_MIN_HEIGHT : 0.30,
+  };
+}
+
+function serializeMapMetadataForSave(){
+  return {
+    mapLandStyle,
+    mapWalkerEntry: mapWalkerEntry ? { col: mapWalkerEntry.col, row: mapWalkerEntry.row } : null,
+    mapLandBridgePath: Array.isArray(mapLandBridgePath) ? mapLandBridgePath.map(pt => ({ col: pt.col, row: pt.row })) : null,
+    mapEntryCorridorCells: mapEntryCorridorCells ? Array.from(mapEntryCorridorCells) : null,
+  };
+}
+window.serializeMapMetadataForSave = serializeMapMetadataForSave;
+
+function restoreMapMetadataFromSave(payload){
+  if (!payload) return;
+  if (payload.mapLandStyle === 'continent' || payload.mapLandStyle === 'island'){
+    mapLandStyle = payload.mapLandStyle;
+  }
+  if (payload.mapWalkerEntry && Number.isFinite(payload.mapWalkerEntry.col) && Number.isFinite(payload.mapWalkerEntry.row)){
+    mapWalkerEntry = { col: payload.mapWalkerEntry.col, row: payload.mapWalkerEntry.row };
+  }
+  if (Array.isArray(payload.mapLandBridgePath)){
+    mapLandBridgePath = payload.mapLandBridgePath.map(pt => ({ col: pt.col, row: pt.row }));
+  }
+  if (Array.isArray(payload.mapEntryCorridorCells)){
+    mapEntryCorridorCells = new Set(payload.mapEntryCorridorCells);
+  }
+}
+window.restoreMapMetadataFromSave = restoreMapMetadataFromSave;
+
+let _mapgenWorker = null;
+let _mapgenWorkerJob = 0;
+
+function _assignHeightBridgeMetadata(bundle, keepBridgeMeta){
+  if (keepBridgeMeta) return;
+  mapLandBridgePath = bundle.bridgePath || null;
+  mapEntryCorridorCells = bundle.corridorCells
+    ? new Set(bundle.corridorCells)
+    : null;
+}
+
+function _computeTerrainFieldsSync(seed, keepBridgeMeta){
+  const cfg = collectMapGenConfig();
+  const fields = MapgenNumeric.computeFields(seed, mapLandStyle, cfg);
+  _assignHeightBridgeMetadata(fields, keepBridgeMeta);
+  return fields;
+}
+
+async function computeTerrainFieldsAsync(seed, keepBridgeMeta){
+  const cfg = collectMapGenConfig();
+  const useWorker = typeof Worker !== 'undefined'
+    && typeof MAP_GEN_USE_WORKER !== 'undefined' && MAP_GEN_USE_WORKER
+    && typeof MapgenNumeric !== 'undefined';
+
+  if (useWorker){
+    try {
+      if (!_mapgenWorker) _mapgenWorker = new Worker('js/mapgenWorker.js?v=1');
+      const jobId = ++_mapgenWorkerJob;
+      const data = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('mapgen worker timeout')), 45000);
+        function onMessage(e){
+          if (e.data && e.data.jobId != null && e.data.jobId !== jobId) return;
+          clearTimeout(timeout);
+          _mapgenWorker.removeEventListener('message', onMessage);
+          _mapgenWorker.removeEventListener('error', onError);
+          if (e.data && e.data.ok) resolve(e.data);
+          else reject(new Error((e.data && e.data.error) || 'mapgen worker failed'));
+        }
+        function onError(err){
+          clearTimeout(timeout);
+          _mapgenWorker.removeEventListener('message', onMessage);
+          _mapgenWorker.removeEventListener('error', onError);
+          reject(err);
+        }
+        _mapgenWorker.addEventListener('message', onMessage);
+        _mapgenWorker.addEventListener('error', onError);
+        _mapgenWorker.postMessage({ jobId, seed, landStyle: mapLandStyle, cfg });
+      });
+      const fields = {
+        heights: MapgenNumeric.unpack2d(data.heights, cfg),
+        moisture: MapgenNumeric.unpack2d(data.moisture, cfg),
+        slopes: MapgenNumeric.unpack2d(data.slopes, cfg),
+        bridgePath: data.bridgePath,
+        corridorCells: data.corridorCells,
+      };
+      _assignHeightBridgeMetadata(fields, keepBridgeMeta);
+      return fields;
+    } catch (err){
+      if (typeof debugWarn === 'function') debugWarn('Worker mapgen indisponible, calcul local', err);
+    }
+  }
+  return _computeTerrainFieldsSync(seed, keepBridgeMeta);
 }
 
 function effectiveEdgeBorderWidth(){
@@ -500,78 +637,14 @@ function landCoverageFactor(col, row, seed){
   return islandLandFactor(col, row, seed);
 }
 
-function generateHeightMap(seed){
-  const scale = MAP_NOISE_SCALE;
-  const islandStr = typeof MAP_ISLAND_STRENGTH === 'number' ? MAP_ISLAND_STRENGTH : 0.88;
-  const valleyStr = typeof MAP_VALLEY_STRENGTH === 'number' ? MAP_VALLEY_STRENGTH : 0.11;
-  const sea = typeof MAP_EDGE_WATER_LEVEL === 'number' ? MAP_EDGE_WATER_LEVEL : 0.06;
-  const heights = [];
-
-  for (let row = 0; row < GRID_ROWS; row++){
-    heights[row] = [];
-    for (let col = 0; col < GRID_COLS; col++){
-      const rawX = col * scale;
-      const rawY = row * scale;
-      const warped = domainWarpCoords(rawX, rawY, seed);
-      const nx = warped.x;
-      const ny = warped.y;
-
-      const base = fbm(nx, ny, seed, MAP_HEIGHT_OCTAVES);
-      const ridges = ridgedNoise(nx * 1.35 + 20, ny * 1.35 + 20, seed + 500) * MAP_RIDGE_STRENGTH;
-      const detail = fbm(nx * 4.2, ny * 4.2, seed + 2000, 2) * MAP_DETAIL_STRENGTH;
-      const valleys = ridgedNoise(nx * 0.75 + 90, ny * 0.75 + 90, seed + 9000);
-      const ranges = mountainRangeFactor(nx, ny, seed);
-
-      const landBias = typeof MAP_LAND_BASE_BIAS === 'number' ? MAP_LAND_BASE_BIAS : 0.06;
-      let h = base * 0.52 + detail * 0.10 + landBias;
-
-      const land = landCoverageFactor(col, row, seed);
-      if (mapLandStyle === 'island'){
-        const islandBlend = clamp01(lerp(1 - islandStr, 1, land));
-        h = lerp(sea, h, islandBlend);
-        h = clamp01(h - valleys * valleyStr * land);
-      } else {
-        h = clamp01(h - valleys * valleyStr * 0.55);
-      }
-
-      const mountMask = dryLandMountainFactor(h, land);
-      h = clamp01(h + ridges * 0.34 * mountMask + ranges * 0.12 * mountMask);
-
-      const mcx = (GRID_COLS - 1) / 2;
-      const mcy = (GRID_ROWS - 1) / 2;
-      const mDist = Math.sqrt((col - mcx) ** 2 + (row - mcy) ** 2) / (GRID_COLS * 0.28);
-      const mBoost = typeof MAP_MOUNTAIN_CENTER_BOOST === 'number' ? MAP_MOUNTAIN_CENTER_BOOST : 0.08;
-      h = clamp01(h + clamp01(1 - mDist) * mBoost * mountMask);
-
-      if (mapLandStyle === 'island'){
-        const edgeX = Math.min(col, GRID_COLS - 1 - col) / (GRID_COLS * 0.1);
-        const edgeY = Math.min(row, GRID_ROWS - 1 - row) / (GRID_ROWS * 0.1);
-        const edgeFactor = clamp01(Math.min(edgeX, edgeY));
-        h = h * (0.72 + 0.28 * edgeFactor);
-      }
-
-      const borderW = effectiveEdgeBorderWidth();
-      if (borderW > 0){
-        const distEdge = Math.min(col, row, GRID_COLS - 1 - col, GRID_ROWS - 1 - row);
-        if (distEdge < borderW){
-          const t = distEdge / borderW;
-          h = lerp(sea, h, t * t);
-        }
-      }
-
-      heights[row][col] = clamp01(h);
-    }
+function generateHeightMap(seed, opts){
+  opts = opts || {};
+  if (typeof MapgenNumeric === 'undefined'){
+    throw new Error('MapgenNumeric.js must be loaded before mapgen.js');
   }
-
-  const smoothPasses = typeof MAP_HEIGHT_SMOOTH_PASSES === 'number' ? MAP_HEIGHT_SMOOTH_PASSES : 0;
-  softenHeightMap(heights, smoothPasses);
-
-  mapLandBridgePath = buildLandBridgePath(seed, heights);
-  mapEntryCorridorCells = buildEntryCorridorCellSet(mapLandBridgePath, seed);
-  carveLandBridgeHeights(heights, seed);
-  carveConnectedLandEdgeHeights(heights, seed);
-  flattenPlayableCenter(heights);
-  return heights;
+  const bundle = MapgenNumeric.generateHeightMap(seed, mapLandStyle, collectMapGenConfig());
+  _assignHeightBridgeMetadata(bundle, opts.keepBridgeMeta);
+  return bundle.heights;
 }
 
 function flattenPlayableCenter(heights){
@@ -646,10 +719,17 @@ function rainShadowFactor(col, row, heights){
 }
 
 /** Recalcule elevation + pente depuis mapSeed (sauvegardes, colonies) sans toucher au terrain. */
-function applyHeightMapToGrid(seed){
+function applyHeightMapToGrid(seed, opts){
+  opts = opts || {};
   if (typeof seed === 'number') mapSeed = seed;
   if (!mapSeed || !Array.isArray(grid) || grid.length === 0) return;
-  const heights = generateHeightMap(mapSeed);
+
+  if (!opts.landStyleRestored){
+    mapLandStyle = pickMapLandStyle(mapSeed);
+  }
+
+  const keepBridge = !!(opts.landStyleRestored && (mapLandBridgePath || mapEntryCorridorCells));
+  const heights = generateHeightMap(mapSeed, { keepBridgeMeta: keepBridge });
   const slopes = computeSlopeMap(heights);
   for (let row = 0; row < GRID_ROWS; row++){
     for (let col = 0; col < GRID_COLS; col++){
@@ -659,13 +739,16 @@ function applyHeightMapToGrid(seed){
       cell.slope = slopes[row][col];
     }
   }
-  if (typeof polishMapEdges === 'function') polishMapEdges();
+  if (!opts.skipEdgePolish && typeof polishMapEdges === 'function') polishMapEdges();
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
   else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
 }
 
 function computeSlopeMap(heights){
+  if (typeof MapgenNumeric !== 'undefined'){
+    return MapgenNumeric.computeSlopeMap(collectMapGenConfig(), heights);
+  }
   const slopes = [];
   for (let row = 0; row < GRID_ROWS; row++){
     slopes[row] = [];
@@ -685,6 +768,9 @@ function computeSlopeMap(heights){
 }
 
 function generateMoistureMap(seed, heights){
+  if (typeof MapgenNumeric !== 'undefined'){
+    return MapgenNumeric.generateMoistureMap(seed, mapLandStyle, collectMapGenConfig(), heights);
+  }
   const moisture = [];
   const scale = MAP_NOISE_SCALE;
   const rainShadow = typeof MAP_RAIN_SHADOW === 'number' ? MAP_RAIN_SHADOW : 0.24;
@@ -1134,28 +1220,192 @@ function syncAllCellHeights(heights){
   }
 }
 
-async function generateProceduralMap(seed){
-  terrainGenerationInProgress = true;
-  if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
-  else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+function _startZoneMinimums(){
+  const profile = activeMapGenProfile;
+  const forbid = profile && Array.isArray(profile.forbidTerrains) ? profile.forbidTerrains : [];
+  return {
+    wheat: forbid.includes('wheat') ? 0 : (typeof MAP_START_MIN_WHEAT === 'number' ? MAP_START_MIN_WHEAT : 4),
+    forest: forbid.includes('forest') ? 0 : (typeof MAP_START_MIN_FOREST === 'number' ? MAP_START_MIN_FOREST : 4),
+    marble: forbid.includes('marble') ? 0 : (typeof MAP_START_MIN_MARBLE === 'number' ? MAP_START_MIN_MARBLE : 2),
+  };
+}
 
-  mapSeed = (typeof seed === 'number') ? seed : Math.floor(Math.random() * 1e9);
-  mapLandStyle = pickMapLandStyle(mapSeed);
+/** Retire ou remplace des biomes selon le profil de campagne / scénario. */
+function applyMapGenProfile(profile){
+  if (!profile || !Array.isArray(grid) || !grid.length) return;
+  activeMapGenProfile = profile;
+
+  if (profile.landStyle === 'island' || profile.landStyle === 'continent'){
+    mapLandStyle = profile.landStyle;
+  }
+
+  const forbid = Array.isArray(profile.forbidTerrains) ? profile.forbidTerrains : [];
+  const replace = {
+    marble: 'hill',
+    wheat: 'grass',
+    forest: 'grass',
+  };
+  if (forbid.length){
+    for (let row = 0; row < GRID_ROWS; row++){
+      for (let col = 0; col < GRID_COLS; col++){
+        const cell = grid[row][col];
+        if (!cell || !forbid.includes(cell.terrain)) continue;
+        cell.terrain = replace[cell.terrain] || 'grass';
+      }
+    }
+  }
+
+  if (Array.isArray(profile.boostTerrains) && profile.boostTerrains.includes('forest')){
+    const center = _startZoneCenter();
+    const radius = typeof MAP_START_ZONE_RADIUS === 'number' ? MAP_START_ZONE_RADIUS + 6 : 24;
+    const r2 = radius * radius;
+    for (let row = 0; row < GRID_ROWS; row++){
+      for (let col = 0; col < GRID_COLS; col++){
+        const dx = col - center.col, dy = row - center.row;
+        if (dx * dx + dy * dy > r2) continue;
+        const cell = grid[row][col];
+        if (cell && cell.terrain === 'grass' && mulberry32(hashSeed(col, row) ^ mapSeed ^ 0xF0E573)() < 0.38){
+          cell.terrain = 'forest';
+        }
+      }
+    }
+  }
+
+  if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
+}
+window.applyMapGenProfile = applyMapGenProfile;
+
+function clearMapGenProfile(){
+  activeMapGenProfile = null;
+}
+window.clearMapGenProfile = clearMapGenProfile;
+
+function countTerrainInRadius(centerCol, centerRow, radius, terrain){
+  let n = 0;
+  const r2 = radius * radius;
+  for (let row = 0; row < GRID_ROWS; row++){
+    for (let col = 0; col < GRID_COLS; col++){
+      const dx = col - centerCol, dy = row - centerRow;
+      if (dx * dx + dy * dy > r2) continue;
+      const cell = grid[row] && grid[row][col];
+      if (cell && cell.terrain === terrain) n++;
+    }
+  }
+  return n;
+}
+
+function _startZoneCenter(){
+  return computeLandCentroid() || {
+    col: Math.floor(GRID_COLS / 2),
+    row: Math.floor(GRID_ROWS / 2),
+  };
+}
+
+function _canForceStartGrass(col, row, heights, moisture){
+  if (!inBounds(col, row) || !grid[row][col]) return false;
+  const cell = grid[row][col];
+  if (cell.terrain !== 'grass' && cell.terrain !== 'hill') return false;
+  if (cell.building) return false;
+  const h = heights[row][col];
+  if (h < MAP_WATER_THRESHOLD + 0.02) return false;
+  if (isNearWater(heights, col, row)) return false;
+  return true;
+}
+
+/** Garantit blé, forêt et marbre exploitables près du centroïde de départ. */
+function ensureStartZoneResources(heights, moisture){
+  const center = _startZoneCenter();
+  const radius = typeof MAP_START_ZONE_RADIUS === 'number' ? MAP_START_ZONE_RADIUS : 18;
+  const mins = _startZoneMinimums();
+  const minWheat = mins.wheat;
+  const minForest = mins.forest;
+  const minMarble = mins.marble;
+
+  function candidates(filterFn){
+    const list = [];
+    const r2 = radius * radius;
+    for (let row = 0; row < GRID_ROWS; row++){
+      for (let col = 0; col < GRID_COLS; col++){
+        const dx = col - center.col, dy = row - center.row;
+        if (dx * dx + dy * dy > r2) continue;
+        if (!filterFn(col, row)) continue;
+        list.push({ col, row, d: dx * dx + dy * dy });
+      }
+    }
+    list.sort((a, b) => a.d - b.d);
+    return list;
+  }
+
+  function plant(terrain, need, filterFn){
+    let have = countTerrainInRadius(center.col, center.row, radius, terrain);
+    if (have >= need) return;
+    const spots = candidates(filterFn);
+    for (let i = 0; i < spots.length && have < need; i++){
+      const { col, row } = spots[i];
+      grid[row][col].terrain = terrain;
+      have++;
+    }
+  }
+
+  plant('wheat', minWheat, (col, row) => {
+    if (!_canForceStartGrass(col, row, heights, moisture)) return false;
+    const m = moisture[row][col], h = heights[row][col];
+    return h >= MAP_WHEAT_MIN_HEIGHT - 0.04 && h <= MAP_WHEAT_MAX_HEIGHT + 0.06 && m >= MAP_WHEAT_MOISTURE - 0.08;
+  });
+
+  plant('forest', minForest, (col, row) => {
+    if (!_canForceStartGrass(col, row, heights, moisture)) return false;
+    const m = moisture[row][col], h = heights[row][col];
+    return h >= MAP_FOREST_MIN_HEIGHT - 0.04 && h <= MAP_FOREST_MAX_HEIGHT + 0.08 && m >= MAP_FOREST_MOISTURE - 0.10;
+  });
+
+  plant('marble', minMarble, (col, row) => {
+    if (!_canForceStartGrass(col, row, heights, moisture)) return false;
+    const h = heights[row][col];
+    return h >= MAP_MARBLE_THRESHOLD - 0.12 && h <= MAP_MARBLE_THRESHOLD + 0.08;
+  });
+}
+
+function evaluateMapPlayability(){
+  const center = _startZoneCenter();
+  const radius = typeof MAP_START_ZONE_RADIUS === 'number' ? MAP_START_ZONE_RADIUS : 18;
+  const mins = _startZoneMinimums();
+
+  const counts = {
+    wheat: countTerrainInRadius(center.col, center.row, radius, 'wheat'),
+    forest: countTerrainInRadius(center.col, center.row, radius, 'forest'),
+    marble: countTerrainInRadius(center.col, center.row, radius, 'marble'),
+  };
+
+  const entry = mapWalkerEntry || computeMapWalkerEntry();
+  const entryReach = entry && hasInteriorWalkableReach(entry.col, entry.row);
+
+  const ok = counts.wheat >= mins.wheat
+    && counts.forest >= mins.forest
+    && counts.marble >= mins.marble
+    && !!entryReach;
+
+  const score = counts.wheat + counts.forest + counts.marble + (entryReach ? 10 : 0);
+  return { ok, counts, entryReach, score, center, entry };
+}
+
+async function _generateProceduralMapOnce(seed){
+  mapSeed = seed;
+  if (activeMapGenProfile && (activeMapGenProfile.landStyle === 'island' || activeMapGenProfile.landStyle === 'continent')){
+    mapLandStyle = activeMapGenProfile.landStyle;
+  } else {
+    mapLandStyle = pickMapLandStyle(mapSeed);
+  }
   mapWalkerEntry = null;
   mapLandBridgePath = null;
   mapEntryCorridorCells = null;
 
   reportGenProgress(5, 'Relief (hauteurs)…');
   await yieldFrame();
-  const heights = generateHeightMap(mapSeed);
-
-  reportGenProgress(30, 'Humidité…');
-  await yieldFrame();
-  const moisture = generateMoistureMap(mapSeed, heights);
-
-  reportGenProgress(45, 'Pentes…');
-  await yieldFrame();
-  const slopes = computeSlopeMap(heights);
+  const fields = await computeTerrainFieldsAsync(mapSeed, false);
+  const heights = fields.heights;
+  const moisture = fields.moisture;
+  const slopes = fields.slopes;
 
   reportGenProgress(55, 'Biomes…');
   await yieldFrame();
@@ -1188,6 +1438,7 @@ async function generateProceduralMap(seed){
   await yieldFrame();
   smoothTerrainMap(typeof MAP_BIOME_SMOOTH === 'number' ? MAP_BIOME_SMOOTH : 0);
   enrichNaturalLandscape(heights, moisture);
+  ensureStartZoneResources(heights, moisture);
   syncAllCellHeights(heights);
 
   reportGenProgress(78, 'Côtes et montagnes…');
@@ -1207,13 +1458,57 @@ async function generateProceduralMap(seed){
   syncAllCellHeights(heights);
   mapWalkerEntry = computeMapWalkerEntry();
 
+  if (activeMapGenProfile) applyMapGenProfile(activeMapGenProfile);
+
+  return evaluateMapPlayability();
+}
+
+async function generateProceduralMap(seed, opts){
+  opts = opts || {};
+  activeMapGenProfile = opts.mapProfile || null;
+  terrainGenerationInProgress = true;
+  if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
+  else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+
+  const fixedSeed = (typeof seed === 'number');
+  const maxAttempts = fixedSeed
+    ? 1
+    : (typeof MAP_GEN_MAX_ATTEMPTS === 'number' ? MAP_GEN_MAX_ATTEMPTS : 8);
+  let attemptSeed = fixedSeed ? seed : Math.floor(Math.random() * 1e9);
+  let bestSeed = attemptSeed;
+  let bestEval = null;
+  let lastGeneratedSeed = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++){
+    if (attempt > 0){
+      reportGenProgress(2, `Nouvelle carte (essai ${attempt + 1}/${maxAttempts})…`);
+      await yieldFrame();
+    }
+    const evalResult = await _generateProceduralMapOnce(attemptSeed);
+    lastGeneratedSeed = attemptSeed;
+    if (evalResult.ok){
+      bestSeed = attemptSeed;
+      bestEval = evalResult;
+      break;
+    }
+    if (!bestEval || evalResult.score > bestEval.score){
+      bestSeed = attemptSeed;
+      bestEval = evalResult;
+    }
+    attemptSeed = (attemptSeed + 7919 + attempt * 104729) >>> 0;
+  }
+
+  mapSeed = bestSeed;
+  if (lastGeneratedSeed !== bestSeed){
+    await _generateProceduralMapOnce(bestSeed);
+  }
+
   reportGenProgress(100, 'Finalisation…');
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   terrainGenerationInProgress = false;
   if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();
   else if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
 
-  // Déclenche le bake Three.js si actif
   if (typeof buildThreeTerrain === 'function' && typeof isThreeReady === 'function' && isThreeReady()){
     buildThreeTerrain();
   }
@@ -1223,6 +1518,7 @@ async function generateProceduralMap(seed){
     size: `${GRID_COLS}×${GRID_ROWS}`,
     landStyle: mapLandStyle,
     entry: mapWalkerEntry,
+    playability: bestEval,
   });
   return mapSeed;
 }

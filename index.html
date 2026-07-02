@@ -1421,7 +1421,64 @@ h2{
 #notification.notif-good{ border-color:var(--ok); }
 #notification.notif-bad{ border-color:var(--bad); }
 
-/* ===== PHASE 4 : panneau debug ===== */
+/* ===== Carte de la cité (minimap) ===== */
+#cityMapPanel{
+  position:fixed;
+  left:calc(var(--safeLeft) + 8px);
+  right:calc(var(--safeRight) + 8px);
+  bottom:calc(var(--safeBottom) + 8px);
+  max-height:72dvh;
+  background:rgba(5,10,18,.96);
+  border:1px solid rgba(202,164,74,.45);
+  border-radius:14px;
+  padding:12px 14px 14px;
+  color:var(--marble);
+  z-index:3000;
+  transform:translateY(115%);
+  transition:transform .25s ease;
+  pointer-events:none;
+  box-shadow:0 8px 32px rgba(0,0,0,.45);
+}
+#cityMapPanel.open{ transform:translateY(0); pointer-events:auto; }
+#cityMapPanel .close{ top:8px; right:8px; }
+#cityMapPanel h2{
+  margin:0 0 8px;
+  padding-right:42px;
+  font-size:16px;
+  color:var(--gold2,#e8c468);
+}
+#cityMapCanvas{
+  display:block;
+  width:100%;
+  aspect-ratio:1;
+  max-height:min(62dvh, 420px);
+  margin:0 auto;
+  border-radius:10px;
+  border:1px solid rgba(202,164,74,.28);
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  cursor:crosshair;
+  background:#0a1520;
+}
+.cityMapHint{
+  margin:8px 0 0;
+  font-size:12px;
+  opacity:.78;
+  text-align:center;
+  line-height:1.35;
+}
+.cityMapLegend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  justify-content:center;
+  margin-top:8px;
+  font-size:11px;
+  opacity:.85;
+}
+.cityMapLegend span{ white-space:nowrap; }
+
+/* ===== PHASE 4 : panneau debug (console uniquement — plus de bouton HUD) ===== */
 /* Volontairement hors du système .panel/.close de l'observateur -- un outil de
    diagnostic doit rester accessible peu importe ce qu'un autre panneau fait. */
 #debugPanel{
@@ -1872,6 +1929,34 @@ h2{
 .scenarioIcon{ font-size:28px; }
 .scenarioName{ font-weight:600; font-size:15px; }
  .scenarioDesc{ font-size:12px; opacity:.85; line-height:1.35; }
+.campaignLaunchBtn{ width:100%; margin-bottom:14px; }
+.menuSectionLabel{
+ font-size:12px;
+ text-transform:uppercase;
+ letter-spacing:1px;
+ opacity:.7;
+ margin:4px 0 10px;
+ text-align:left;
+}
+#campaignPathList,#campaignEpisodeList{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+ gap:12px;
+ text-align:left;
+}
+.campaignProgress,.campaignMapHint{
+ font-size:11px;
+ opacity:.75;
+ line-height:1.3;
+}
+.scenarioCard.campaign-locked{
+ opacity:.45;
+ cursor:not-allowed;
+}
+.scenarioCard.campaign-locked:hover{
+ background:rgba(255,255,255,.04);
+ border-color:rgba(210,162,74,.35);
+}
 
 /* Écrans du menu d'accueil */
 .menu-screen-hidden{ display:none !important; }
@@ -2025,7 +2110,20 @@ h2{
        <button class="menuBack" id="menuBackNewGame" onclick="showHomeScreen()">← Retour</button>
        <h2 id="newGameTitle">Nouvelle partie</h2>
        <p id="scenarioMenuSubtitle">Choisir un scénario</p>
+       <button class="homeBtn campaignLaunchBtn" type="button" id="campaignLaunchBtn" onclick="showCampaignMenuScreen()">🗺️ Campagne épisodique</button>
+       <p class="menuSectionLabel" id="freePlayLabel">Jeu libre</p>
        <div id="scenarioList"></div>
+     </div>
+     <div id="campaignMenuScreen" class="menu-screen-hidden">
+       <button class="menuBack" type="button" onclick="showNewGameScreen()">← Retour</button>
+       <h2 id="campaignMenuTitle">Campagne</h2>
+       <p id="campaignMenuSubtitle">Choisissez un parcours — 5 épisodes chacun</p>
+       <div id="campaignPathList"></div>
+     </div>
+     <div id="campaignEpisodeScreen" class="menu-screen-hidden">
+       <button class="menuBack" type="button" onclick="showCampaignMenuScreen()">← Retour</button>
+       <h2 id="campaignEpisodeTitle">Épisodes</h2>
+       <div id="campaignEpisodeList"></div>
      </div>
      <div id="creditsScreen" class="menu-screen-hidden">
        <button class="menuBack" id="menuBackCredits" onclick="showHomeScreen()">← Retour</button>
@@ -2050,9 +2148,23 @@ h2{
  <button id="manageBtn" onclick="openManagePanel()" title="Gestion"><span id="manageBtnLabel">📊 Gestion</span></button>
 
  <div class="floatingTools">
+   <button class="iconBtn" id="mapModeBtn" type="button" onclick="toggleMapClickMode()" title="Mode observateur — clic ouvre l'inspecteur" aria-pressed="false">👁️</button>
    <button class="iconBtn" id="hudPauseBtn" onclick="callGameAction('togglePause')" title="Pause">⏸</button>
-   <button class="iconBtn" onclick="toggleDebugPanel()" title="Debug">🐛</button>
+   <button class="iconBtn" id="cityMapBtn" onclick="toggleCityMap()" title="Carte de la cité">🗺️</button>
  </div>
+
+ <aside id="cityMapPanel" aria-label="Carte de la cité">
+   <button class="close" id="cityMapCloseBtn" type="button" onclick="closeCityMap()" title="Fermer">×</button>
+   <h2 id="cityMapTitle">🗺️ Carte de la cité</h2>
+   <canvas id="cityMapCanvas"></canvas>
+   <p class="cityMapHint" id="cityMapHint">Vue simplifiée — cliquez pour centrer la caméra</p>
+   <div class="cityMapLegend">
+     <span>🟫 Bâtiments</span>
+     <span>🟡 Promeneurs</span>
+     <span>🟢 Décors / forêt</span>
+     <span>⬜ Cadre = vue actuelle</span>
+   </div>
+ </aside>
 
  <div id="debugPanel">
    <div id="debugState"></div>
@@ -2167,10 +2279,10 @@ h2{
      </button>
      <div class="obsTileBody">
        <div class="actionGrid">
-         <button class="actionBtn" onclick="mock('centerOnSelected()')">📍 Centrer</button>
-         <button class="actionBtn" onclick="mock('pinSelected()')">⭐ Favori</button>
-         <button class="actionBtn" onclick="mock('showCoverage()')">🗺️ Couverture</button>
-         <button class="actionBtn" onclick="mock('demolishSelected()')">🔨 Détruire</button>
+         <button class="actionBtn" onclick="observerCenterOnTile()">📍 Centrer</button>
+         <button class="actionBtn" onclick="observerTogglePin()">⭐ Favori</button>
+         <button class="actionBtn" onclick="observerShowCoverage()">🗺️ Couverture</button>
+         <button class="actionBtn" onclick="observerDemolishTile()">🔨 Détruire</button>
        </div>
      </div>
    </section>
@@ -2245,16 +2357,17 @@ h2{
 <script src="js/pixi.min.js"></script>
 <script src="js/settings.js?v=5"></script>
 <script src="js/debug.js"></script>
-<script src="js/i18n.js"></script>
+<script src="js/i18n.js?v=4"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
-<script src="js/config.js?v=44"></script>
+<script src="js/config.js?v=45"></script>
 <script src="js/mediterraneanDecorSprites.js?v=4"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js?v=4"></script>
 <script src="js/procgen.js"></script>
 <script src="js/terrain.js"></script>
-<script src="js/mapgen.js?v=12"></script>
+<script src="js/mapgenNumeric.js?v=1"></script>
+<script src="js/mapgen.js?v=14"></script>
 <script src="js/terrainLevel.js?v=2"></script>
 <script src="js/grid.js?v=14"></script>
 <script src="js/terrainProcedural3D.js?v=2"></script>
@@ -2263,9 +2376,10 @@ h2{
 <script src="js/terrainLayers.js"></script>
 <script src="js/terrainIso.js?v=7"></script>
 <script src="js/mapView.js"></script>
-<script src="js/houses.js?v=3"></script>
+<script src="js/cityMap.js?v=3"></script>
+<script src="js/houses.js?v=4"></script>
 <script src="js/roadStairs.js?v=3"></script>
-<script src="js/walkers.js?v=6"></script>
+<script src="js/walkers.js?v=9"></script>
 <script src="js/maintenance.js?v=4"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
@@ -2293,14 +2407,15 @@ h2{
 <script src="js/camera.js"></script>
 <script src="js/zoom.js?v=5"></script>
 <script src="js/render.js?v=47"></script>
-<script src="js/pixiRenderer.js?v=20"></script>
-<script src="js/threeRenderer.js?v=23"></script>
+<script src="js/pixiRenderer.js?v=23"></script>
+<script src="js/threeRenderer.js?v=24"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
 <script src="js/migrationAgents.js?v=4"></script>
 <script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
-<script src="js/scenarios.js?v=3"></script>
+<script src="js/scenarios.js?v=4"></script>
+<script src="js/campaign.js?v=1"></script>
 <script src="js/colonies.js?v=3"></script>
 <script src="js/home.js"></script>
 <script src="js/economy.js"></script>
@@ -2308,8 +2423,8 @@ h2{
 <script src="js/production.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/economyBalance.js"></script>
-<script src="js/ui.js?v=7"></script>
-<script src="js/observer.js"></script>
+<script src="js/ui.js?v=8"></script>
+<script src="js/observer.js?v=3"></script>
 <script src="js/scriptLoader.js"></script>
 <script src="js/main.js?v=5"></script>
 
@@ -2552,6 +2667,7 @@ function openObjectObserver(type){
 function closePanels(){
  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));
  document.getElementById('backdrop').classList.remove('show');
+ if (typeof closeCityMap === 'function') closeCityMap();
 }
 function togglePanel(id){
  const panel=document.getElementById(id);

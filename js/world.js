@@ -62,6 +62,25 @@ function generateWorldCities(count){
   selectedWorldCityId = worldCities.length ? worldCities[0].id : null;
 }
 
+/** Garantit qu'au moins une cité voisine vend les ressources requises par le profil de carte. */
+function configureWorldTradeForMapProfile(profile){
+  if (!profile || !Array.isArray(profile.requiredImports) || !worldCities.length) return;
+  profile.requiredImports.forEach(function(resource){
+    const hasSeller = worldCities.some(function(c){
+      return !c.conquered && Array.isArray(c.sells) && c.sells.some(function(s){ return s.resource === resource; });
+    });
+    if (hasSeller) return;
+    const target = worldCities.find(function(c){ return !c.conquered; }) || worldCities[0];
+    if (!target.sells) target.sells = [];
+    const base = (typeof TRADE_BASE_PRICE !== 'undefined' && TRADE_BASE_PRICE[resource]) ? TRADE_BASE_PRICE[resource] : 8;
+    target.sells.push({
+      resource,
+      price: Math.max(1, Math.round(base * (1.35 + Math.random() * 0.25))),
+    });
+  });
+}
+window.configureWorldTradeForMapProfile = configureWorldTradeForMapProfile;
+
 // Repli au chargement d'une sauvegarde sans cités (antérieure à la carte du monde).
 function ensureWorldState(){
   if (!Array.isArray(worldCities) || worldCities.length === 0){ generateWorldCities(); return; }
