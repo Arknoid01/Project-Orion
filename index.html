@@ -2,9 +2,6 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Olympos UI — Observateur grec moderne</title>
 <style>
@@ -855,8 +852,12 @@ h2{
   z-index:1;
 }
 
-/* Petit groupe zoom + / - (legacy — retiré du DOM si ZOOM_LOCKED) */
-.zoomGroup{ display:none; }
+/* Petit groupe zoom + / - */
+.zoomGroup{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
 
 
 /* PATCH scroll panneau construction */
@@ -2044,6 +2045,10 @@ h2{
  <button id="manageBtn" onclick="openManagePanel()" title="Gestion"><span id="manageBtnLabel">📊 Gestion</span></button>
 
  <div class="floatingTools">
+   <div class="zoomGroup">
+     <button class="iconBtn" onclick="zoomIn()" title="Zoom +">＋</button>
+     <button class="iconBtn" onclick="zoomOut()" title="Zoom -">−</button>
+   </div>
    <button class="iconBtn" id="hudPauseBtn" onclick="callGameAction('togglePause')" title="Pause">⏸</button>
    <button class="iconBtn" onclick="toggleDebugPanel()" title="Debug">🐛</button>
  </div>
@@ -2235,31 +2240,31 @@ h2{
 <div id="rotate">📱<br>Tournez votre téléphone en mode paysage.</div>
 
 <!-- ===== Moteur de jeu réel (voir UI_MIGRATION_NOTES.md) ===== -->
-<!-- Pixi.js v8 WebGL renderer -->
-<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
+<!-- Pixi.js v8 WebGL renderer (local) -->
+<script src="js/pixi.min.js"></script>
 <script src="js/settings.js?v=2"></script>
 <script src="js/debug.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
-<script src="js/config.js?v=32"></script>
-<script src="js/mediterraneanDecorSprites.js?v=5"></script>
+<script src="js/config.js?v=31"></script>
+<script src="js/mediterraneanDecorSprites.js?v=4"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js?v=2"></script>
 <script src="js/procgen.js"></script>
 <script src="js/terrain.js"></script>
-<script src="js/mapgen.js?v=16"></script>
+<script src="js/mapgen.js?v=10"></script>
 <script src="js/terrainLevel.js?v=2"></script>
-<script src="js/grid.js?v=14"></script>
+<script src="js/grid.js?v=13"></script>
 <script src="js/terrainProcedural3D.js?v=2"></script>
 <script src="js/terrainVoxelBake.js?v=4"></script>
 <script src="js/terrainFlatFaces.js"></script>
 <script src="js/terrainLayers.js"></script>
-<script src="js/terrainIso.js?v=8"></script>
+<script src="js/terrainIso.js?v=7"></script>
 <script src="js/mapView.js"></script>
 <script src="js/houses.js"></script>
 <script src="js/roadStairs.js?v=2"></script>
-<script src="js/walkers.js?v=4"></script>
+<script src="js/walkers.js?v=3"></script>
 <script src="js/maintenance.js?v=2"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
@@ -2276,19 +2281,20 @@ h2{
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
-<script src="js/loop.js?v=2"></script>
+<script src="js/loop.js?v=3"></script>
 <script src="js/pause.js"></script>
-<script src="js/characterSprites.js?v=2"></script>
+<script src="js/characterSprites.js"></script>
 <script src="js/forestTrees.js?v=19"></script>
 <script src="js/grassDecor.js?v=15"></script>
 <script src="js/rockDecor.js?v=2"></script>
 <script src="js/wheatCrops.js?v=5"></script>
-<script src="js/mediterraneanDecor.js?v=7"></script>
+<script src="js/mediterraneanDecor.js?v=6"></script>
 <script src="js/camera.js"></script>
 <script src="js/zoom.js?v=4"></script>
 <script src="js/flatRenderer.js"></script>
-<script src="js/render.js?v=37"></script>
+<script src="js/render.js?v=36"></script>
 <script src="js/pixiRenderer.js"></script>
+<script src="js/threeRenderer.js"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
 <script src="js/migrationAgents.js?v=3"></script>
