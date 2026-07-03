@@ -876,9 +876,24 @@ function demolishAtTile(col, row){
     notifyDemolishRefund(ac.building, ac.godPatron);
     demolishMonument(anchor.col, anchor.row);
   } else if (cell.building){
-    if (cell.building === 'maison' && typeof queueHouseDeparture === 'function' && queueHouseDeparture(col, row, false)){
+    if (cell.building === 'maison'){
+      // Bug 2 : la maison est retirée IMMÉDIATEMENT ; un colon part ensuite (cosmétique,
+      // sans détruire quoi que ce soit à l'arrivée au bord de carte).
       debugInfo(`Démolition : ${t(BUILDING_DEFS.maison.name)}`, { col, row });
       notifyDemolishRefund('maison');
+      if (typeof queueMigrantOut === 'function'){
+        queueMigrantOut(col, row, { destroyOnComplete: false, notify: false, reason: 'destroy' });
+      }
+      if (typeof destroyHouseAt === 'function'){
+        destroyHouseAt(col, row);
+      } else {
+        cell.building = null;
+        cell.houseLevel = 0;
+        cell.population = 0;
+        if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
+        if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
+        if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+      }
     } else {
       debugInfo(`Démolition : ${t(BUILDING_DEFS[cell.building].name)}`, { col, row });
       notifyDemolishRefund(cell.building);

@@ -202,12 +202,12 @@ const BUILDING_DEFS = {
   heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:150, upkeep:0.9, sprite:'assets/buildings/heroTemple.png' },
   barracks:   { name:'building.barracks',   icon:'🛡️', color:'#6a6f7a', validTerrain:'grass', isBarracks:true, cost:125, upkeep:0.6, workers:6, sprite:'assets/buildings/barracks.png' },
   // ---- Services à walker (desservent les maisons à portée) ----
-  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:6, sprite:'assets/buildings/fountain.png', cost:40, upkeep:0.3 },
-  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:6, sprite:'assets/buildings/market.png', cost:60, upkeep:0.3 },
-  temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:6, sprite:'assets/buildings/temple.png', cost:105, upkeep:0.6 },
-  clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:6, sprite:'assets/buildings/clinic.png', cost:105, upkeep:0.6 },
-  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:6, cost:105, upkeep:0.6, sprite:'assets/buildings/taxOffice.png' },
-  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:18, capacity:6, cost:105, upkeep:0.6, sprite:'assets/buildings/watchtower.png' },
+  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:12, sprite:'assets/buildings/fountain.png', cost:40, upkeep:0.3 },
+  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:12, sprite:'assets/buildings/market.png', cost:60, upkeep:0.3 },
+  temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:12, sprite:'assets/buildings/temple.png', cost:105, upkeep:0.6 },
+  clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:12, sprite:'assets/buildings/clinic.png', cost:105, upkeep:0.6 },
+  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:12, cost:105, upkeep:0.6, sprite:'assets/buildings/taxOffice.png' },
+  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:18, capacity:12, cost:105, upkeep:0.6, sprite:'assets/buildings/watchtower.png' },
   // ---- Habitation ----
   maison:    { name:'building.maison',    icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true, cost:30 },
   // ---- Décorations : diffusent du "cachet" (beauty) autour d'elles (voir beauty.js) ----
@@ -676,10 +676,10 @@ const CHARACTER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
 // Clé = diagonale iso. facing = rang LPC ; mirror = retourner le sprite si le profil
 // est du mauvais côté pour cette diagonale (SW/left est la référence « parfaite »).
 const ISO_DIAGONAL_FACING = {
-  se: { facing: 'left',  mirror: true  }, // col+1  → bas-droite ✓
-  sw: { facing: 'left',  mirror: false }, // row+1  → bas-gauche ✓
-  nw: { facing: 'left',  mirror: false }, // col−1  → haut-gauche ✓
-  ne: { facing: 'left',  mirror: true  }, // row−1  → haut-droite (miroir de NW)
+  se: { facing: 'down',  mirror: false }, // col+1 → bas-droite (vers la caméra) = face
+  sw: { facing: 'left',  mirror: false }, // row+1 → bas-gauche = profil gauche
+  nw: { facing: 'up',    mirror: false }, // col−1 → haut-gauche (s'éloigne) = dos
+  ne: { facing: 'right', mirror: false }, // row−1 → haut-droite = profil droit
 };
 // Décalage vertical des pieds sur la tuile iso (ancrage du sprite).
 const CHARACTER_ISO_FOOT_PAD = 10;

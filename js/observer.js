@@ -179,51 +179,36 @@ function needStatusDetail(need, col, row){
 }
 
 function buildNeedRows(requires, col, row){
-  if (!requires || !requires.length) return [[t('need.none'), '—']];
+  if (!requires || !requires.length) return [[t('need.none'), '✅', 'ok']];
   return requires.map(need => {
-    const [detail, cls] = needStatusDetail(need, col, row);
-    return [t('need.' + need), detail, cls];
+    const ok = NEED_CHECKERS[need] && NEED_CHECKERS[need](col, row);
+    if (ok) return [t('need.' + need), '✅', 'ok'];
+    const [detail] = needStatusDetail(need, col, row);
+    const hint = (detail && detail !== '✖' && detail !== '✔') ? ' ' + detail : '';
+    return [t('need.' + need), '❌' + hint, 'bad'];
   });
 }
 
 function buildHouseObserverData(cell, col, row){
   const levelDef = HOUSE_LEVELS[cell.houseLevel];
   const nextDef = HOUSE_LEVELS[cell.houseLevel + 1];
-  const currentRows = buildNeedRows(levelDef.requires, col, row);
-  const currentMet = levelDef.requires.filter(n => NEED_CHECKERS[n] && NEED_CHECKERS[n](col, row)).length;
-  const nextRows = nextDef
-    ? buildNeedRows(nextDef.requires, col, row)
-    : [[t('need.maxLevel'), '—']];
-  const nextMet = nextDef
-    ? nextDef.requires.filter(n => NEED_CHECKERS[n] && NEED_CHECKERS[n](col, row)).length
-    : 0;
+
+  const currentReq = levelDef.requires || [];
+  const currentRows = buildNeedRows(currentReq, col, row);
+  const currentMet = currentReq.filter(n => NEED_CHECKERS[n] && NEED_CHECKERS[n](col, row)).length;
+
+  const nextReq = nextDef ? (nextDef.requires || []) : [];
+  const nextRows = nextDef ? buildNeedRows(nextReq, col, row) : [[t('need.maxLevel'), '🏆', 'ok']];
+  const nextMet = nextDef ? nextReq.filter(n => NEED_CHECKERS[n] && NEED_CHECKERS[n](col, row)).length : 0;
+  const canEvolve = nextDef && nextMet === nextReq.length;
 
   const fireOk = isHouseServedBy('fire', col, row);
   const healthOk = isHouseServedBy('health', col, row);
   const emig = emigrationChance();
 
-  const serviceRows = [];
-  if (cell.houseLevel >= 1){
-    serviceRows.push([
-      t('need.water'),
-      ...needStatusDetail('water', col, row),
-    ]);
-  }
-  if (cell.houseLevel >= 3){
-    serviceRows.push([
-      t('need.food'),
-      ...needStatusDetail('food', col, row),
-    ]);
-  }
-  for (const need of ['religion', 'health', 'fire']){
-    const neededNow = levelDef.requires.includes(need)
-      || (nextDef && nextDef.requires.includes(need));
-    if (neededNow) serviceRows.push([t('need.' + need), ...needStatusDetail(need, col, row)]);
-  }
-
   const riskRows = [
-    [t('inspector.fireRisk'), fireOk ? '✔' : '✖', fireOk ? 'ok' : 'bad'],
-    [t('inspector.diseaseRisk'), healthOk ? '✔' : '✖', healthOk ? 'ok' : 'bad'],
+    [t('inspector.fireRisk'), fireOk ? '✅' : '❌', fireOk ? 'ok' : 'bad'],
+    [t('inspector.diseaseRisk'), healthOk ? '✅' : '❌', healthOk ? 'ok' : 'bad'],
   ];
   if (emig > 0) riskRows.push([t('migration.emigrationRisk'), `${Math.round(emig * 100)}%/tick`, 'bad']);
 
@@ -237,15 +222,15 @@ function buildHouseObserverData(cell, col, row){
     },
     {
       icon: '📋',
-      title: cell.houseLevel > 0 ? t('inspector.currentNeeds') : t('inspector.nextNeeds'),
-      status: cell.houseLevel > 0 ? `${currentMet}/${levelDef.requires.length}` : (nextDef ? `${nextMet}/${nextDef.requires.length}` : '—'),
-      rows: cell.houseLevel > 0 ? currentRows : nextRows,
+      title: t('inspector.currentNeeds'),
+      status: currentReq.length ? `${currentMet}/${currentReq.length}` : '✅',
+      rows: currentRows,
     },
     {
-      icon: '🛒',
-      title: nextDef ? t('inspector.nextNeeds') : t('inspector.services'),
-      status: nextDef ? `${nextMet}/${nextDef.requires.length}` : '',
-      rows: nextDef ? nextRows : (serviceRows.length ? serviceRows : [[t('need.maxLevel'), '—']]),
+      icon: canEvolve ? '⬆️' : '📈',
+      title: nextDef ? `${t('inspector.nextNeeds')} · ${t(nextDef.nameKey)}` : t('need.maxLevel'),
+      status: nextDef ? `${nextMet}/${nextReq.length}` : '🏆',
+      rows: nextRows,
     },
     {
       icon: '🛡️', title: t('inspector.risks'), status: (fireOk && healthOk) ? 'OK' : '⚠️',

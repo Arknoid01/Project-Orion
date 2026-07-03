@@ -446,8 +446,9 @@ window._pixiLoadTextures = async function(){
   }
 
   // Walkers (spritesheets 288×384, 3 frames × 4 directions, 96×96/frame)
+  // Ordre RÉEL des lignes de la planche : 0=dos(up) · 1=gauche · 2=droite · 3=face(down)
   const FRAME_W = 96, FRAME_H = 96, FRAMES = 3, DIRS = 4;
-  const DIR_ROW = { left:0, down:1, right:2, up:3 };
+  const DIR_ROW = { up:0, left:1, right:2, down:3 };
 
   const walkerPaths = typeof SERVICE_WALKER_SPRITES !== 'undefined' ? SERVICE_WALKER_SPRITES : {};
   await Promise.all(Object.entries(walkerPaths).map(async ([service, path]) => {
