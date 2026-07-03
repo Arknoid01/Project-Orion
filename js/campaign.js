@@ -18,7 +18,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.population',
         descKey: 'campaign.ep.attica1.desc',
-        startingTreasury: 2400,
+        startingTreasury: 2900,
         worldCityCount: 4,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -28,7 +28,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.harvest',
         descKey: 'campaign.ep.attica2.desc',
-        startingTreasury: 2100,
+        startingTreasury: 2600,
         worldCityCount: 5,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -39,7 +39,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.prosperity',
         descKey: 'campaign.ep.attica3.desc',
-        startingTreasury: 2000,
+        startingTreasury: 2500,
         worldCityCount: 5,
         mapProfile: { landStyle: 'mixed' },
         objectives: [
@@ -50,7 +50,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.trade',
         descKey: 'campaign.ep.attica4.desc',
-        startingTreasury: 1900,
+        startingTreasury: 2400,
         worldCityCount: 6,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -61,7 +61,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.glory',
         descKey: 'campaign.ep.attica5.desc',
-        startingTreasury: 1800,
+        startingTreasury: 2300,
         worldCityCount: 6,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -80,7 +80,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.landing',
         descKey: 'campaign.ep.arch1.desc',
-        startingTreasury: 2200,
+        startingTreasury: 2700,
         worldCityCount: 5,
         mapProfile: {
           landStyle: 'island',
@@ -95,7 +95,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.importMarble',
         descKey: 'campaign.ep.arch2.desc',
-        startingTreasury: 2000,
+        startingTreasury: 2500,
         worldCityCount: 5,
         mapProfile: {
           landStyle: 'island',
@@ -109,7 +109,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.sculptors',
         descKey: 'campaign.ep.arch3.desc',
-        startingTreasury: 1850,
+        startingTreasury: 2350,
         worldCityCount: 6,
         mapProfile: {
           landStyle: 'island',
@@ -124,7 +124,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.workshop',
         descKey: 'campaign.ep.arch4.desc',
-        startingTreasury: 1750,
+        startingTreasury: 2250,
         worldCityCount: 6,
         mapProfile: {
           landStyle: 'island',
@@ -139,7 +139,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.maritime',
         descKey: 'campaign.ep.arch5.desc',
-        startingTreasury: 1650,
+        startingTreasury: 2150,
         worldCityCount: 7,
         mapProfile: {
           landStyle: 'island',
@@ -163,7 +163,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.forest',
         descKey: 'campaign.ep.pelion1.desc',
-        startingTreasury: 2150,
+        startingTreasury: 2650,
         worldCityCount: 4,
         mapProfile: { landStyle: 'continent', boostTerrains: ['forest'] },
         objectives: [
@@ -173,7 +173,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.charcoal',
         descKey: 'campaign.ep.pelion2.desc',
-        startingTreasury: 1950,
+        startingTreasury: 2450,
         worldCityCount: 5,
         mapProfile: { landStyle: 'continent', boostTerrains: ['forest'] },
         objectives: [
@@ -184,7 +184,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.scarcity',
         descKey: 'campaign.ep.pelion3.desc',
-        startingTreasury: 1800,
+        startingTreasury: 2300,
         worldCityCount: 6,
         mapProfile: {
           landStyle: 'mixed',
@@ -199,7 +199,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.foundry',
         descKey: 'campaign.ep.pelion4.desc',
-        startingTreasury: 1700,
+        startingTreasury: 2200,
         worldCityCount: 6,
         mapProfile: {
           landStyle: 'continent',
@@ -214,7 +214,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.peak',
         descKey: 'campaign.ep.pelion5.desc',
-        startingTreasury: 1600,
+        startingTreasury: 2100,
         worldCityCount: 7,
         mapProfile: {
           landStyle: 'continent',
@@ -238,7 +238,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.recruit',
         descKey: 'campaign.ep.thrace1.desc',
-        startingTreasury: 2300,
+        startingTreasury: 2800,
         worldCityCount: 5,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -249,7 +249,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.legion',
         descKey: 'campaign.ep.thrace2.desc',
-        startingTreasury: 2100,
+        startingTreasury: 2600,
         worldCityCount: 6,
         mapProfile: { landStyle: 'mixed' },
         objectives: [
@@ -260,7 +260,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.patron',
         descKey: 'campaign.ep.thrace3.desc',
-        startingTreasury: 1950,
+        startingTreasury: 2450,
         worldCityCount: 6,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -271,7 +271,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.rival',
         descKey: 'campaign.ep.thrace4.desc',
-        startingTreasury: 1850,
+        startingTreasury: 2350,
         worldCityCount: 7,
         mapProfile: { landStyle: 'continent' },
         objectives: [
@@ -282,7 +282,7 @@ const CAMPAIGN_PATHS = [
       {
         nameKey: 'campaign.ep.hegemony',
         descKey: 'campaign.ep.thrace5.desc',
-        startingTreasury: 1750,
+        startingTreasury: 2250,
         worldCityCount: 8,
         mapProfile: { landStyle: 'mixed' },
         objectives: [
