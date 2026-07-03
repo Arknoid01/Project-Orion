@@ -239,7 +239,7 @@ const BUILDING_SPRITE_OVERRIDES = {
   tradingPost: 'assets/buildings/charcoalPit.png',   // cour à colonnades + marchandises
   heroTemple:  'assets/buildings/workshop.png',      // sanctuaire héroïque + statue
   taxOffice:   'assets/buildings/oilPress.png',      // villa administrative
-  watchtower:  'assets/buildings/clinic.png',        // dôme visible (relais incendie)
+  watchtower:  'assets/buildings/watchtower.png',     // sprite dédié — évite la collision visuelle avec la clinique
   statue:      'assets/buildings/oliveGrove.png',    // petit monument / statue
   garden:      'assets/buildings/garden.png',        // jardin ornemental
   colonnade:   'assets/buildings/charcoalPit.png',   // colonnade en L

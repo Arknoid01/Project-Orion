@@ -47,6 +47,9 @@ function triggerDisaster(col, row, kind){
       cell.houseLevel = 0;
       cell.population = 0;
       if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
+      // Retire la dalle de sol Three.js (sinon la tuile reste après destruction).
+      if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
+      if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
       debugWarn(kind === 'fire' ? 'Incendie : maison détruite' : 'Épidémie : maison décimée', { col, row });
       showNotification(t(kind === 'fire' ? 'maintenance.fireDestroyed' : 'maintenance.diseaseDestroyed'), 'bad');
       recomputeAllWalkers();

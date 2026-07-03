@@ -38,6 +38,9 @@ function destroyHouseAt(col, row){
   cell.population = 0;
   if (typeof markHouseVisualDirty === 'function') markHouseVisualDirty();
   else if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+  // Retire la dalle de sol Three.js (sinon la tuile reste après destruction).
+  if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
+  if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
   if (typeof recomputeAllWalkers === 'function') recomputeAllWalkers();
   if (typeof recomputeBeauty === 'function') recomputeBeauty();
 }
