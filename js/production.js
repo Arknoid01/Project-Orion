@@ -115,6 +115,7 @@ function tick(){
   _safe('objectives', () => checkObjectives());
   _safe('defeat', () => checkDefeat());
   _safe('festival', () => tickFestival());
+  _safe('tutorial', () => { if (typeof tickTutorial === 'function') tickTutorial(); });
   _safe('monthChange', () => checkMonthChange());
   _safe('diplomacyInvasion', () => {
     if (!(typeof isColonyPhase === 'function' && isColonyPhase())){
@@ -124,6 +125,7 @@ function tick(){
   });
   _safe('creatures', () => tickCreatures());
   _safe('migrants', () => { if (typeof tickMigrants === 'function') tickMigrants(); });
+  _safe('observerOverlay', () => { if (typeof tickObserverCoverageExpiry === 'function') tickObserverCoverageExpiry(); });
   _safe('militaryAgents', () => { if (typeof tickMilitaryAgents === 'function') tickMilitaryAgents(); });
   _safe('godAgents', () => { if (typeof tickGodAgents === 'function') tickGodAgents(); });
 

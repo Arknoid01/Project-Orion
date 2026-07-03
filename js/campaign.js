@@ -34,6 +34,7 @@ const CAMPAIGN_PATHS = [
         objectives: [
           { key: 'population', nameKey: 'objective.population', metric: 'population', target: 35 },
           { key: 'wheatProduced', nameKey: 'objective.wheatProduced', metric: 'wheatProduced', target: 90 },
+          { key: 'sculptureStock', nameKey: 'campaign.objective.sculptureStock', metric: 'sculptureStock', target: 4 },
         ],
       },
       {
@@ -67,6 +68,18 @@ const CAMPAIGN_PATHS = [
         objectives: [
           { key: 'population', nameKey: 'objective.population', metric: 'population', target: 70 },
           { key: 'zeusSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'zeus', target: 72 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.finale',
+        descKey: 'campaign.ep.attica6.desc',
+        startingTreasury: 2200,
+        worldCityCount: 7,
+        mapProfile: { landStyle: 'continent' },
+        objectives: [
+          { key: 'population', nameKey: 'objective.population', metric: 'population', target: 85 },
+          { key: 'domaine', nameKey: 'objective.domaine', metric: 'domaine', target: 1 },
+          { key: 'demeterSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'demeter', target: 75 },
         ],
       },
     ],
@@ -152,6 +165,22 @@ const CAMPAIGN_PATHS = [
           { key: 'templePoseidon', nameKey: 'campaign.objective.godTemple', metric: 'godTemple', godKey: 'poseidon', target: 1 },
         ],
       },
+      {
+        nameKey: 'campaign.ep.finale',
+        descKey: 'campaign.ep.arch6.desc',
+        startingTreasury: 2050,
+        worldCityCount: 7,
+        mapProfile: {
+          landStyle: 'island',
+          forbidTerrains: ['marble'],
+          requiredImports: ['marble'],
+        },
+        objectives: [
+          { key: 'sculptureStock', nameKey: 'campaign.objective.sculptureStock', metric: 'sculptureStock', target: 12 },
+          { key: 'workshops', nameKey: 'campaign.objective.workshops', metric: 'workshops', target: 2 },
+          { key: 'poseidonSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'poseidon', target: 75 },
+        ],
+      },
     ],
   },
   {
@@ -179,6 +208,7 @@ const CAMPAIGN_PATHS = [
         objectives: [
           { key: 'coalStock', nameKey: 'campaign.objective.coalStock', metric: 'coalStock', target: 15 },
           { key: 'population', nameKey: 'objective.population', metric: 'population', target: 32 },
+          { key: 'fishStock', nameKey: 'campaign.objective.fishStock', metric: 'fishStock', target: 20 },
         ],
       },
       {
@@ -227,6 +257,22 @@ const CAMPAIGN_PATHS = [
           { key: 'apolloSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'apollo', target: 70 },
         ],
       },
+      {
+        nameKey: 'campaign.ep.finale',
+        descKey: 'campaign.ep.pelion6.desc',
+        startingTreasury: 2000,
+        worldCityCount: 7,
+        mapProfile: {
+          landStyle: 'continent',
+          forbidTerrains: ['wheat'],
+          requiredImports: ['wheat'],
+        },
+        objectives: [
+          { key: 'armsStock', nameKey: 'campaign.objective.armsStock', metric: 'armsStock', target: 15 },
+          { key: 'bronzeStock', nameKey: 'campaign.objective.bronzeStock', metric: 'bronzeStock', target: 20 },
+          { key: 'apolloSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'apollo', target: 72 },
+        ],
+      },
     ],
   },
   {
@@ -255,6 +301,7 @@ const CAMPAIGN_PATHS = [
         objectives: [
           { key: 'militaryPoints', nameKey: 'campaign.objective.militaryPoints', metric: 'militaryPoints', target: 28 },
           { key: 'population', nameKey: 'objective.population', metric: 'population', target: 32 },
+          { key: 'armsStock', nameKey: 'campaign.objective.armsStock', metric: 'armsStock', target: 8 },
         ],
       },
       {
@@ -288,6 +335,95 @@ const CAMPAIGN_PATHS = [
         objectives: [
           { key: 'citiesConquered', nameKey: 'scenario.objective.conquer', metric: 'citiesConquered', target: 2 },
           { key: 'athenaSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'athena', target: 75 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.finale',
+        descKey: 'campaign.ep.thrace6.desc',
+        startingTreasury: 2100,
+        worldCityCount: 9,
+        mapProfile: { landStyle: 'mixed' },
+        objectives: [
+          { key: 'citiesConquered', nameKey: 'scenario.objective.conquer', metric: 'citiesConquered', target: 3 },
+          { key: 'militaryPoints', nameKey: 'campaign.objective.militaryPoints', metric: 'militaryPoints', target: 60 },
+          { key: 'athenaSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'athena', target: 80 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'wineRoute',
+    nameKey: 'campaign.wineRoute.name',
+    descKey: 'campaign.wineRoute.desc',
+    icon: '🍷',
+    episodes: [
+      {
+        nameKey: 'campaign.ep.vines',
+        descKey: 'campaign.ep.wine1.desc',
+        startingTreasury: 2750,
+        worldCityCount: 4,
+        mapProfile: { landStyle: 'continent', boostTerrains: ['grass'] },
+        objectives: [
+          { key: 'population', nameKey: 'objective.population', metric: 'population', target: 18 },
+          { key: 'buildingCount', nameKey: 'campaign.objective.vineyards', metric: 'buildingCount', buildingKey: 'vineyard', target: 2 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.vintage',
+        descKey: 'campaign.ep.wine2.desc',
+        startingTreasury: 2550,
+        worldCityCount: 5,
+        mapProfile: { landStyle: 'mixed' },
+        objectives: [
+          { key: 'wineStock', nameKey: 'colony.objective.wine', metric: 'wineStock', target: 18 },
+          { key: 'buildingCount', nameKey: 'campaign.objective.wineries', metric: 'buildingCount', buildingKey: 'winery', target: 1 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.libations',
+        descKey: 'campaign.ep.wine3.desc',
+        startingTreasury: 2400,
+        worldCityCount: 5,
+        mapProfile: { landStyle: 'continent' },
+        objectives: [
+          { key: 'population', nameKey: 'objective.population', metric: 'population', target: 38 },
+          { key: 'buildingCount', nameKey: 'campaign.objective.oilPresses', metric: 'buildingCount', buildingKey: 'oilPress', target: 1 },
+          { key: 'wineStock', nameKey: 'colony.objective.wine', metric: 'wineStock', target: 30 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.exportWine',
+        descKey: 'campaign.ep.wine4.desc',
+        startingTreasury: 2300,
+        worldCityCount: 6,
+        mapProfile: { landStyle: 'continent' },
+        objectives: [
+          { key: 'tradePosts', nameKey: 'campaign.objective.tradePosts', metric: 'tradePosts', target: 1 },
+          { key: 'templeDionysos', nameKey: 'campaign.objective.godTemple', metric: 'godTemple', godKey: 'dionysos', target: 1 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.symposia',
+        descKey: 'campaign.ep.wine5.desc',
+        startingTreasury: 2200,
+        worldCityCount: 6,
+        mapProfile: { landStyle: 'mixed' },
+        objectives: [
+          { key: 'population', nameKey: 'objective.population', metric: 'population', target: 52 },
+          { key: 'residence', nameKey: 'objective.residence', metric: 'residence', target: 1 },
+          { key: 'wineStock', nameKey: 'colony.objective.wine', metric: 'wineStock', target: 45 },
+        ],
+      },
+      {
+        nameKey: 'campaign.ep.finale',
+        descKey: 'campaign.ep.wine6.desc',
+        startingTreasury: 2100,
+        worldCityCount: 7,
+        mapProfile: { landStyle: 'continent' },
+        objectives: [
+          { key: 'population', nameKey: 'objective.population', metric: 'population', target: 68 },
+          { key: 'dionysosSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'dionysos', target: 78 },
+          { key: 'tradePosts', nameKey: 'campaign.objective.tradePosts', metric: 'tradePosts', target: 2 },
         ],
       },
     ],
@@ -347,6 +483,10 @@ function unlockCampaignEpisode(pathId, episodeIndex){
 function buildScenarioFromCampaignEpisode(path, episodeIndex){
   const ep = path.episodes[episodeIndex];
   if (!ep) return null;
+  let objectives = ep.objectives.map(o => Object.assign({}, o));
+  if (typeof normalizeCampaignObjectivesForContinue === 'function'){
+    objectives = normalizeCampaignObjectivesForContinue(objectives, path, episodeIndex);
+  }
   return {
     id: `campaign:${path.id}:${episodeIndex}`,
     campaignPathId: path.id,
@@ -354,7 +494,7 @@ function buildScenarioFromCampaignEpisode(path, episodeIndex){
     nameKey: ep.nameKey,
     descKey: ep.descKey,
     icon: path.icon,
-    objectives: ep.objectives.map(o => Object.assign({}, o)),
+    objectives,
     startingTreasury: ep.startingTreasury,
     worldCityCount: ep.worldCityCount,
     mapProfile: ep.mapProfile ? Object.assign({}, ep.mapProfile) : null,
@@ -362,7 +502,87 @@ function buildScenarioFromCampaignEpisode(path, episodeIndex){
   };
 }
 
-async function startCampaignEpisode(pathId, episodeIndex){
+function campaignObjectiveIdentity(obj){
+  if (!obj) return '';
+  if (obj.metric === 'godTemple' || obj.metric === 'godSatisfaction'){
+    return obj.metric + ':' + (obj.godKey || '');
+  }
+  if (obj.metric === 'buildingCount' && obj.buildingKey){
+    return 'buildingCount:' + obj.buildingKey;
+  }
+  return obj.metric || obj.key || '';
+}
+
+function maxPriorCampaignObjectiveTarget(path, episodeIndex, obj){
+  let max = 0;
+  for (let i = 0; i < episodeIndex; i++){
+    const ep = path.episodes[i];
+    if (!ep || !Array.isArray(ep.objectives)) continue;
+    ep.objectives.forEach(function(prev){
+      if (campaignObjectiveIdentity(prev) !== campaignObjectiveIdentity(obj)) return;
+      max = Math.max(max, prev.target || 0);
+    });
+  }
+  return max;
+}
+
+/** Relevé des seuils : jamais en dessous des épisodes précédents ni de l'état actuel. */
+function normalizeCampaignObjectivesForContinue(objectives, path, episodeIndex){
+  if (!path || !Array.isArray(objectives)) return objectives;
+  return objectives.map(function(o){
+    const obj = Object.assign({}, o);
+    const priorMax = maxPriorCampaignObjectiveTarget(path, episodeIndex, obj);
+    let target = Math.max(obj.target || 0, priorMax);
+    const raw = (typeof evaluateObjectiveMetricRaw === 'function')
+      ? evaluateObjectiveMetricRaw(obj)
+      : 0;
+    target = Math.max(target, Math.ceil(raw));
+    obj.target = target;
+    return obj;
+  });
+}
+window.normalizeCampaignObjectivesForContinue = normalizeCampaignObjectivesForContinue;
+
+async function advanceCampaignEpisode(pathId, episodeIndex){
+  const path = getCampaignPath(pathId);
+  const ep = path && path.episodes[episodeIndex];
+  if (!path || !ep) return false;
+
+  activeCampaignPathId = pathId;
+  activeCampaignEpisode = episodeIndex;
+
+  const scenario = buildScenarioFromCampaignEpisode(path, episodeIndex);
+  currentScenarioId = scenario.id;
+  applyScenarioObjectives(scenario, { recordBaseline: true });
+  victoryAnnounced = false;
+
+  if (typeof expandWorldCitiesIfNeeded === 'function'){
+    expandWorldCitiesIfNeeded(scenario.worldCityCount);
+  }
+  if (typeof configureWorldTradeForMapProfile === 'function'){
+    configureWorldTradeForMapProfile(scenario.mapProfile);
+  }
+
+  if (typeof renderObjectivesPanel === 'function') renderObjectivesPanel();
+  if (typeof refreshUI === 'function') refreshUI();
+  else {
+    if (typeof render === 'function') render();
+    if (typeof updateResourceBar === 'function') updateResourceBar();
+  }
+  if (typeof saveGame === 'function') saveGame({ silent: true });
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (typeof showNotification === 'function'){
+    showNotification(t('campaign.episodeContinued', {
+      n: episodeIndex + 1,
+      total: path.episodes.length,
+      name: t(ep.nameKey),
+    }), 'info');
+  }
+  return true;
+}
+
+async function startCampaignEpisode(pathId, episodeIndex, opts){
+  opts = opts || {};
   const path = getCampaignPath(pathId);
   if (!path || !path.episodes[episodeIndex]) return;
 
@@ -372,6 +592,27 @@ async function startCampaignEpisode(pathId, episodeIndex){
 
   const scenario = buildScenarioFromCampaignEpisode(path, episodeIndex);
   currentScenarioId = scenario.id;
+
+  if (opts.preserveCity){
+    applyScenarioObjectives(scenario, { recordBaseline: true });
+    victoryAnnounced = false;
+    if (typeof expandWorldCitiesIfNeeded === 'function') expandWorldCitiesIfNeeded(scenario.worldCityCount);
+    if (typeof configureWorldTradeForMapProfile === 'function') configureWorldTradeForMapProfile(scenario.mapProfile);
+    hideMainMenu();
+    if (typeof renderObjectivesPanel === 'function') renderObjectivesPanel();
+    if (typeof refreshUI === 'function') refreshUI();
+    if (typeof saveGame === 'function') saveGame({ silent: true });
+    if (typeof markRenderDirty === 'function') markRenderDirty();
+    if (typeof showNotification === 'function'){
+      showNotification(t('campaign.episodeContinued', {
+        n: episodeIndex + 1,
+        total: path.episodes.length,
+        name: t(path.episodes[episodeIndex].nameKey),
+      }), 'info');
+    }
+    return;
+  }
+
   applyScenarioObjectives(scenario);
 
   if (typeof showGenLoading === 'function') showGenLoading();
@@ -391,7 +632,7 @@ async function startCampaignEpisode(pathId, episodeIndex){
     showNotification(t('campaign.episodeStarted', {
       n: episodeIndex + 1,
       total: path.episodes.length,
-      name: t(ep.nameKey),
+      name: t(path.episodes[episodeIndex].nameKey),
     }), 'info');
   }
 }
@@ -422,12 +663,12 @@ function onCampaignEpisodeVictory(){
             { label: t('campaign.backToMenu'), type: 'primary', onPick: () => { activeCampaignPathId = null; returnToMainMenu(); } },
           ]
         : [
-            { label: t('campaign.nextEpisode'), type: 'primary', onPick: () => startCampaignEpisode(path.id, activeCampaignEpisode + 1) },
+            { label: t('campaign.nextEpisode'), type: 'primary', onPick: () => advanceCampaignEpisode(path.id, activeCampaignEpisode + 1) },
             { label: t('campaign.backToMenu'), type: 'neutral', onPick: () => returnToMainMenu() },
           ],
     });
   } else if (!isLast){
-    startCampaignEpisode(path.id, activeCampaignEpisode + 1);
+    advanceCampaignEpisode(path.id, activeCampaignEpisode + 1);
   }
 }
 
@@ -519,10 +760,14 @@ function restoreCampaignFromSave(payload){
 
 function restoreCampaignObjectivesAfterLoad(){
   if (!activeCampaignPathId) return;
+  const path = getActiveCampaignPath();
   const ep = getActiveCampaignEpisodeDef();
-  if (ep && typeof applyScenarioObjectives === 'function'){
-    applyScenarioObjectives({ objectives: ep.objectives });
+  if (!ep || typeof applyScenarioObjectives !== 'function') return;
+  let objectives = ep.objectives.map(o => Object.assign({}, o));
+  if (typeof normalizeCampaignObjectivesForContinue === 'function'){
+    objectives = normalizeCampaignObjectivesForContinue(objectives, path, activeCampaignEpisode);
   }
+  applyScenarioObjectives({ objectives }, { recordBaseline: true });
 }
 window.restoreCampaignObjectivesAfterLoad = restoreCampaignObjectivesAfterLoad;
 
@@ -531,6 +776,7 @@ function clearActiveCampaign(){
   activeCampaignEpisode = 0;
 }
 window.clearActiveCampaign = clearActiveCampaign;
+window.advanceCampaignEpisode = advanceCampaignEpisode;
 window.startCampaignEpisode = startCampaignEpisode;
 window.startCampaignPath = startCampaignPath;
 window.showCampaignEpisodeScreen = showCampaignEpisodeScreen;

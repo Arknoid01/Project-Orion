@@ -228,17 +228,26 @@ function getWalkerMovementDelta(walker){
   if (!isPatrolWalker(walker) || walker.path.length <= 1) return null;
   const i = Number.isFinite(walker.pathIndex) ? walker.pathIndex : 0;
   if (i < 0 || i >= walker.path.length) return null;
+
+  const prev = Number.isFinite(walker.prevPathIndex) ? walker.prevPathIndex : i;
+  if (prev !== i){
+    const from = walker.path[prev];
+    const to = walker.path[i];
+    if (from && to) return { dcol: to.col - from.col, drow: to.row - from.row };
+  }
+
   const j = i + walker.direction;
   if (j >= 0 && j < walker.path.length){
     const from = walker.path[i];
     const to = walker.path[j];
-    if (!from || !to) return null;
-    return { dcol: to.col - from.col, drow: to.row - from.row };
+    if (from && to) return { dcol: to.col - from.col, drow: to.row - from.row };
   }
-  const from = walker.path[Math.max(0, i - 1)];
-  const to = walker.path[i];
-  if (!from || !to) return null;
-  return { dcol: to.col - from.col, drow: to.row - from.row };
+  if (i > 0){
+    const from = walker.path[i - 1];
+    const to = walker.path[i];
+    if (from && to) return { dcol: to.col - from.col, drow: to.row - from.row };
+  }
+  return null;
 }
 
 /** Segment d'interpolation : prevPathIndex → pathIndex après tick, sinon case courante → suivante. */

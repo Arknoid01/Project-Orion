@@ -102,14 +102,38 @@ function applyIsoFacingFromDelta(agent, dcol, drow){
   agent.mirrorX = iso.mirrorX;
 }
 
-/** Orientation pour le rendu (walkers : segment de route courant, incluant demi-tour). */
+function getPatrolWalkerFacing(walker, now){
+  if (typeof getWalkerInterp !== 'function') return null;
+  const interp = getWalkerInterp(walker, now);
+  if (!interp?.fromTile || !interp?.toTile) return null;
+  const dcol = interp.toTile.col - interp.fromTile.col;
+  const drow = interp.toTile.row - interp.fromTile.row;
+  if (!dcol && !drow) return null;
+  const isoAuto = isoFacingFromGridDelta(dcol, drow);
+  if (typeof getWalkerDebugFacingOverride === 'function' && isoAuto){
+    const forced = getWalkerDebugFacingOverride(isoAuto.diagonal);
+    if (forced) return forced;
+  }
+  const iso = isoAuto;
+  if (iso){
+    walker.facing = iso.facing;
+    walker.mirrorX = iso.mirrorX;
+    walker.isoDiagonal = iso.diagonal;
+  }
+  return iso;
+}
+
+/** Orientation pour le rendu (walkers : segment de patrouille en cours). */
 function getAgentIsoFacing(agent){
-  if (typeof isPatrolWalker === 'function' && isPatrolWalker(agent)
-      && typeof getWalkerMovementDelta === 'function'){
-    const d = getWalkerMovementDelta(agent);
-    if (d && (d.dcol || d.drow)){
-      const iso = isoFacingFromGridDelta(d.dcol, d.drow);
-      if (iso) return iso;
+  if (typeof isPatrolWalker === 'function' && isPatrolWalker(agent)){
+    const patrol = getPatrolWalkerFacing(agent, performance.now());
+    if (patrol) return patrol;
+    if (typeof getWalkerMovementDelta === 'function'){
+      const d = getWalkerMovementDelta(agent);
+      if (d && (d.dcol || d.drow)){
+        const iso = isoFacingFromGridDelta(d.dcol, d.drow);
+        if (iso) return iso;
+      }
     }
   } else if (agent.path && agent.pathIndex != null && agent.pathIndex < agent.path.length){
     const next = agent.path[agent.pathIndex];
@@ -137,7 +161,10 @@ function drawCharacterSprite(id, x, y, facing, now, displaySize, mirrorX, animat
   const frame = animate === false
     ? 0
     : Math.floor((now || performance.now()) / frameMs) % CHARACTER_FRAMES;
-  const row = CHARACTER_DIRECTION_ROWS[facing] ?? CHARACTER_DIRECTION_ROWS.down;
+  const dirRows = (id && id.startsWith('walker_') && typeof WALKER_DIRECTION_ROWS !== 'undefined')
+    ? WALKER_DIRECTION_ROWS
+    : CHARACTER_DIRECTION_ROWS;
+  const row = dirRows[facing] ?? dirRows.down;
   const sx = frame * CHARACTER_FRAME_SIZE;
   const sy = row * CHARACTER_FRAME_SIZE;
   const d = displaySize ?? getCharacterDisplaySize(id);

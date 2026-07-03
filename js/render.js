@@ -1492,66 +1492,75 @@ function render(now){
 
   ctx.restore();
 
-  if (typeof MEDITERRANEAN_COLOR_GRADE_ENABLED === 'boolean' && MEDITERRANEAN_COLOR_GRADE_ENABLED){
-    applyMediterraneanWarmGrade(ctx, canvas.width / dpr, canvas.height / dpr);
+  if (resolveViewportColorGrade().enabled){
+    applyViewportColorGrade(ctx, canvas.width / dpr, canvas.height / dpr);
   }
 }
 
-function applyMediterraneanWarmGrade(targetCtx, width, height){
+function resolveViewportColorGrade(){
+  const presetKey = typeof VIEWPORT_GRADE_PRESET === 'string' ? VIEWPORT_GRADE_PRESET : 'warmSoft';
+  const preset = (typeof VIEWPORT_GRADE_PRESETS === 'object' && VIEWPORT_GRADE_PRESETS[presetKey])
+    ? VIEWPORT_GRADE_PRESETS[presetKey]
+    : VIEWPORT_GRADE_PRESETS.warmSoft;
+  const enabledOverride = typeof VIEWPORT_COLOR_GRADE_ENABLED === 'boolean'
+    ? VIEWPORT_COLOR_GRADE_ENABLED
+    : null;
+  return {
+    enabled: enabledOverride != null ? enabledOverride : !!preset.enabled,
+    passes: Array.isArray(preset.passes) ? preset.passes : [],
+  };
+}
+
+function applyViewportColorGrade(targetCtx, width, height){
   if (!targetCtx || width <= 0 || height <= 0) return;
-  const multiply = typeof MEDITERRANEAN_WARM_MULTIPLY === 'string'
-    ? MEDITERRANEAN_WARM_MULTIPLY
-    : 'rgba(255, 238, 210, 0.10)';
-  const highlight = typeof MEDITERRANEAN_WARM_HIGHLIGHT === 'string'
-    ? MEDITERRANEAN_WARM_HIGHLIGHT
-    : 'rgba(255, 210, 130, 0.06)';
+  const grade = resolveViewportColorGrade();
+  if (!grade.enabled || !grade.passes.length) return;
 
   targetCtx.save();
-  targetCtx.globalCompositeOperation = 'multiply';
-  targetCtx.fillStyle = multiply;
-  targetCtx.fillRect(0, 0, width, height);
-  targetCtx.globalCompositeOperation = 'soft-light';
-  targetCtx.fillStyle = highlight;
-  targetCtx.fillRect(0, 0, width, height);
+  for (const pass of grade.passes){
+    if (!pass || !pass.color) continue;
+    targetCtx.globalCompositeOperation = pass.mode || 'source-over';
+    targetCtx.fillStyle = pass.color;
+    targetCtx.fillRect(0, 0, width, height);
+  }
   targetCtx.restore();
 }
 
-/** Teinte chaude plein ecran (Three.js + Pixi) — meme logique que applyMediterraneanWarmGrade. */
-window.applyMediterraneanViewportGrade = function(){
-  const wrap = document.getElementById('canvasWrap');
-  if (!wrap) return;
-
-  const enabled = typeof MEDITERRANEAN_COLOR_GRADE_ENABLED === 'boolean'
-    && MEDITERRANEAN_COLOR_GRADE_ENABLED;
-  const threeActive = typeof isThreeReady === 'function' && isThreeReady();
-
+function syncViewportGradeOverlay(wrap, grade){
   let layer = document.getElementById('viewportGrade');
-  if (!enabled || !threeActive){
+  if (!grade.enabled || !grade.passes.length){
     if (layer) layer.remove();
     return;
   }
-
-  const multiply = typeof MEDITERRANEAN_WARM_MULTIPLY === 'string'
-    ? MEDITERRANEAN_WARM_MULTIPLY
-    : 'rgba(255, 238, 210, 0.14)';
-  const highlight = typeof MEDITERRANEAN_WARM_HIGHLIGHT === 'string'
-    ? MEDITERRANEAN_WARM_HIGHLIGHT
-    : 'rgba(255, 210, 130, 0.09)';
 
   if (!layer){
     layer = document.createElement('div');
     layer.id = 'viewportGrade';
     layer.setAttribute('aria-hidden', 'true');
     layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2;';
-
-    const mul = document.createElement('div');
-    mul.style.cssText = 'position:absolute;inset:0;mix-blend-mode:multiply;';
-    const hi = document.createElement('div');
-    hi.style.cssText = 'position:absolute;inset:0;mix-blend-mode:soft-light;';
-    layer.append(mul, hi);
     wrap.appendChild(layer);
   }
 
-  layer.children[0].style.background = multiply;
-  layer.children[1].style.background = highlight;
+  layer.replaceChildren();
+  for (const pass of grade.passes){
+    if (!pass || !pass.color) continue;
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;inset:0;mix-blend-mode:${pass.mode || 'normal'};`;
+    el.style.background = pass.color;
+    layer.appendChild(el);
+  }
+}
+
+/** Filtre plein écran (Three.js) — voir VIEWPORT_GRADE_PRESET dans config.js */
+window.applyMediterraneanViewportGrade = function(){
+  const wrap = document.getElementById('canvasWrap');
+  if (!wrap) return;
+
+  const grade = resolveViewportColorGrade();
+  const threeActive = typeof isThreeReady === 'function' && isThreeReady();
+  if (!threeActive){
+    syncViewportGradeOverlay(wrap, { enabled: false, passes: [] });
+    return;
+  }
+  syncViewportGradeOverlay(wrap, grade);
 };

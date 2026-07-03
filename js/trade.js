@@ -36,13 +36,29 @@ function countTradePosts(){
   return n;
 }
 
+function countWarehouses(){
+  let n = 0;
+  forEachBuilding((type) => { if (type === 'warehouse') n++; });
+  return n;
+}
+
+function tradeCapacityBonus(){
+  const wh = countWarehouses();
+  const bonus = (typeof WAREHOUSE_TRADE_QTY_BONUS === 'number') ? WAREHOUSE_TRADE_QTY_BONUS : 0;
+  return wh * bonus;
+}
+
 function tradeIncomeMultiplier(){
   let m = (typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1;
   if (typeof artifactBonus === 'function') m *= (1 + artifactBonus('trade'));
   return m;
 }
-function exportCapacity(){ return EXPORT_QTY_PER_POST * countTradePosts(); }
-function importCapacity(){ return IMPORT_QTY_PER_POST * countTradePosts(); }
+function exportCapacity(){
+  return EXPORT_QTY_PER_POST * countTradePosts() + tradeCapacityBonus();
+}
+function importCapacity(){
+  return IMPORT_QTY_PER_POST * countTradePosts() + tradeCapacityBonus();
+}
 
 function toggleCityExport(cityId, resource){
   ensureTradeState();

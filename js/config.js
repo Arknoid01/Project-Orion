@@ -152,10 +152,44 @@ const MEDITERRANEAN_PROP_DENSITY = 1;
 const MEDITERRANEAN_TREE_SIZE = 0.79;
 const MEDITERRANEAN_PROP_SIZE = 0.47;
 
-/* ===================== TEINTE CHAUDE (rendu) ===================== */
-const MEDITERRANEAN_COLOR_GRADE_ENABLED = true;
-const MEDITERRANEAN_WARM_MULTIPLY = 'rgba(255, 238, 210, 0.14)';
-const MEDITERRANEAN_WARM_HIGHLIGHT = 'rgba(255, 210, 130, 0.09)';
+/* ===================== FILTRE COULEUR (rendu) ===================== */
+const VIEWPORT_GRADE_PRESET = 'warmSoft';
+
+const VIEWPORT_GRADE_PRESETS = {
+  off: { enabled: false, passes: [] },
+  natural: {
+    enabled: true,
+    passes: [
+      { mode: 'screen', color: 'rgba(255, 255, 255, 0.07)' },
+      { mode: 'soft-light', color: 'rgba(255, 255, 255, 0.04)' },
+    ],
+  },
+  verdant: {
+    enabled: true,
+    passes: [
+      { mode: 'screen', color: 'rgba(238, 255, 244, 0.09)' },
+      { mode: 'soft-light', color: 'rgba(255, 255, 255, 0.06)' },
+    ],
+  },
+  mediterraneanDay: {
+    enabled: true,
+    passes: [
+      { mode: 'screen', color: 'rgba(255, 251, 238, 0.08)' },
+      { mode: 'soft-light', color: 'rgba(255, 244, 220, 0.05)' },
+    ],
+  },
+  warmSoft: {
+    enabled: true,
+    passes: [
+      { mode: 'screen', color: 'rgba(255, 253, 248, 0.045)' },
+      { mode: 'multiply', color: 'rgba(255, 250, 242, 0.06)' },
+      { mode: 'soft-light', color: 'rgba(255, 246, 232, 0.045)' },
+    ],
+  },
+};
+
+/** Override manuel (laisser null pour utiliser le preset) */
+const VIEWPORT_COLOR_GRADE_ENABLED = null;
 
 /* ===================== OVERLAY BLÉ (épis sur terrain wheat) ===================== */
 const WHEAT_CROPS_ENABLED = true;
@@ -416,13 +450,13 @@ const TERRAIN_CAP_DETAIL_DENSITY = 1.35;
 const TERRAIN_CAP_EDGE_FEATHER = true;
 const TERRAIN_CONTACT_SHADOW = true;
 // Texture de sommet selon la hauteur de pile (biomes listés dans TERRAIN_LEVEL_CAP_BIOMES)
-const TERRAIN_LEVEL_CAP_MAP = { 2: 'hill', 3: 'hill' };
+const TERRAIN_LEVEL_CAP_MAP = { 2: 'hill' };
 const TERRAIN_LEVEL_CAP_BIOMES = ['grass', 'hill', 'wheat'];
 const TERRAIN_CLIFF_DARKEN = 0.12;       // assombrissement parois falaise
 const TERRAIN_CLIFF_AO = 0.24;           // ombre interne bas de paroi (dans la face)
 const TERRAIN_CLIFF_SHADOW = false;      // pas d'ombres portées flottantes
 const TERRAIN_CUBE_WALL_H = 16;          // hauteur paroi latérale d'un cube (px)
-const TERRAIN_BLOCK_MAX_LEVEL = 3;       // 0=eau, 1=plaine, 2=colline, 3=montagne
+const TERRAIN_BLOCK_MAX_LEVEL = 2;       // 0=eau, 1=plaine, 2=relief (colline/montagne)
 const LEGO_BRICK_STEP = 32;              // distance entre sommets de briques empilées (= TILE_H)
 const TERRAIN_BLOCK_DRAW_W = 64;         // largeur d'une brique à l'écran
 const TERRAIN_BLOCK_CLEAN_WALLS = true;  // parois procédurales uniformes (Mykonos)
@@ -732,13 +766,16 @@ const GOD_SPRITES = {
 const WALKER_SPRITE_PATH = 'assets/characters/walkers/water.png';
 const WALKER_FRAME_SIZE = CHARACTER_FRAME_SIZE;
 const WALKER_FRAMES_PER_CYCLE = CHARACTER_FRAMES;
-const WALKER_DIRECTION_ROWS = CHARACTER_DIRECTION_ROWS;
+const WALKER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
+// Planche walkers (288×384) : ligne 0 = dos · 1 = gauche · 2 = face · 3 = droite
 const WALKER_ANIM_FRAME_MS = 200;        // marche des citoyens (plus lent que héros/dieux)
 
 /* ===================== MYTHOLOGIE ===================== */
 const FAVOR_MAX = 100;
 const FAVOR_DECAY_PER_TICK = 0.06;
 const FAVOR_OFFERING_COST = { sculpture: 5 };
+/** Alternative : libation (vignoble + pressoir). Sculpture utilisée en priorité. */
+const FAVOR_OFFERING_ALT = { wine: 6, oil: 4 };
 const FAVOR_OFFERING_GAIN = 15;
 const FAVOR_BLESSING_THRESHOLD = 80;       // au-dessus : bénédiction possible
 const FAVOR_CATASTROPHE_THRESHOLD = 20;    // en-dessous : catastrophe possible
@@ -767,12 +804,12 @@ const GOD_SAT_MONUMENT_LOSS = 18;        // démolir son temple
 
 // Exigences de chaque dieu : si non remplies, sa satisfaction baisse plus vite.
 const GOD_REQUIREMENTS = {
-  demeter:  { type:'resource', key:'wheat', min:30, labelKey:'god.req.demeter' },
+  demeter:  { type:'building', key:'granary', min:1, labelKey:'god.req.demeter' },
   zeus:     { type:'building', key:'temple', min:1, labelKey:'god.req.zeus' },
   athena:   { type:'building', key:'clinic', min:1, labelKey:'god.req.athena' },
   dionysos: { type:'building', key:'winery', min:1, labelKey:'god.req.dionysos' },
-  poseidon: { type:'building', key:'fountain', min:1, labelKey:'god.req.poseidon' },
-  apollo:   { type:'building', key:'clinic', min:1, labelKey:'god.req.apollo' },
+  poseidon: { type:'building', key:'warehouse', min:1, labelKey:'god.req.poseidon' },
+  apollo:   { type:'resource', key:'sculpture', min:8, labelKey:'god.req.apollo' },
 };
 
 // Type de colère / bénédiction par dieu
@@ -811,7 +848,9 @@ const OBJECTIVES = [
   { key:'population',    nameKey:'objective.population',    metric:'population',    target:50 },
   { key:'wheatProduced',  nameKey:'objective.wheatProduced',  metric:'wheatProduced',  target:120 },
   { key:'villa',          nameKey:'objective.villa',          metric:'villa',          target:1 },
+  { key:'domaine',        nameKey:'objective.domaine',        metric:'domaine',        target:1 },
   { key:'favor',          nameKey:'objective.favor',          metric:'favor',          target:80 },
+  { key:'tradePosts',     nameKey:'campaign.objective.tradePosts', metric:'tradePosts', target:2 },
 ];
 
 /* ===================== DEFAITE ===================== */
@@ -829,6 +868,17 @@ const FESTIVAL_COST = { wine: 8, sculpture: 4 };
 const FESTIVAL_FAVOR_GAIN = 18;
 const FESTIVAL_DURATION_TICKS = 50;
 const FESTIVAL_GROWTH_BONUS = 0.10;
+
+/** Coûts et bonus selon la saison attique (voir calendar.js). */
+const FESTIVAL_BY_SEASON = {
+  summer: { cost: { wine: 10, sculpture: 3 }, favorGain: 20, durationTicks: 50, growthBonus: 0.10, patronGod: 'zeus' },
+  autumn: { cost: { wine: 6, wheat: 25 }, favorGain: 16, durationTicks: 45, growthBonus: 0.08, patronGod: 'demeter' },
+  winter: { cost: { sculpture: 8, wool: 12 }, favorGain: 22, durationTicks: 55, growthBonus: 0.09, patronGod: 'apollo' },
+  spring: { cost: { wine: 8, grapes: 20 }, favorGain: 18, durationTicks: 50, growthBonus: 0.12, patronGod: 'dionysos' },
+};
+
+/** Bonus export/import par entrepôt (complète les comptoirs). */
+const WAREHOUSE_TRADE_QTY_BONUS = 4;
 
 /* ===================== CALENDRIER (mois attiques) ===================== */
 // Dérivé uniquement de DEBUG.tickCount (voir calendar.js) -- aucun état séparé à
@@ -924,6 +974,30 @@ const DIPLO_EVENTS = [
       { key: 'refuse', type: 'danger', effects: { treasury: -320, relation: -8, resources: { wheat: -15 } }, result: 'raidHappened', resultType: 'bad' },
     ],
   },
+  {
+    key: 'grainAid', minRel: 40, maxRel: 100, weight: 2,
+    vars: { qty: 25, res: 'wheat', gold: 180 },
+    choices: [
+      { key: 'accept', type: 'good', requires: { resources: { wheat: 25 } }, effects: { resources: { wheat: -25 }, treasury: 180, relation: 10, favor: 3 }, result: 'grainAidAccepted', resultType: 'good' },
+      { key: 'decline', type: 'neutral', effects: { relation: -4 }, result: 'grainAidDeclined', resultType: 'bad' },
+    ],
+  },
+  {
+    key: 'culturalExchange', minRel: 50, maxRel: 100, weight: 2,
+    vars: { qty: 5, res: 'sculpture' },
+    choices: [
+      { key: 'accept', type: 'good', requires: { resources: { sculpture: 5 } }, effects: { resources: { sculpture: -5 }, favor: 8, relation: 14 }, result: 'culturalAccepted', resultType: 'good' },
+      { key: 'decline', type: 'neutral', effects: { relation: -2 }, result: 'culturalDeclined', resultType: 'bad' },
+    ],
+  },
+  {
+    key: 'merchantFleet', minRel: 30, maxRel: 90, weight: 2,
+    vars: { gold: 350, qty: 10, res: 'fish' },
+    choices: [
+      { key: 'accept', type: 'good', requires: { resources: { fish: 10 } }, effects: { resources: { fish: -10 }, treasury: 350, relation: 8 }, result: 'fleetAccepted', resultType: 'good' },
+      { key: 'decline', type: 'neutral', effects: { relation: -3 }, result: 'fleetDeclined', resultType: 'bad' },
+    ],
+  },
 ];
 
 /* ===================== MONSTRES & HEROS ===================== */
@@ -977,13 +1051,16 @@ const ARTIFACTS = {
   lyre:        { nameKey:'artifact.lyre',        icon:'🎵', effect:'favor',    value:5 },
   goldenFleece:{ nameKey:'artifact.goldenFleece',icon:'🏅', effect:'trade',    value:0.2 },
   lionPelt:    { nameKey:'artifact.lionPelt',    icon:'🦁', effect:'growth',   value:0.04 },
+  spearAchilles:{ nameKey:'artifact.spearAchilles', icon:'🗡️', effect:'military', value:8 },
+  ambrosiaVase:{ nameKey:'artifact.ambrosiaVase', icon:'🏺', effect:'favor',    value:4 },
 };
 
 const ADVENTURE_DEFINITIONS = [
   {
     id:'nemean_lion', nameKey:'adventure.nemeanLion.name', descKey:'adventure.nemeanLion.desc',
     icon:'🦁', type:'combat', difficulty:2, heroKey:'heracles', durationTicks:40,
-    cost:{ treasury:100 }, rewards:{ favor:6, resources:{ wool:25 } },
+    cost:{ treasury:100 }, rewards:{ favor:6, resources:{ wool:25 }, artifact:'lionPelt' },
+    oneTime:true,
   },
   {
     id:'gorgon_hunt', nameKey:'adventure.gorgonHunt.name', descKey:'adventure.gorgonHunt.desc',
@@ -1034,6 +1111,45 @@ const ADVENTURE_DEFINITIONS = [
     icon:'🏅', type:'combat', difficulty:3, heroKey:'jason', durationTicks:65,
     cost:{ treasury:300, resources:{ wool:15 } }, rewards:{ treasury:400, artifact:'goldenFleece', favor:10 },
     oneTime:true,
+  },
+  {
+    id:'hydra_marshes', nameKey:'adventure.hydra.name', descKey:'adventure.hydra.desc',
+    icon:'🐉', type:'combat', difficulty:3, heroKey:'heracles', durationTicks:52,
+    cost:{ treasury:180, resources:{ bronze:8 } }, rewards:{ favor:10, resources:{ arms:18, sculpture:10 } },
+    oneTime:true,
+  },
+  {
+    id:'chimera_peak', nameKey:'adventure.chimera.name', descKey:'adventure.chimera.desc',
+    icon:'🔥', type:'combat', difficulty:3, heroKey:'bellerophon', durationTicks:48,
+    cost:{ treasury:165, resources:{ wool:10 } }, rewards:{ favor:8, treasury:220, resources:{ arms:12 } },
+  },
+  {
+    id:'athena_trial', nameKey:'adventure.athenaTrial.name', descKey:'adventure.athenaTrial.desc',
+    icon:'🦉', type:'riddle', difficulty:2, heroKey:'ulysses', durationTicks:38,
+    cost:{ treasury:90, resources:{ sculpture:3 } }, rewards:{ favor:12, resources:{ marble:25 } },
+    riddleKey:'adventure.athenaTrial.riddle',
+    riddleChoices:[
+      { key:'olive', labelKey:'adventure.athenaTrial.choice.olive', correct:true },
+      { key:'sword', labelKey:'adventure.athenaTrial.choice.sword', correct:false },
+      { key:'gold', labelKey:'adventure.athenaTrial.choice.gold', correct:false },
+    ],
+  },
+  {
+    id:'calydonian_boar', nameKey:'adventure.calydonianBoar.name', descKey:'adventure.calydonianBoar.desc',
+    icon:'🐗', type:'combat', difficulty:2, heroKey:'achilles', durationTicks:44,
+    cost:{ treasury:120, resources:{ bronze:6 } }, rewards:{ favor:7, artifact:'spearAchilles' },
+    oneTime:true,
+  },
+  {
+    id:'cerberus_gate', nameKey:'adventure.cerberusGate.name', descKey:'adventure.cerberusGate.desc',
+    icon:'🐺', type:'combat', difficulty:3, heroKey:'orpheus', durationTicks:50,
+    cost:{ treasury:140, resources:{ sculpture:6 } }, rewards:{ favor:14, resources:{ sculpture:20 }, artifact:'ambrosiaVase' },
+    oneTime:true,
+  },
+  {
+    id:'dragon_hoard', nameKey:'adventure.dragonHoard.name', descKey:'adventure.dragonHoard.desc',
+    icon:'🐲', type:'combat', difficulty:3, heroKey:'jason', durationTicks:58,
+    cost:{ treasury:220, resources:{ arms:10 } }, rewards:{ treasury:350, favor:9, resources:{ bronze:25 } },
   },
 ];
 

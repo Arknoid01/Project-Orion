@@ -62,6 +62,25 @@ function generateWorldCities(count){
   selectedWorldCityId = worldCities.length ? worldCities[0].id : null;
 }
 
+/** Ajoute des cités voisines sans effacer la diplomatie / le commerce en cours. */
+function expandWorldCitiesIfNeeded(count){
+  count = count || WORLD_CITY_COUNT;
+  ensureWorldState();
+  if (worldCities.length >= count) return;
+  const usedNames = new Set(worldCities.map(c => c.name));
+  const freeNames = WORLD_CITY_NAMES.filter(n => !usedNames.has(n));
+  const positions = generateCityPositions(count);
+  const startId = worldCities.length;
+  for (let i = startId; i < count; i++){
+    const name = freeNames.shift() || (WORLD_CITY_NAMES[i % WORLD_CITY_NAMES.length] + ' ' + (i + 1));
+    worldCities.push(makeCity(i, name, positions[i] || { x: 0.2 + Math.random() * 0.6, y: 0.2 + Math.random() * 0.6 }));
+    if (typeof ensureDiplomacyState === 'function') ensureDiplomacyState();
+    if (typeof ensureTradeState === 'function') ensureTradeState();
+  }
+  if (selectedWorldCityId == null && worldCities.length) selectedWorldCityId = worldCities[0].id;
+}
+window.expandWorldCitiesIfNeeded = expandWorldCitiesIfNeeded;
+
 /** Garantit qu'au moins une cité voisine vend les ressources requises par le profil de carte. */
 function configureWorldTradeForMapProfile(profile){
   if (!profile || !Array.isArray(profile.requiredImports) || !worldCities.length) return;

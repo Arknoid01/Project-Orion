@@ -142,8 +142,21 @@ function queueEmigration(houseCol, houseRow, notify){
   return queueMigrantOut(houseCol, houseRow, { applyRegress: true, notify: notify !== false, reason: 'regress' });
 }
 
+/** Destruction immédiate + colon partant (cosmétique) — comme la démolition manuelle. */
+function destroyHouseWithDepartureVisual(houseCol, houseRow){
+  const cell = grid[houseRow][houseCol];
+  if (!cell || cell.building !== 'maison') return false;
+  if (typeof queueMigrantOut === 'function'){
+    queueMigrantOut(houseCol, houseRow, { destroyOnComplete: false, notify: false, reason: 'destroy' });
+  }
+  destroyHouseAt(houseCol, houseRow);
+  return true;
+}
+
 function queueHouseDeparture(houseCol, houseRow, notify){
-  return queueMigrantOut(houseCol, houseRow, { destroyOnComplete: true, notify: notify !== false, reason: 'destroy' });
+  const ok = destroyHouseWithDepartureVisual(houseCol, houseRow);
+  if (ok && notify !== false) showNotification(t('migration.departure'), 'bad');
+  return ok;
 }
 
 function tickMigrants(){

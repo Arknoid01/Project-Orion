@@ -43,10 +43,17 @@ const TERRAIN_HEIGHT = {
   wheat:  1,
   hill:   2,
   forest: 2,
-  rock:   3,
+  rock:   2,
   marble: 2,
   building_pad: 1,
 };
+
+function _terrainLayerCountForCell(cell){
+  if (!cell) return 1;
+  if (typeof cell.level === 'number' && cell.level > 0) return cell.level;
+  const t = cell.terrain || 'grass';
+  return Math.max(1, TERRAIN_HEIGHT[t] || 1);
+}
 
 const TERRAIN_TOP_COLOR = {
   water:  0x3a86c8,
@@ -152,7 +159,7 @@ function _terrainMatPair(key, foundation){
 const THREE_TERRAIN_TEX_BASE = 'assets/tiles/generated_mediterranean/';
 const THREE_TERRAIN_TEX_DEFS = {
   grass:  { top: 'grass.png',  side: 'dirt.png' },
-  hill:   { top: 'grass.png',  side: 'dirt.png' },
+  hill:   { top: 'hill.png',   side: 'dirt.png' },
   wheat:  { top: 'wheat.png',  side: 'dirt.png' },
   forest: { top: 'forest.png', side: 'dirt.png' },
   sand:   { top: 'sand.png',   side: 'sand.png' },
@@ -258,8 +265,8 @@ function _terrainLayerCount(terrain){
 /** Y monde de la face supérieure (dernier cube : sommet à y = layerCount - 1). */
 window.getTerrainSurfaceY = function(col, row){
   if (typeof inBounds === 'function' && !inBounds(col, row)) return 0;
-  const terrain = grid[row][col].terrain || 'grass';
-  return _terrainLayerCount(terrain) - 1;
+  const cell = grid[row][col];
+  return _terrainLayerCountForCell(cell) - 1;
 };
 
 window.gridToWorld3 = function(col, row, yOverride){
@@ -614,7 +621,7 @@ window.syncThreeWalkers = function(now){
     const mirror = iso ? iso.mirrorX : !!w.mirrorX;
     const service = w.serviceType;
     const anim = window._threeWalkerFrames[service];
-    const dirIdx = anim ? (_THREE_WALKER_DIR_ROW[dirKey] ?? 1) : 0;
+    const dirIdx = anim ? (_THREE_WALKER_DIR_ROW[dirKey] ?? _THREE_WALKER_DIR_ROW.down ?? 2) : 0;
     const frameIdx = anim ? (frameIdxBase % (anim[dirIdx]?.length || 1)) : 0;
     const frameTex = anim?.[dirIdx]?.[frameIdx] || null;
 
@@ -660,7 +667,7 @@ window.initThreeRenderer = async function(){
       depth: true,
     });
     rnd.sortObjects = true;
-    rnd.setClearColor(0x8ec8e8, 1);
+    rnd.setClearColor(0x9ed4f0, 1);
     rnd.domElement.id = 'gameCanvas';
     rnd.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;touch-action:none;cursor:pointer;';
 
@@ -672,16 +679,16 @@ window.initThreeRenderer = async function(){
     window._threeRenderer = rnd;
     _resizeThreeView();
 
-    // Scene — ciel / brume légèrement méditerranéens (soleil égéen)
+    // Scene — ciel clair, brume légère
     const scene = new _THREE.Scene();
-    const sky = 0x8ec8e8;
+    const sky = 0x9ed4f0;
     scene.background = new _THREE.Color(sky);
-    scene.fog = new _THREE.Fog(sky, 80, 130);
+    scene.fog = new _THREE.Fog(sky, 85, 135);
     window._threeScene = scene;
 
-    // Lumières chaudes
-    scene.add(new _THREE.AmbientLight(0xfff4e6, 0.74));
-    const sun = new _THREE.DirectionalLight(0xffe8c8, 0.88);
+    // Lumière du jour — chaleur légère (complète le preset mediterraneanDay)
+    scene.add(new _THREE.AmbientLight(0xf0f8ff, 0.80));
+    const sun = new _THREE.DirectionalLight(0xfff4e0, 0.94);
     sun.position.set(8, 16, 6);
     scene.add(sun);
 
@@ -814,7 +821,7 @@ function _neighborSolidLayers(grid, ROWS, COLS, nc, nr, viewerTerrain){
   const cell = grid[nr] && grid[nr][nc];
   if(!cell) return 0;
   if(cell.terrain === 'water') return viewerTerrain === 'water' ? 1 : 0;
-  return Math.max(1, TERRAIN_HEIGHT[cell.terrain||'grass']||1);
+  return _terrainLayerCountForCell(cell);
 }
 
 /**
@@ -825,7 +832,7 @@ function _isFaceHidden(grid, ROWS, COLS, c, r, y, face, viewerTerrain){
   if(face==='bottom') return true;
 
   const cell = grid[r] && grid[r][c];
-  const h = Math.max(1, TERRAIN_HEIGHT[cell?.terrain||'grass']||1);
+  const h = _terrainLayerCountForCell(cell);
 
   if(face==='top') return y + 1 < h; // autre couche dans la même colonne
 
@@ -929,7 +936,7 @@ window.buildThreeTerrain = function(opts){
       const cell = grid[r][c];
       if(!cell) continue;
       const terrain = cell.terrain || 'grass';
-      const h = Math.max(1, TERRAIN_HEIGHT[terrain]||1);
+      const h = _terrainLayerCountForCell(cell);
       const x3 = c - offC + 0.5;
       const z3 = r - offR + 0.5;
 
@@ -1005,7 +1012,7 @@ function _makeBuildingPadMesh(col, row){
   const offR = ROWS / 2;
   const offC = COLS / 2;
   const terrain = cell.terrain || 'grass';
-  const h = Math.max(1, TERRAIN_HEIGHT[terrain] || 1);
+  const h = _terrainLayerCountForCell(cell);
   const x3 = col - offC + 0.5;
   const z3 = row - offR + 0.5;
   const yPos = (h - 1) - 0.5 + 0.002;
@@ -1068,6 +1075,7 @@ window.syncThreeBuildingPads = function(cells){
     }
   }
   if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
 };
 
 /** Alias — accepte cells optionnel pour patch incrémental. */

@@ -415,7 +415,7 @@ window._pixiLoadTextures = async function(){
     grass:'assets/textures/flat/game/grass_top.png',
     wheat:'assets/textures/flat/game/sand_top.png',
     forest:'assets/textures/flat/game/forest_top.png',
-    hill:'assets/textures/flat/game/grass_top.png',
+    hill:'assets/tiles/generated_mediterranean/hill.png',
     sand:'assets/textures/flat/game/sand.png',
     rock:'assets/textures/flat/game/stone.png',
     marble:'assets/textures/flat/game/stone.png',
@@ -806,7 +806,7 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
       const iso     = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(w) : null;
       const dirKey  = iso ? iso.facing : (w.facing || 'left');
       const mirror  = iso ? iso.mirrorX : w.mirrorX;
-      const dirIdx  = anim.dirRow[dirKey] || 0;
+      const dirIdx  = anim.dirRow[dirKey] ?? anim.dirRow.down ?? 2;
       const frames  = anim.frames[dirIdx];
       const frameIdx= frameIdxBase % (frames.length || 1);
       const tex     = frames[frameIdx];
@@ -1134,6 +1134,24 @@ function _pixiDrawCharacterSprite(container, id, s, agent, now, animate, charPoo
   return true;
 }
 
+function _observerCoverageActive(){
+  const cov = window._observerCoverage;
+  if (!cov) return false;
+  if (cov.until && performance.now() > cov.until) return false;
+  return true;
+}
+
+window.tickObserverCoverageExpiry = function(){
+  const cov = window._observerCoverage;
+  if (!cov || !cov.until || performance.now() <= cov.until) return;
+  window._observerCoverage = null;
+  window._overlayNeedsRender = true;
+  const container = window._overlayGradeContainer;
+  if (container) container.removeChildren();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+};
+
 function _pixiApplyOverlayGrade(){
   const container = window._overlayGradeContainer;
   if (!container) return;
@@ -1180,6 +1198,9 @@ window.setObserverCoverage = function(payload){
 window.clearObserverCoverage = function(){
   window._observerCoverage = null;
   window._overlayNeedsRender = true;
+  const container = window._overlayGradeContainer;
+  if (container) container.removeChildren();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
   if (typeof markRenderDirty === 'function') markRenderDirty();
 };
 
@@ -1551,6 +1572,7 @@ window.renderPixi = function(now){
    ========================================================= */
 window.renderPixiOverlay = function(now){
   if (!window._pixiOverlayApp) return;
+  if (typeof window.tickObserverCoverageExpiry === 'function') window.tickObserverCoverageExpiry();
 
   const camMoved = _overlayCameraMoved();
   const hasAnimating = (typeof migrants !== 'undefined' && migrants.length > 0)
@@ -1567,7 +1589,7 @@ window.renderPixiOverlay = function(now){
       || (typeof stairsMode !== 'undefined' && stairsMode)
       || (typeof zonePlacementStart !== 'undefined' && zonePlacementStart));
 
-  const hasCoverage = !!(window._observerCoverage || window.observerPinnedTile);
+  const hasCoverage = _observerCoverageActive() || !!window.observerPinnedTile;
   const needsRender = camMoved || window._overlayNeedsRender || window._buildingDirty
     || window._roadsDirty || window._houseIconsDirty || hasAnimating || hasUi || hasCoverage;
   if (!needsRender) return;

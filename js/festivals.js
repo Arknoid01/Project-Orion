@@ -5,21 +5,40 @@
 // (voir migration.js : growthChance/emigrationChance lisent festivalHappinessBonus()).
 let festivalTicksLeft = 0;
 
+function getFestivalDefForSeason(){
+  const season = (typeof getCalendarState === 'function')
+    ? getCalendarState().season
+    : 'summer';
+  const seasonal = (typeof FESTIVAL_BY_SEASON === 'object' && FESTIVAL_BY_SEASON[season])
+    ? FESTIVAL_BY_SEASON[season]
+    : null;
+  if (seasonal) return Object.assign({ seasonKey: season }, seasonal);
+  return {
+    seasonKey: season,
+    cost: FESTIVAL_COST,
+    favorGain: FESTIVAL_FAVOR_GAIN,
+    durationTicks: FESTIVAL_DURATION_TICKS,
+    growthBonus: FESTIVAL_GROWTH_BONUS,
+  };
+}
+
 function holdFestival(){
-  for (const [res, amt] of Object.entries(FESTIVAL_COST)){
-    if (resources[res] < amt){
+  const fest = getFestivalDefForSeason();
+  for (const [res, amt] of Object.entries(fest.cost)){
+    if ((resources[res] || 0) < amt){
       showNotification(t('festival.notEnoughResources'), 'bad');
       return;
     }
   }
-  for (const [res, amt] of Object.entries(FESTIVAL_COST)) resources[res] -= amt;
+  for (const [res, amt] of Object.entries(fest.cost)) resources[res] -= amt;
 
   if (typeof applyFestivalToGods === 'function') applyFestivalToGods();
-  else favor = Math.min(FAVOR_MAX, favor + FESTIVAL_FAVOR_GAIN);
-  festivalTicksLeft = FESTIVAL_DURATION_TICKS;
+  else favor = Math.min(FAVOR_MAX, favor + fest.favorGain);
+  festivalTicksLeft = fest.durationTicks;
 
-  debugInfo('Festival organisé', { favor });
-  showNotification(t('festival.started'), 'good');
+  debugInfo('Festival organisé', { season: fest.seasonKey, favor });
+  const seasonLabel = t('season.' + fest.seasonKey);
+  showNotification(t('festival.startedSeason', { season: seasonLabel }), 'good');
   updateResourceBar();
   renderFestivalPanel();
 }
@@ -32,10 +51,10 @@ function tickFestival(){
   renderFestivalPanel();
 }
 
-// Bonus actif pendant la durée du festival, lu par migration.js. 0 si aucun festival
-// en cours.
 function festivalHappinessBonus(){
-  return festivalTicksLeft > 0 ? FESTIVAL_GROWTH_BONUS : 0;
+  if (festivalTicksLeft <= 0) return 0;
+  const fest = getFestivalDefForSeason();
+  return fest.growthBonus != null ? fest.growthBonus : FESTIVAL_GROWTH_BONUS;
 }
 
 function renderFestivalPanel(){

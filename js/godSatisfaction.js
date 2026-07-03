@@ -336,7 +336,16 @@ function applyOfferingToGods(){
 }
 
 function applyFestivalToGods(){
-  for (const g of GODS) adjustGodSatisfaction(g.key, GOD_SAT_FESTIVAL_SHARE);
+  let patron = null;
+  if (typeof getFestivalDefForSeason === 'function'){
+    patron = getFestivalDefForSeason().patronGod || null;
+  }
+  for (const g of GODS){
+    const share = (patron && g.key === patron)
+      ? GOD_SAT_FESTIVAL_SHARE * 1.75
+      : GOD_SAT_FESTIVAL_SHARE;
+    adjustGodSatisfaction(g.key, share);
+  }
   syncGlobalFavor();
 }
 

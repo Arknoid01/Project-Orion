@@ -5,12 +5,25 @@ let productionEffectTicksLeft = 0;
 
 /* ===================== OFFRANDE (action joueur) ===================== */
 function makeOffering(){
-  const cost = FAVOR_OFFERING_COST.sculpture;
-  if (resources.sculpture < cost){
-    showNotification(t('mythology.notEnoughSculpture', { cost }), 'bad');
+  const primary = FAVOR_OFFERING_COST || {};
+  const alt = (typeof FAVOR_OFFERING_ALT === 'object') ? FAVOR_OFFERING_ALT : null;
+
+  let paid = false;
+  if (primary.sculpture && resources.sculpture >= primary.sculpture){
+    resources.sculpture -= primary.sculpture;
+    paid = true;
+  } else if (alt){
+    const canAlt = Object.entries(alt).every(([res, amt]) => (resources[res] || 0) >= amt);
+    if (canAlt){
+      for (const [res, amt] of Object.entries(alt)) resources[res] -= amt;
+      paid = true;
+    }
+  }
+
+  if (!paid){
+    showNotification(t('mythology.notEnoughOffering'), 'bad');
     return;
   }
-  resources.sculpture -= cost;
   if (typeof applyOfferingToGods === 'function') applyOfferingToGods();
   else favor = Math.min(FAVOR_MAX, favor + FAVOR_OFFERING_GAIN);
   debugInfo('Offrande faite', { favor });

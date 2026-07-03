@@ -1,38 +1,23 @@
 /* ===================== NIVEAUX DE TERRAIN (BRIQUES LEGO) ===================== */
 
 function terrainBlockMaxLevel(){
-  return typeof TERRAIN_BLOCK_MAX_LEVEL === 'number' ? TERRAIN_BLOCK_MAX_LEVEL : 3;
+  return typeof TERRAIN_BLOCK_MAX_LEVEL === 'number' ? TERRAIN_BLOCK_MAX_LEVEL : 2;
 }
 
-/** Niveau entier 0–MAX à partir de la hauteur bruit + biome. */
+function isElevatedTerrain(terrain){
+  return terrain === 'hill' || terrain === 'rock' || terrain === 'marble';
+}
+
+/** Niveau entier 0–2 : 0=eau, 1=plaine, 2=relief (colline / montagne). */
 function levelFromHeightAndTerrain(h, terrain){
-  const maxL = terrainBlockMaxLevel();
   if (terrain === 'water') return 0;
-  // Terrain non-eau dont la hauteur a été légèrement rabaissée sous le seuil par
-  // le lissage : on garantit au moins le niveau 1 pour éviter un rendu eau par erreur.
-  if (h < MAP_WATER_THRESHOLD) return terrain === 'sand' ? 1 : 1;
+  if (h < MAP_WATER_THRESHOLD) return 1;
 
   if (terrain === 'sand' || terrain === 'wheat') return 1;
+  if (isElevatedTerrain(terrain)) return 2;
+  if (terrain === 'forest') return h >= MAP_HILL_THRESHOLD ? 2 : 1;
 
-  if (terrain === 'marble') return maxL;
-  if (terrain === 'rock'){
-    if (h >= MAP_MARBLE_THRESHOLD - 0.06) return maxL;
-    if (h >= MAP_HILL_THRESHOLD + 0.04) return Math.min(maxL, maxL - 1);
-    return Math.min(maxL, 2);
-  }
-
-  if (terrain === 'hill'){
-    if (h >= MAP_MARBLE_THRESHOLD - 0.10) return maxL;
-    return Math.min(maxL, 2);
-  }
-
-  if (terrain === 'forest'){
-    if (h >= MAP_HILL_THRESHOLD + 0.06) return Math.min(maxL, 2);
-    return 1;
-  }
-
-  if (h >= MAP_MARBLE_THRESHOLD - 0.04) return maxL;
-  if (h >= MAP_HILL_THRESHOLD + 0.02) return Math.min(maxL, 2);
+  if (h >= MAP_HILL_THRESHOLD) return 2;
   return 1;
 }
 
@@ -109,9 +94,6 @@ function capSpriteKeyForCell(cell, level){
     ? TERRAIN_LEVEL_CAP_BIOMES
     : ['grass', 'hill', 'wheat'];
 
-  if (levelMap && lv >= 3 && levelMap[3] && biome !== 'marble'){
-    if (levelBiomes.includes(biome) || biome === 'forest') return levelMap[3];
-  }
   if (levelMap && lv >= 2 && levelMap[2] && levelBiomes.includes(biome)){
     return levelMap[2];
   }

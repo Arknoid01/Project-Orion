@@ -292,6 +292,7 @@ canvas{ display:block; cursor: pointer; touch-action: pan-x pan-y; } /* le pince
 }
 #objectivesList li{ padding: 4px 0; }
 #objectivesList li.objective-done{ color: #4a7a2e; font-weight: bold; }
+#objectivesList li.objective-near{ color: #8a7a2e; }
 #victoryBanner{
   background: linear-gradient(90deg, #c9a227, #e8c468);
   border: 2px solid var(--ink);

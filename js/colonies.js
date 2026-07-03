@@ -44,8 +44,37 @@ const COLONY_DEFINITIONS = [
     objectives: [
       { key: 'pop', nameKey: 'objective.population', metric: 'population', target: 20 },
       { key: 'wine', nameKey: 'colony.objective.wine', metric: 'wineStock', target: 25 },
+      { key: 'tradePosts', nameKey: 'campaign.objective.tradePosts', metric: 'tradePosts', target: 1 },
     ],
     rewards: { troops: 20, treasury: 350, resources: { wine: 60, grapes: 40 } },
+  },
+  {
+    id: 'delos',
+    nameKey: 'colony.delos.name',
+    descKey: 'colony.delos.desc',
+    icon: '🐟',
+    mapSeed: 626262,
+    startingTreasury: 900,
+    startingResources: { wheat: 25, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 0, fish: 0, clothing: 0 },
+    objectives: [
+      { key: 'pop', nameKey: 'objective.population', metric: 'population', target: 16 },
+      { key: 'fish', nameKey: 'colony.objective.fish', metric: 'fishStock', target: 35 },
+    ],
+    rewards: { troops: 18, treasury: 450, resources: { fish: 50, clothing: 20 } },
+  },
+  {
+    id: 'cyrene',
+    nameKey: 'colony.cyrene.name',
+    descKey: 'colony.cyrene.desc',
+    icon: '🐑',
+    mapSeed: 737373,
+    startingTreasury: 880,
+    startingResources: { wheat: 30, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 20, fish: 0, clothing: 0 },
+    objectives: [
+      { key: 'pop', nameKey: 'objective.population', metric: 'population', target: 14 },
+      { key: 'clothing', nameKey: 'colony.objective.clothing', metric: 'clothingStock', target: 18 },
+    ],
+    rewards: { troops: 16, treasury: 380, resources: { wool: 40, clothing: 25, wine: 15 } },
   },
 ];
 

@@ -21,10 +21,10 @@ const SCENARIOS = [
     descKey: 'scenario.colonizationDesc',
     icon: '🏠',
     objectives: [
-      { key: 'colony', nameKey: 'objective.colony', metric: 'coloniesCompleted', target: 1 },
-      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 30 },
+      { key: 'colony', nameKey: 'objective.colony', metric: 'coloniesCompleted', target: 2 },
+      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 35 },
     ],
-    startingTreasury: 1350,
+    startingTreasury: 1500,
     worldCityCount: 4,
   },
   {
@@ -51,14 +51,47 @@ const SCENARIOS = [
     startingTreasury: 2000,
     worldCityCount: 8,
   },
+  {
+    id: 'prosperity',
+    nameKey: 'scenario.prosperity',
+    descKey: 'scenario.prosperityDesc',
+    icon: '🏺',
+    objectives: [
+      { key: 'villa', nameKey: 'objective.villa', metric: 'villa', target: 1 },
+      { key: 'favor', nameKey: 'objective.favor', metric: 'favor', target: 70 },
+      { key: 'sculpture', nameKey: 'campaign.objective.sculptureStock', metric: 'sculptureStock', target: 10 },
+    ],
+    startingTreasury: 1800,
+    worldCityCount: 5,
+  },
+  {
+    id: 'trade',
+    nameKey: 'scenario.trade',
+    descKey: 'scenario.tradeDesc',
+    icon: '⚓',
+    objectives: [
+      { key: 'tradePosts', nameKey: 'campaign.objective.tradePosts', metric: 'tradePosts', target: 2 },
+      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 35 },
+    ],
+    startingTreasury: 2200,
+    worldCityCount: 7,
+  },
 ];
 
 function getScenario(id){
   return SCENARIOS.find(s => s.id === id) || SCENARIOS[0];
 }
 
-function applyScenarioObjectives(scenario){
-  activeObjectives = (scenario.objectives || OBJECTIVES).map(o => Object.assign({}, o));
+function applyScenarioObjectives(scenario, opts){
+  opts = opts || {};
+  activeObjectives = (scenario.objectives || OBJECTIVES).map(o => {
+    const obj = Object.assign({}, o);
+    if (opts.recordBaseline && typeof evaluateObjectiveMetric === 'function'){
+      // Métriques cumulées depuis le début de la partie : viser un gain sur l'épisode.
+      if (obj.metric === 'wheatProduced') obj.baseline = evaluateObjectiveMetric(obj);
+    }
+    return obj;
+  });
 }
 
 async function startScenario(scenarioId){
@@ -112,6 +145,7 @@ async function resetGameForScenario(scenario){
   defeatAnnounced = false;
   defeatReason = null;
   festivalTicksLeft = 0;
+  if (typeof resetObjectiveTracking === 'function') resetObjectiveTracking();
   generateWorldCities(scenario.worldCityCount);
   if (typeof configureWorldTradeForMapProfile === 'function'){
     configureWorldTradeForMapProfile(scenario.mapProfile);
