@@ -2218,6 +2218,8 @@ h2{
    </div>
    <p class="manageHint" id="perfCurrentLabel"></p>
  </aside>
+
+ <aside id="managePanel" class="panel">
    <button class="close" onclick="closePanels()">×</button>
    <h2 id="manageTitle">Gestion</h2>
    <h3 data-i18n="panel.resources">Ressources</h3>
@@ -2360,7 +2362,7 @@ h2{
 <script src="js/i18n.js?v=4"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
-<script src="js/config.js?v=46"></script>
+<script src="js/config.js?v=47"></script>
 <script src="js/mediterraneanDecorSprites.js?v=4"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js?v=4"></script>
@@ -2380,7 +2382,7 @@ h2{
 <script src="js/houses.js?v=4"></script>
 <script src="js/roadStairs.js?v=3"></script>
 <script src="js/walkers.js?v=9"></script>
-<script src="js/maintenance.js?v=4"></script>
+<script src="js/maintenance.js?v=5"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
 <script src="js/godSatisfaction.js"></script>
@@ -2411,7 +2413,7 @@ h2{
 <script src="js/threeRenderer.js?v=24"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
-<script src="js/migrationAgents.js?v=4"></script>
+<script src="js/migrationAgents.js?v=5"></script>
 <script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
 <script src="js/scenarios.js?v=4"></script>
@@ -2671,6 +2673,7 @@ function closePanels(){
 }
 function togglePanel(id){
  const panel=document.getElementById(id);
+ if(!panel) return; // panneau absent du DOM : on n'ouvre rien plutôt que de planter
  const wasOpen=panel.classList.contains('open');
  closePanels();
  if(!wasOpen){
