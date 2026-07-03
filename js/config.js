@@ -176,44 +176,44 @@ const WHEAT_CROP_SIZE = 0.4;    // 0.6 × 0.67 (−33 %)
 // ou en "consumes"ant une ressource intermédiaire). Ex. olives -> huile, raisin -> vin.
 const BUILDING_DEFS = {
   // ---- Industrie : matières premières (depuis le terrain) ----
-  farm:      { name:'building.farm',      icon:'🌾', color:'#c9a227', validTerrain:'wheat',  produces:'wheat',  rate:2.0, sprite:'assets/buildings/farm.png', cost:70, upkeep:0.5, workers:5 },
-  quarry:    { name:'building.quarry',    icon:'⛏️', color:'#9aa5ab', validTerrain:'marble', produces:'marble', rate:1.1, sprite:'assets/buildings/quarry.png', cost:85, upkeep:0.5, workers:5 },
-  oliveGrove:{ name:'building.oliveGrove',icon:'🫒', color:'#7a8b3a', validTerrain:'grass',  produces:'olives', rate:1.35, sprite:'assets/buildings/oliveGrove.png', cost:65, upkeep:0.5, workers:4 },
-  vineyard:  { name:'building.vineyard',  icon:'🍇', color:'#6b3a6b', validTerrain:'grass',  produces:'grapes', rate:1.35, sprite:'assets/buildings/vineyard.png', cost:65, upkeep:0.5, workers:4 },
-  sheepFarm: { name:'building.sheepFarm', icon:'🐑', color:'#cbc6b8', validTerrain:'grass',  produces:'wool',   rate:1.0, sprite:'assets/buildings/sheepFarm.png', cost:75, upkeep:0.5, workers:4 },
-  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:1.2, sprite:'assets/buildings/fishery.png', cost:70, upkeep:0.5, workers:4 },
-  charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:'forest', produces:'coal',   rate:0.9, sprite:'assets/buildings/charcoalPit.png', cost:90, upkeep:0.5, workers:5 },
+  farm:      { name:'building.farm',      icon:'🌾', color:'#c9a227', validTerrain:'wheat',  produces:'wheat',  rate:2.0, sprite:'assets/buildings/farm.png', cost:50, upkeep:0.3, workers:5 },
+  quarry:    { name:'building.quarry',    icon:'⛏️', color:'#9aa5ab', validTerrain:'marble', produces:'marble', rate:1.1, sprite:'assets/buildings/quarry.png', cost:60, upkeep:0.3, workers:5 },
+  oliveGrove:{ name:'building.oliveGrove',icon:'🫒', color:'#7a8b3a', validTerrain:'grass',  produces:'olives', rate:1.35, sprite:'assets/buildings/oliveGrove.png', cost:45, upkeep:0.3, workers:4 },
+  vineyard:  { name:'building.vineyard',  icon:'🍇', color:'#6b3a6b', validTerrain:'grass',  produces:'grapes', rate:1.35, sprite:'assets/buildings/vineyard.png', cost:45, upkeep:0.3, workers:4 },
+  sheepFarm: { name:'building.sheepFarm', icon:'🐑', color:'#cbc6b8', validTerrain:'grass',  produces:'wool',   rate:1.0, sprite:'assets/buildings/sheepFarm.png', cost:40, upkeep:0.3, workers:4 },
+  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:1.2, sprite:'assets/buildings/fishery.png', cost:50, upkeep:0.3, workers:4 },
+  charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:'forest', produces:'coal',   rate:0.9, sprite:'assets/buildings/charcoalPit.png', cost:65, upkeep:0.3, workers:5 },
   // ---- Industrie : ateliers de transformation (consomment une matière) ----
-  workshop:  { name:'building.workshop',  icon:'⚒️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:1.05, sprite:'assets/buildings/workshop.png', cost:140, upkeep:1, workers:7 },
-  oilPress:  { name:'building.oilPress',  icon:'🛢️', color:'#b9a93a', validTerrain:'grass',  consumes:{olives:1}, produces:'oil',       rate:1.05, sprite:'assets/buildings/oilPress.png', cost:100, upkeep:0.5, workers:5 },
-  winery:    { name:'building.winery',    icon:'🍷', color:'#7d2b46', validTerrain:'grass',  consumes:{grapes:1}, produces:'wine',      rate:1.05, sprite:'assets/buildings/winery.png', cost:100, upkeep:0.5, workers:5 },
-  weaver:    { name:'building.weaver',    icon:'🧵', color:'#9a8b72', validTerrain:'grass',  consumes:{wool:1},   produces:'clothing', rate:0.95, sprite:'assets/buildings/weaver.png', cost:115, upkeep:0.5, workers:5 },
-  foundry:   { name:'building.foundry',   icon:'🔥', color:'#8b6914', validTerrain:'grass',  consumes:{coal:1, marble:0.4}, produces:'bronze', rate:0.9, sprite:'assets/buildings/foundry.png', cost:155, upkeep:1, workers:6 },
-  armory:    { name:'building.armory',    icon:'🗡️', color:'#5c6b7a', validTerrain:'grass',  consumes:{bronze:1, clothing:0.5}, produces:'arms', rate:0.85, cost:195, upkeep:1, workers:7, isArmory:true, sprite:'assets/buildings/armory.png' },
+  workshop:  { name:'building.workshop',  icon:'⚒️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:1.05, sprite:'assets/buildings/workshop.png', cost:70, upkeep:0.6, workers:7 },
+  oilPress:  { name:'building.oilPress',  icon:'🛢️', color:'#b9a93a', validTerrain:'grass',  consumes:{olives:1}, produces:'oil',       rate:1.05, sprite:'assets/buildings/oilPress.png', cost:70, upkeep:0.3, workers:5 },
+  winery:    { name:'building.winery',    icon:'🍷', color:'#7d2b46', validTerrain:'grass',  consumes:{grapes:1}, produces:'wine',      rate:1.05, sprite:'assets/buildings/winery.png', cost:70, upkeep:0.3, workers:5 },
+  weaver:    { name:'building.weaver',    icon:'🧵', color:'#9a8b72', validTerrain:'grass',  consumes:{wool:1},   produces:'clothing', rate:0.95, sprite:'assets/buildings/weaver.png', cost:80, upkeep:0.3, workers:5 },
+  foundry:   { name:'building.foundry',   icon:'🔥', color:'#8b6914', validTerrain:'grass',  consumes:{coal:1, marble:0.4}, produces:'bronze', rate:0.9, sprite:'assets/buildings/foundry.png', cost:110, upkeep:0.6, workers:6 },
+  armory:    { name:'building.armory',    icon:'🗡️', color:'#5c6b7a', validTerrain:'grass',  consumes:{bronze:1, clothing:0.5}, produces:'arms', rate:0.85, cost:140, upkeep:0.6, workers:7, isArmory:true, sprite:'assets/buildings/armory.png' },
   // ---- Stockage ----
-  granary:   { name:'building.granary',   icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150}, sprite:'assets/buildings/granary.png', cost:55, upkeep:0.5 },
-  warehouse: { name:'building.warehouse', icon:'📦', color:'#9c7b4a', validTerrain:'grass',  storageBonus:{ marble:40, sculpture:30, olives:80, oil:100, grapes:80, wine:100, wool:80, clothing:60, fish:60, coal:50, bronze:40, arms:30 }, sprite:'assets/buildings/warehouse.png', cost:70, upkeep:0.5 },
+  granary:   { name:'building.granary',   icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150}, sprite:'assets/buildings/granary.png', cost:40, upkeep:0.3 },
+  warehouse: { name:'building.warehouse', icon:'📦', color:'#9c7b4a', validTerrain:'grass',  storageBonus:{ marble:40, sculpture:30, olives:80, oil:100, grapes:80, wine:100, wool:80, clothing:60, fish:60, coal:50, bronze:40, arms:30 }, sprite:'assets/buildings/warehouse.png', cost:50, upkeep:0.3 },
   // ---- Commerce extérieur ----
   // Exporte chaque mois les marchandises sélectionnées (voir trade.js). Plusieurs
   // comptoirs cumulent leur débit d'export.
-  tradingPost:{ name:'building.tradingPost', icon:'⚖️', color:'#b08d57', validTerrain:'grass', isTradePost:true, cost:175, upkeep:1, workers:4, sprite:'assets/buildings/tradingPost.png' },
+  tradingPost:{ name:'building.tradingPost', icon:'⚖️', color:'#b08d57', validTerrain:'grass', isTradePost:true, cost:125, upkeep:0.6, workers:4, sprite:'assets/buildings/tradingPost.png' },
   // ---- Défense mythologique ----
   // Permet d'invoquer un héros quand un monstre menace la cité (voir creatures.js).
-  heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:210, upkeep:1.5, sprite:'assets/buildings/heroTemple.png' },
-  barracks:   { name:'building.barracks',   icon:'🛡️', color:'#6a6f7a', validTerrain:'grass', isBarracks:true, cost:175, upkeep:1, workers:6, sprite:'assets/buildings/barracks.png' },
+  heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:150, upkeep:0.9, sprite:'assets/buildings/heroTemple.png' },
+  barracks:   { name:'building.barracks',   icon:'🛡️', color:'#6a6f7a', validTerrain:'grass', isBarracks:true, cost:125, upkeep:0.6, workers:6, sprite:'assets/buildings/barracks.png' },
   // ---- Services à walker (desservent les maisons à portée) ----
-  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:6, sprite:'assets/buildings/fountain.png', cost:55, upkeep:0.5 },
-  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:6, sprite:'assets/buildings/market.png', cost:85, upkeep:0.5 },
-  temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:6, sprite:'assets/buildings/temple.png', cost:105, upkeep:1 },
-  clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:6, sprite:'assets/buildings/clinic.png', cost:105, upkeep:1 },
-  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:6, cost:105, upkeep:1, sprite:'assets/buildings/taxOffice.png' },
-  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:18, capacity:6, cost:105, upkeep:1, sprite:'assets/buildings/watchtower.png' },
+  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:6, sprite:'assets/buildings/fountain.png', cost:40, upkeep:0.3 },
+  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:6, sprite:'assets/buildings/market.png', cost:60, upkeep:0.3 },
+  temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:6, sprite:'assets/buildings/temple.png', cost:105, upkeep:0.6 },
+  clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:6, sprite:'assets/buildings/clinic.png', cost:105, upkeep:0.6 },
+  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:6, cost:105, upkeep:0.6, sprite:'assets/buildings/taxOffice.png' },
+  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:18, capacity:6, cost:105, upkeep:0.6, sprite:'assets/buildings/watchtower.png' },
   // ---- Habitation ----
   maison:    { name:'building.maison',    icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true, cost:30 },
   // ---- Décorations : diffusent du "cachet" (beauty) autour d'elles (voir beauty.js) ----
-  statue:    { name:'building.statue',    icon:'🗿', color:'#cdc7ba', validTerrain:'grass', isDecoration:true, beauty:6, range:2, cost:85, upkeep:0.5, sprite:'assets/buildings/statue.png' },
+  statue:    { name:'building.statue',    icon:'🗿', color:'#cdc7ba', validTerrain:'grass', isDecoration:true, beauty:6, range:2, cost:60, upkeep:0.3, sprite:'assets/buildings/statue.png' },
   garden:    { name:'building.garden',    icon:'🌳', color:'#6f9a4c', validTerrain:'grass', isDecoration:true, beauty:4, range:3, cost:40 },
-  colonnade: { name:'building.colonnade', icon:'🏛️', color:'#e3ddcf', validTerrain:'grass', isDecoration:true, beauty:5, range:2, cost:70, upkeep:0.5, sprite:'assets/buildings/colonnade.png' },
+  colonnade: { name:'building.colonnade', icon:'🏛️', color:'#e3ddcf', validTerrain:'grass', isDecoration:true, beauty:5, range:2, cost:50, upkeep:0.3, sprite:'assets/buildings/colonnade.png' },
   // ---- Temples monumentaux (2×2 cases) : alliance avec un dieu, avantages puissants ----
   // Voir monuments.js. Coût propre à chaque dieu (GODS), affiché dans la modale de choix.
   grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:152,
@@ -554,8 +554,8 @@ const DEMOLISH_REFUND_RATE = 0.5; // fraction du coût de construction rembours�
 //   - collecte    : proportionnelle directe au taux (voir taxCollectionRate)
 //   - efficacité  : pénalise la production si le taux est haut (voir taxes.js)
 //   - croissance  : ralentit l'évolution des maisons si le taux est haut (voir houses.js)
-const TAX_BASE_PER_POP = 0.48;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
-const TAX_RATE_DEFAULT = 0.45;    // taux neutre au démarrage
+const TAX_BASE_PER_POP = 0.85;    // augmenté pour équilibre    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
+const TAX_RATE_DEFAULT = 0.55;    // taux de départ plus favorable    // taux neutre au démarrage
 const TAX_EFFICIENCY_AT_ZERO = 1.12;
 const TAX_EFFICIENCY_AT_MAX  = 0.72;
 const TAX_GROWTH_CHANCE_AT_ZERO = 0.22;  // probabilité d'évolution PAR JOUR, taux 0
