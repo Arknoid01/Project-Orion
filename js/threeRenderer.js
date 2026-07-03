@@ -529,7 +529,8 @@ const _THREE_WALKER_FRAME_W = 96;
 const _THREE_WALKER_FRAME_H = 96;
 const _THREE_WALKER_FRAMES  = 3;
 const _THREE_WALKER_DIRS    = 4;
-const _THREE_WALKER_DIR_ROW = { left: 0, down: 1, right: 2, up: 3 };
+// Ordre RÉEL des lignes de la planche : 0=dos(up) · 1=gauche · 2=droite · 3=face(down)
+const _THREE_WALKER_DIR_ROW = { up: 0, left: 1, right: 2, down: 3 };
 
 function _threeWalkerFrameTexture(THREE, atlas, frameCol, frameRow){
   const tex = atlas.clone();
