@@ -125,12 +125,18 @@ function monsterAttack(){
       } else {
         cell.building = null; cell.houseLevel = 0; cell.population = 0;
         if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+        if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col: c, row: r }]);
+        if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col: c, row: r }]);
+        if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
         showNotification(t('monster.fireDestroyed'), 'bad');
       }
     }
   } else {
     cell.building = null; cell.houseLevel = 0; cell.population = 0;
     if (typeof invalidateTerrainLayerCache === 'function') invalidateTerrainLayerCache();
+    if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col: c, row: r }]);
+    if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col: c, row: r }]);
+    if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
     showNotification(t('monster.destroyed', { building: name }), 'bad');
   }
 

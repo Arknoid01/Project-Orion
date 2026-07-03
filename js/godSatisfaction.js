@@ -277,6 +277,7 @@ function triggerGodEarthquake(godKey){
     return;
   }
   const hits = Math.min(2, candidates.length);
+  const razed = [];
   for (let i = 0; i < hits; i++){
     const idx = Math.floor(Math.random() * candidates.length);
     const { col, row, building } = candidates.splice(idx, 1)[0];
@@ -286,7 +287,14 @@ function triggerGodEarthquake(godKey){
       grid[row][col].building = null;
       grid[row][col].houseLevel = 0;
       grid[row][col].population = 0;
+      razed.push({ col, row });
     }
+  }
+  // Nettoyage rendu Three (dalle) + Pixi (sprite) pour ne pas laisser de tuile fantôme.
+  if (razed.length){
+    if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads(razed);
+    if (typeof patchThreeDecors === 'function') patchThreeDecors(razed);
+    if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
   }
   if (typeof recomputeAllWalkers === 'function') recomputeAllWalkers();
   showNotification(t('god.wrath.earthquake', { icon: god?.icon || '⚡', god: t('god.' + godKey) }), 'bad');

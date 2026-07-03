@@ -57,61 +57,83 @@ function tick(){
   if (!grid || !grid.length) return;
   DEBUG.tickCount++;
   lastTickTimestamp = performance.now();
-  tickMythology();
-  if (typeof tickMonumentBenefits === 'function') tickMonumentBenefits();
-  if (typeof tickAdventures === 'function') tickAdventures();
+
+  // Chaque sous-système est isolé : une exception (militaire, dieux, créatures…) est
+  // journalisée et ignorée pour CE tick, sans jamais geler toute la simulation
+  // (sinon les walkers se figent et oscillent — cf. bug « gel pendant une attaque »).
+  const _safe = (label, fn) => {
+    try { fn(); }
+    catch (err){
+      console.error('[tick] Exception dans « ' + label + ' » — sous-système ignoré ce tick :', err);
+      if (typeof debugWarn === 'function'){
+        debugWarn('Exception tick (' + label + ') : ' + ((err && err.message) ? err.message : String(err)));
+      }
+    }
+  };
+
+  _safe('mythology', () => tickMythology());
+  _safe('monumentBenefits', () => { if (typeof tickMonumentBenefits === 'function') tickMonumentBenefits(); });
+  _safe('adventures', () => { if (typeof tickAdventures === 'function') tickAdventures(); });
 
   // Économie : taxes encaissées, entretien payé, puis main-d'œuvre recalculée
   // (l'industrie produit ensuite au prorata du ratio d'emploi).
-  collectTaxes();
-  payUpkeep();
-  recomputeLabor();
+  _safe('economy', () => { collectTaxes(); payUpkeep(); recomputeLabor(); });
 
-  const caps = computeCaps();
+  let caps = {};
+  _safe('caps', () => { caps = computeCaps(); });
 
   // production simple (ferme, carrière, verger…)
-  forEachBuilding((type) => {
-    const def = BUILDING_DEFS[type];
-    if (def.produces && !def.consumes){
-      const factor = industryFactor(def.produces);
-      const before = resources[def.produces];
-      resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * factor);
-      const added = resources[def.produces] - before;
-      if (def.produces === 'wheat') totalWheatProduced += added;
-      if (before < caps[def.produces] && resources[def.produces] >= caps[def.produces]){
-        debugWarn(`Stock saturé : ${def.produces} a atteint son plafond (${caps[def.produces]})`);
+  _safe('production', () => {
+    forEachBuilding((type) => {
+      const def = BUILDING_DEFS[type];
+      if (def.produces && !def.consumes){
+        const factor = industryFactor(def.produces);
+        const before = resources[def.produces];
+        resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * factor);
+        const added = resources[def.produces] - before;
+        if (def.produces === 'wheat') totalWheatProduced += added;
+        if (before < caps[def.produces] && resources[def.produces] >= caps[def.produces]){
+          debugWarn(`Stock saturé : ${def.produces} a atteint son plafond (${caps[def.produces]})`);
+        }
       }
-    }
+    });
   });
 
   // ateliers de transformation (mono ou multi-ingrédients)
-  forEachBuilding((type) => {
-    runTransformBuilding(BUILDING_DEFS[type], caps);
+  _safe('transform', () => {
+    forEachBuilding((type) => {
+      runTransformBuilding(BUILDING_DEFS[type], caps);
+    });
   });
 
-  debugCheckInvariants();
-  processMarkets();
-  recomputeBeauty();
-  evaluateHouses();
-  checkMaintenanceRisks();
-  advanceWalkers();
-  checkObjectives();
-  checkDefeat();
-  tickFestival();
-  checkMonthChange();
-  if (!(typeof isColonyPhase === 'function' && isColonyPhase())){
-    tickDiplomacy();
-    if (typeof tickInvasion === 'function') tickInvasion();
-  }
-  tickCreatures();
-  if (typeof tickMigrants === 'function') tickMigrants();
-  if (typeof tickMilitaryAgents === 'function') tickMilitaryAgents();
-  if (typeof tickGodAgents === 'function') tickGodAgents();
-  renderCalendarPanel();
-  renderCreaturePanel();
-  if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
-  updateResourceBar(caps);
-  if (typeof renderHud === 'function') renderHud();
+  _safe('invariants', () => debugCheckInvariants());
+  _safe('markets', () => processMarkets());
+  _safe('beauty', () => recomputeBeauty());
+  _safe('houses', () => evaluateHouses());
+  _safe('maintenance', () => checkMaintenanceRisks());
+  _safe('walkers', () => advanceWalkers());
+  _safe('objectives', () => checkObjectives());
+  _safe('defeat', () => checkDefeat());
+  _safe('festival', () => tickFestival());
+  _safe('monthChange', () => checkMonthChange());
+  _safe('diplomacyInvasion', () => {
+    if (!(typeof isColonyPhase === 'function' && isColonyPhase())){
+      tickDiplomacy();
+      if (typeof tickInvasion === 'function') tickInvasion();
+    }
+  });
+  _safe('creatures', () => tickCreatures());
+  _safe('migrants', () => { if (typeof tickMigrants === 'function') tickMigrants(); });
+  _safe('militaryAgents', () => { if (typeof tickMilitaryAgents === 'function') tickMilitaryAgents(); });
+  _safe('godAgents', () => { if (typeof tickGodAgents === 'function') tickGodAgents(); });
+
+  _safe('hudRefresh', () => {
+    renderCalendarPanel();
+    renderCreaturePanel();
+    if (inspectedTile) renderInspector(inspectedTile.col, inspectedTile.row);
+    updateResourceBar(caps);
+    if (typeof renderHud === 'function') renderHud();
+  });
   // Affichage : boucle requestAnimationFrame (loop.js), pas de render() ici.
 }
 
