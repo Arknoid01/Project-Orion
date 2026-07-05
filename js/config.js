@@ -613,7 +613,7 @@ const DEMOLISH_REFUND_RATE = 0.5; // fraction du coût de construction rembours�
 //   - collecte    : proportionnelle directe au taux (voir taxCollectionRate)
 //   - efficacité  : pénalise la production si le taux est haut (voir taxes.js)
 //   - croissance  : ralentit l'évolution des maisons si le taux est haut (voir houses.js)
-const TAX_BASE_PER_POP = 0.55;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
+const TAX_BASE_PER_POP = 0.65;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
 const TAX_RATE_DEFAULT = 0.42;    // Sprint 4 — taux neutre early game (55 % était trop pénalisant)
 const TAX_EFFICIENCY_AT_ZERO = 1.12;
 const TAX_EFFICIENCY_AT_MAX  = 0.72;
@@ -757,7 +757,7 @@ const CHARACTER_ANIM_FRAME_MS = 120;
 // à côté ce jour-là (inventaire limité, recharge au bâtiment).
 const WALKER_PASS_DELIVERY = true;
 const WALKER_CARRY_BY_SERVICE = {
-  water: 12, market: 12, religion: 12, health: 12, tax: 20, fire: 14, culture: 12,
+  water: 12, market: 12, religion: 12, health: 12, tax: 20, fire: 22, culture: 12,
 };
 
 const SERVICE_WALKER_SPRITES = {

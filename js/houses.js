@@ -125,8 +125,10 @@ function walkerPassIconsEnabled(){
 
 function marketNeedBlocked(need, col, row){
   if (need !== 'food') return false;
-  const walker = walkers.find(w => w.serviceType === 'market'
-    && w.servedHouses.some(h => h.col === col && h.row === row));
+  const walker = typeof findServingWalker === 'function'
+    ? findServingWalker('market', col, row)
+    : walkers.find(w => w.serviceType === 'market'
+      && w.servedHouses.some(h => h.col === col && h.row === row));
   if (!walker) return true;
   const def = BUILDING_DEFS[walker.type];
   return typeof isGranaryRoadLinked === 'function'
@@ -134,8 +136,10 @@ function marketNeedBlocked(need, col, row){
 }
 
 function cultureNeedBlocked(col, row){
-  const walker = walkers.find(w => w.serviceType === 'culture'
-    && w.servedHouses.some(h => h.col === col && h.row === row));
+  const walker = typeof findServingWalker === 'function'
+    ? findServingWalker('culture', col, row)
+    : walkers.find(w => w.serviceType === 'culture'
+      && w.servedHouses.some(h => h.col === col && h.row === row));
   if (!walker) return true;
   const def = BUILDING_DEFS[walker.type];
   return typeof isCultureVenueLinked === 'function'

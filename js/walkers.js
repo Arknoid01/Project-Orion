@@ -98,33 +98,85 @@ function appendArmReturn(path, arm, hub){
     path.push({ col: hub.col, row: hub.row });
   }
 }
-function computePatrolPath(startCol, startRow, maxSteps){
-  const path = [{ col: startCol, row: startRow }];
-  const entries = roadNeighbors(startCol, startRow);
-  if (entries.length === 0) return path;
-  const rng = mulberry32(hashSeed(startCol, startRow));
-  const hub = entries.length === 1 ? entries[0] : pickDeterministic(rng, entries);
-  path.push(hub);
-  const exits = sortRoadExits(hub.col, hub.row, roadNeighbors(hub.col, hub.row)
-    .filter(n => !(n.col === startCol && n.row === startRow)));
-  if (exits.length === 2){
-    const half = Math.max(1, Math.floor((maxSteps - 1) / 2));
-    const armA = walkRoadArm(exits[0].col, exits[0].row, hub.col, hub.row, half);
-    path.push(...armA);
-    appendArmReturn(path, armA, hub);
-    const armB = walkRoadArm(exits[1].col, exits[1].row, hub.col, hub.row, half);
-    path.push(...armB);
-    appendArmReturn(path, armB, hub);
-    return path;
+function shortestPathInReach(fromCol, fromRow, toCol, toRow, reachKeys){
+  const goalKey = tileKey(toCol, toRow);
+  if (!reachKeys.has(goalKey)) return null;
+  const startKey = tileKey(fromCol, fromRow);
+  if (startKey === goalKey) return [];
+  const queue = [{ col: fromCol, row: fromRow, path: [] }];
+  const visited = new Set([startKey]);
+  while (queue.length){
+    const cur = queue.shift();
+    for (const n of roadNeighbors(cur.col, cur.row)){
+      const nk = tileKey(n.col, n.row);
+      if (!reachKeys.has(nk) || visited.has(nk)) continue;
+      const nextPath = cur.path.concat([{ col: n.col, row: n.row }]);
+      if (nk === goalKey) return nextPath;
+      visited.add(nk);
+      queue.push({ col: n.col, row: n.row, path: nextPath });
+    }
   }
-  const visited = new Set(path.map(t => tileKey(t.col, t.row)));
-  let current = exits.length > 0 ? pickDeterministic(rng, exits) : null;
-  while (current && path.length <= maxSteps){
-    path.push(current);
-    visited.add(tileKey(current.col, current.row));
-    const next = roadNeighbors(current.col, current.row)
-      .filter(n => !visited.has(tileKey(n.col, n.row)));
-    current = next.length > 0 ? pickDeterministic(rng, next) : null;
+  return null;
+}
+function appendPatrolSteps(path, steps){
+  if (!steps || !steps.length) return;
+  const last = path[path.length - 1];
+  for (let i = 0; i < steps.length; i++){
+    const step = steps[i];
+    if (i === 0 && last && last.col === step.col && last.row === step.row) continue;
+    path.push(step);
+  }
+}
+/** Patrouille qui visite toutes les routes dans la portée (évite les zones non couvertes). */
+function computePatrolPath(startCol, startRow, maxSteps){
+  const reach = computeServiceReach(startCol, startRow, maxSteps);
+  const reachKeys = new Set(reach.map(t => tileKey(t.col, t.row)));
+  const roadTiles = reach.filter(t => grid[t.row][t.col].hasRoad);
+  const path = [{ col: startCol, row: startRow }];
+  if (roadTiles.length === 0) return path;
+
+  const visitedRoads = new Set();
+  if (grid[startRow][startCol].hasRoad) visitedRoads.add(tileKey(startCol, startRow));
+
+  if (!grid[startRow][startCol].hasRoad){
+    const entries = roadNeighbors(startCol, startRow)
+      .filter(n => reachKeys.has(tileKey(n.col, n.row)));
+    if (entries.length === 0) return path;
+    const rng = mulberry32(hashSeed(startCol, startRow));
+    const entry = entries.length === 1 ? entries[0] : pickDeterministic(rng, entries);
+    appendPatrolSteps(path, [entry]);
+    visitedRoads.add(tileKey(entry.col, entry.row));
+  }
+
+  let guard = 0;
+  while (visitedRoads.size < roadTiles.length && guard < roadTiles.length * 4){
+    guard++;
+    const current = path[path.length - 1];
+    let bestPath = null;
+    let bestLen = Infinity;
+    for (const t of roadTiles){
+      const k = tileKey(t.col, t.row);
+      if (visitedRoads.has(k)) continue;
+      const sub = shortestPathInReach(current.col, current.row, t.col, t.row, reachKeys);
+      if (!sub || sub.length >= bestLen) continue;
+      bestLen = sub.length;
+      bestPath = sub;
+    }
+    if (!bestPath) break;
+    appendPatrolSteps(path, bestPath);
+    for (const step of bestPath){
+      if (grid[step.row][step.col].hasRoad) visitedRoads.add(tileKey(step.col, step.row));
+    }
+  }
+
+  const home = { col: startCol, row: startRow };
+  const current = path[path.length - 1];
+  if (current.col !== home.col || current.row !== home.row){
+    const back = shortestPathInReach(current.col, current.row, home.col, home.row, reachKeys);
+    appendPatrolSteps(path, back);
+    if (path[path.length - 1].col !== home.col || path[path.length - 1].row !== home.row){
+      path.push(home);
+    }
   }
   return path;
 }
@@ -203,6 +255,13 @@ function initWalkerPassState(w, def){
   w.inventory = carry;
   w.servedToday = new Set();
 }
+function walkerStepsPerTick(w){
+  if (!walkerPassDeliveryEnabled()) return 1;
+  const len = w.path.length;
+  if (len <= 1) return 0;
+  const dayTicks = typeof DAY_DURATION_TICKS !== 'undefined' ? DAY_DURATION_TICKS : 10;
+  return Math.max(1, Math.ceil(len / dayTicks));
+}
 function getWalkerServiceDay(){
   return Math.floor(DEBUG.tickCount / DAY_DURATION_TICKS);
 }
@@ -222,6 +281,8 @@ function resetWalkerDailyService(){
   if (typeof resetMarketDay === 'function') resetMarketDay();
 }
 function isWalkerEligibleHouse(w, col, row){
+  if (grid[row][col].building !== 'maison') return false;
+  if (walkerPassDeliveryEnabled()) return isTileInServiceReach(w, col, row);
   return w.servedHouses.some(h => h.col === col && h.row === row);
 }
 function housesAdjacentToTile(col, row){
@@ -250,7 +311,7 @@ function buildingsAdjacentToTile(col, row){
   }
   return out;
 }
-function isWalkerEligibleFireBuilding(w, col, row){
+function isTileInServiceReach(w, col, row){
   const def = BUILDING_DEFS[w.type];
   const range = def && def.range != null ? def.range : 18;
   const reachKeys = new Set(
@@ -260,6 +321,9 @@ function isWalkerEligibleFireBuilding(w, col, row){
     if (reachKeys.has(tileKey(c, r))) return true;
   }
   return false;
+}
+function isWalkerEligibleFireBuilding(w, col, row){
+  return isTileInServiceReach(w, col, row);
 }
 function countFireEligibleBuildings(w){
   let count = 0;
@@ -272,22 +336,17 @@ function countFireEligibleBuildings(w){
   return count;
 }
 function deliverFireServiceAtTile(w, col, row){
-  if (w.inventory <= 0) return;
   for (const house of housesAdjacentToTile(col, row)){
     if (!isWalkerEligibleHouse(w, house.col, house.row)) continue;
     const key = tileKey(house.col, house.row);
     if (w.servedToday.has(key) || isPassServedToday('fire', house.col, house.row)) continue;
-    w.inventory--;
-    w.servedToday.add(key);
-    markPassService('fire', house.col, house.row);
+    servePassAt(w, house.col, house.row);
   }
   for (const b of buildingsAdjacentToTile(col, row)){
     if (!isWalkerEligibleFireBuilding(w, b.col, b.row)) continue;
     const key = tileKey(b.col, b.row);
     if (w.servedToday.has(key) || isPassServedToday('fire', b.col, b.row)) continue;
-    w.inventory--;
-    w.servedToday.add(key);
-    markPassService('fire', b.col, b.row);
+    servePassAt(w, b.col, b.row);
   }
 }
 function isGranaryRoadLinked(serviceCol, serviceRow, maxSteps){
@@ -322,13 +381,11 @@ function tryRefillWalkerAtHome(w){
 }
 function servePassAt(w, col, row){
   const key = tileKey(col, row);
-  w.inventory--;
   w.servedToday.add(key);
   markPassService(w.serviceType, col, row);
 }
 function deliverWalkerServiceAtTile(w, col, row){
   if (!walkerPassDeliveryEnabled()) return;
-  if (w.inventory <= 0) return;
   if (w.serviceType === 'fire'){
     deliverFireServiceAtTile(w, col, row);
     return;
@@ -393,7 +450,8 @@ function recomputeAllWalkers(){
     const def = BUILDING_DEFS[type];
     if (!def.isService) return;
     const path = computePatrolPath(col, row, def.range);
-    let servedHouses = computeServedHouses(col, row, def.range, def.capacity);
+    const houseCap = walkerPassDeliveryEnabled() ? 9999 : def.capacity;
+    let servedHouses = computeServedHouses(col, row, def.range, houseCap);
     servedHouses = orderServedHousesByPath(path, servedHouses);
     const w = {
       col, row, type, serviceType: def.serviceType, path,
@@ -414,35 +472,43 @@ function recomputeAllWalkers(){
   if (typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
   if (typeof invalidateCityMap === 'function') invalidateCityMap();
 }
+function advanceWalkerStep(w, now){
+  if (w.path.length <= 1) return false;
+  const startIdx = w.pathIndex;
+  let guard = 0;
+  do {
+    w.prevPathIndex = w.pathIndex;
+    w.pathIndex += w.direction;
+    if (w.pathIndex >= w.path.length - 1){
+      w.pathIndex = w.path.length - 1;
+      w.direction = -1;
+    } else if (w.pathIndex <= 0){
+      w.pathIndex = 0;
+      w.direction = 1;
+    }
+    guard++;
+    const from = w.path[w.prevPathIndex];
+    const to = w.path[w.pathIndex];
+    if (from && to && (from.col !== to.col || from.row !== to.row)) break;
+  } while (guard < w.path.length && w.pathIndex !== startIdx);
+  const from = w.path[w.prevPathIndex];
+  const to = w.path[w.pathIndex];
+  if (!from || !to || (from.col === to.col && from.row === to.row)) return false;
+  w.moveStartTime = now;
+  processWalkerSegmentPass(w, from, to);
+  tryRefillWalkerAtHome(w);
+  if (typeof applyIsoFacingFromDelta === 'function'){
+    applyIsoFacingFromDelta(w, to.col - from.col, to.row - from.row);
+  }
+  return true;
+}
 function advanceWalkers(){
   ensureWalkerServiceDay();
   const now = performance.now();
   walkers.forEach(w => {
-    if (w.path.length <= 1) return;
-    const startIdx = w.pathIndex;
-    let guard = 0;
-    do {
-      w.prevPathIndex = w.pathIndex;
-      w.pathIndex += w.direction;
-      if (w.pathIndex >= w.path.length - 1){
-        w.pathIndex = w.path.length - 1;
-        w.direction = -1;
-      } else if (w.pathIndex <= 0){
-        w.pathIndex = 0;
-        w.direction = 1;
-      }
-      guard++;
-      const from = w.path[w.prevPathIndex];
-      const to = w.path[w.pathIndex];
-      if (from && to && (from.col !== to.col || from.row !== to.row)) break;
-    } while (guard < w.path.length && w.pathIndex !== startIdx);
-    w.moveStartTime = now;
-    const from = w.path[w.prevPathIndex];
-    const to = w.path[w.pathIndex];
-    processWalkerSegmentPass(w, from, to);
-    tryRefillWalkerAtHome(w);
-    if (typeof applyIsoFacingFromDelta === 'function' && from && to){
-      applyIsoFacingFromDelta(w, to.col - from.col, to.row - from.row);
+    const steps = walkerStepsPerTick(w);
+    for (let i = 0; i < steps; i++){
+      if (!advanceWalkerStep(w, now)) break;
     }
   });
   if (walkerPassDeliveryEnabled() && typeof markHouseIconsDirty === 'function'){
@@ -450,18 +516,21 @@ function advanceWalkers(){
   }
 }
 function isHouseServedBy(serviceType, col, row){
-  if (!walkers.some(w => w.serviceType === serviceType
-    && w.servedHouses.some(h => h.col === col && h.row === row))){
-    return false;
-  }
+  const inReach = w => w.serviceType === serviceType && (
+    walkerPassDeliveryEnabled()
+      ? isTileInServiceReach(w, col, row)
+      : w.servedHouses.some(h => h.col === col && h.row === row));
+  if (!walkers.some(inReach)) return false;
   if (walkerPassDeliveryEnabled()){
     return isPassServedToday(serviceType, col, row);
   }
   return true;
 }
 function isHouseEligibleForService(serviceType, col, row){
-  return walkers.some(w => w.serviceType === serviceType
-    && w.servedHouses.some(h => h.col === col && h.row === row));
+  return walkers.some(w => w.serviceType === serviceType && (
+    walkerPassDeliveryEnabled()
+      ? isTileInServiceReach(w, col, row)
+      : w.servedHouses.some(h => h.col === col && h.row === row)));
 }
 function isTileFireServed(col, row){
   if (walkerPassDeliveryEnabled()){
@@ -483,17 +552,29 @@ function isTileFireEligible(col, row){
 window.isTileFireEligible = isTileFireEligible;
 window.isTileFireServed = isTileFireServed;
 function findServingWalker(serviceType, col, row){
-  return walkers.find(w => w.serviceType === serviceType && w.servedHouses.some(h => h.col === col && h.row === row)) || null;
+  return walkers.find(w => w.serviceType === serviceType && (
+    walkerPassDeliveryEnabled()
+      ? isTileInServiceReach(w, col, row)
+      : w.servedHouses.some(h => h.col === col && h.row === row))) || null;
 }
-function serviceCoverageTileCount(serviceCol, serviceRow, maxSteps){
-  return computeServiceReach(serviceCol, serviceRow, maxSteps).length;
+function countWalkerEligibleHouses(w){
+  let n = 0;
+  forEachBuilding((type, col, row) => {
+    if (type !== 'maison') return;
+    if (isTileInServiceReach(w, col, row)) n++;
+  });
+  return n;
 }
 function getWalkerPassStats(w){
-  const eligibleHouses = w.servedHouses.length;
+  const eligibleHouses = countWalkerEligibleHouses(w);
   const eligibleBuildings = w.serviceType === 'fire' ? countFireEligibleBuildings(w) : 0;
   const eligible = eligibleHouses + eligibleBuildings;
   const served = w.servedToday ? w.servedToday.size : 0;
   return { eligible, served, inventory: w.inventory, carry: w.carryCapacity };
+}
+window.isTileInServiceReach = isTileInServiceReach;
+function serviceCoverageTileCount(serviceCol, serviceRow, maxSteps){
+  return computeServiceReach(serviceCol, serviceRow, maxSteps).length;
 }
 function isPatrolWalker(agent){
   return !!(agent && agent.serviceType != null && Array.isArray(agent.path) && agent.direction != null);

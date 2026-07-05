@@ -80,9 +80,11 @@ global.collectTaxes = function(){
   let collected = 0;
   const perPop = taxCollectionRate();
   walkers.filter(w => w.serviceType === 'tax').forEach(w => {
-    for (const house of w.servedHouses){
-      collected += grid[house.row][house.col].population * perPop;
-    }
+    forEachBuilding((type, col, row) => {
+      if (type !== 'maison') return;
+      if (!isTileInServiceReach(w, col, row)) return;
+      collected += grid[row][col].population * perPop;
+    });
   });
   treasury += collected;
   return collected;
@@ -120,12 +122,9 @@ assert(w.servedHouses.length === 4, '4 eligible houses');
 assert(!isHouseServedBy('water', 7, 4), 'house not served yet');
 assert(w.inventory === 3, 'inventory full');
 
-console.log('Test 2: pass delivery serves houses until inventory empty, then refills at home');
-for (let i = 0; i < 8; i++) advanceWalkers();
-assert(w.servedToday.size <= 3, 'carry limits one lap before home refill');
-assert(w.servedToday.size >= 1, 'at least 1 house served after patrol');
-for (let i = 0; i < 40; i++) advanceWalkers();
-assert(w.servedToday.size === w.servedHouses.length, 'home refill serves all eligible houses');
+console.log('Test 2: pass delivery serves all eligible houses along patrol');
+for (let i = 0; i < 15; i++) advanceWalkers();
+assert(w.servedToday.size === w.servedHouses.length, 'all eligible houses served on patrol');
 
 console.log('Test 3: day reset clears servedToday');
 const servedBeforeDay = w.servedToday.size;
@@ -162,17 +161,15 @@ assert(isGranaryRoadLinked(3, 3, 18), 'granary linked');
 for (let i = 0; i < 25; i++) advanceWalkers();
 assert(isHouseSupplied('food', 5, 2), 'food delivered after granary on network');
 
-console.log('Test 5: carry limits per lap but home refill eventually serves all');
+console.log('Test 5: full patrol eventually serves all eligible houses');
 DEBUG.tickCount = 0;
 lastWalkerServiceDay = -1;
 for (let r = 0; r < GRID_ROWS; r++)
   for (let c = 0; c < GRID_COLS; c++) grid[r][c] = makeCell();
 setupWaterLine();
 const eligible = walkers[0].servedHouses.length;
-for (let i = 0; i < 6; i++) advanceWalkers();
-assert(walkers[0].servedToday.size <= 3, 'carry limits first lap');
-for (let i = 0; i < 40; i++) advanceWalkers();
-assert(walkers[0].servedToday.size === eligible, 'all eligible houses served after home refill');
+for (let i = 0; i < 15; i++) advanceWalkers();
+assert(walkers[0].servedToday.size === eligible, 'all eligible houses served after patrol');
 
 console.log('Test 6: fire building needs watchman pass today');
 DEBUG.tickCount = 0;
@@ -259,6 +256,28 @@ for (let i = 0; i < 25; i++){
   if (needIconState('water', 7, 4) === 'ok') break;
 }
 assert(needIconState('water', 7, 4) === 'ok', 'water icon clears after service');
+
+console.log('Test 11: fire patrol covers branch roads near watchtower');
+DEBUG.tickCount = 0;
+lastWalkerServiceDay = -1;
+resetWalkerDailyService();
+for (let r = 0; r < GRID_ROWS; r++)
+  for (let c = 0; c < GRID_COLS; c++) grid[r][c] = makeCell();
+grid[5][5].building = 'watchtower';
+grid[5][6].hasRoad = true;
+grid[5][7].hasRoad = true;
+grid[4][7].hasRoad = true;
+grid[4][6].building = 'farm';
+recomputeAllWalkers();
+const firePath = walkers[0].path.map(t => t.col + ',' + t.row);
+assert(firePath.includes('7,4'), 'patrol visits branch road tile');
+assert(isTileFireEligible(6, 4), 'farm 2 tiles from tower is eligible');
+assert(!isTileFireServed(6, 4), 'farm not protected before patrol');
+for (let i = 0; i < 50; i++){
+  advanceWalkers();
+  if (isTileFireServed(6, 4)) break;
+}
+assert(isTileFireServed(6, 4), 'farm protected after full patrol coverage');
 
 console.log('\\nAll walker pass tests passed.');
 `;
