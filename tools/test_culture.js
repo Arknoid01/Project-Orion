@@ -166,13 +166,19 @@ assert(!isVenueCultureNetworkLinked(2, 4), 'stoa off roads not linked');
 console.log('Test 5: venue spectacle can start when enough houses served');
 resetGrid();
 layCultureLine();
+// Avance les walkers au jour 1 (tick 10) pour que les marques de service soient valides
+// quand tryStartVenueEvent vérifie (DAY_DURATION_TICKS % 10 === 0)
+DEBUG.tickCount = DAY_DURATION_TICKS;
+lastWalkerServiceDay = -1;
 for (let i = 0; i < 30; i++){
   advanceWalkers();
   if (isHouseServedBy('culture', 8, 4)) break;
 }
 assert(isHouseServedBy('culture', 8, 4), 'precondition: house culture-served');
-DEBUG.tickCount = DAY_DURATION_TICKS;
+const origRandom = Math.random;
+Math.random = () => 0; // garantit que le tirage passe (VENUE_EVENT_CHANCE = 0.32)
 tryStartVenueEvent();
+Math.random = origRandom;
 assert(venueEventTicksLeft > 0, 'spectacle starts with served houses and resources');
 assert(typeof venueHappinessBonus === 'function' && venueHappinessBonus() > 0, 'spectacle grants growth bonus');
 

@@ -30,14 +30,7 @@ function collectTaxes(){
   walkers
     .filter(w => w.serviceType === 'tax')
     .forEach(w => {
-      if (typeof isTileInServiceReach === 'function' && typeof WALKER_PASS_DELIVERY !== 'undefined' && WALKER_PASS_DELIVERY){
-        forEachBuilding((type, col, row) => {
-          if (type !== 'maison') return;
-          if (!isTileInServiceReach(w, col, row)) return;
-          collected += grid[row][col].population * perPop;
-        });
-        return;
-      }
+      // mode pass : utilise la liste precomputée servedHouses (toutes maisons dans la portée)
       for (const house of w.servedHouses){
         collected += grid[house.row][house.col].population * perPop;
       }
