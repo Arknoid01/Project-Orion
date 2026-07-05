@@ -413,7 +413,7 @@ function deliverWalkerServiceAtTile(w, col, row){
       continue;
     }
     if (w.serviceType === 'health'){
-      if (!houseRequiresNeed(house.col, house.row, 'health')) continue;
+      // santé = protection contre la maladie pour TOUTES les maisons, pas seulement palais
       servePassAt(w, house.col, house.row);
       continue;
     }
