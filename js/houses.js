@@ -174,7 +174,9 @@ function needIconState(need, col, row){
 
 function pushNeedIcon(icons, need, col, row){
   const state = needIconState(need, col, row);
-  if (state === 'ok') return;
+  // 'pending' = walker en route → ne pas afficher (revient chaque jour, crée du bruit visuel)
+  // 'ok'      = besoin satisfait  → ne pas afficher
+  if (state !== 'missing') return;
   icons.push({ text: NEED_ICONS[need], status: state });
 }
 

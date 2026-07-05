@@ -218,7 +218,7 @@ const BUILDING_DEFS = {
   fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:1.2, sprite:'assets/buildings/fishery.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3, workers:4 },
   carrotFarm:{ name:'building.carrotFarm',icon:'🥕', color:'#e07830', validTerrain:'wheat',  produces:'carrots', rate:0, isSeasonalCrop:true, sprite:'assets/buildings/carrotFarm.png', spriteOffsetX:-4, spriteOffsetY:-10, cost:48, upkeep:0.3, workers:4 },
   huntingPavilion:{ name:'building.huntingPavilion', icon:'🏹', color:'#7a5a3a', validTerrain:'forest', produces:'meat', rate:1.15, sprite:'assets/buildings/huntingPavilion.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:58, upkeep:0.35, workers:4 },
-  charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:'forest', produces:'coal',   rate:0.9, sprite:'assets/buildings/charcoalPit.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:65, upkeep:0.3, workers:5 },
+  charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:['forest','marble'], produces:'coal', rate:0.9, sprite:'assets/buildings/charcoalPit.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:65, upkeep:0.3, workers:5 },
   // ---- Industrie : ateliers de transformation (consomment une matière) ----
   workshop:  { name:'building.workshop',  icon:'⚒️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:1.05, sprite:'assets/buildings/workshop.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:70, upkeep:0.6, workers:7 },
   oilPress:  { name:'building.oilPress',  icon:'🛢️', color:'#b9a93a', validTerrain:'grass',  consumes:{olives:1}, produces:'oil',       rate:1.05, sprite:'assets/buildings/oilPress.png', spriteOffsetX:-4, spriteOffsetY:-5, cost:70, upkeep:0.3, workers:5 },
@@ -735,10 +735,10 @@ const CHARACTER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
 // Chaque pas sur la grille iso est une diagonale à l'écran (tileCenter : x∝col−row, y∝col+row).
 // Clé = diagonale iso. facing = rang LPC (left/right sur la planche walkers).
 const ISO_DIAGONAL_FACING = {
-  se: { facing: 'down',  mirror: false }, // col+1
-  sw: { facing: 'left',  mirror: false }, // row+1
-  nw: { facing: 'left',  mirror: false }, // col−1
-  ne: { facing: 'down',  mirror: false }, // row−1
+  se: { facing: 'left', mirror: true  }, // col+1  → vers caméra droite
+  sw: { facing: 'down', mirror: false }, // row+1  → vers caméra (face)
+  nw: { facing: 'left', mirror: false }, // col−1  → s'éloigne à gauche
+  ne: { facing: 'down', mirror: true  }, // row−1  → s'éloigne à droite
 };
 // Décalage vertical des pieds sur la tuile iso (ancrage du sprite).
 const CHARACTER_ISO_FOOT_PAD = 10;

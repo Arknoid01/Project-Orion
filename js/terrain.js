@@ -6,6 +6,7 @@ const GRASS_LIKE_TERRAINS = ['grass', 'hill', 'sand'];
 const BLOCKED_TERRAINS = ['water', 'rock'];
 
 function terrainMatchesBuilding(cellTerrain, validTerrain){
+  if (Array.isArray(validTerrain)) return validTerrain.some(v => terrainMatchesBuilding(cellTerrain, v));
   if (cellTerrain === validTerrain) return true;
   if (validTerrain === 'grass'){
     return GRASS_LIKE_TERRAINS.includes(cellTerrain) || cellTerrain === 'forest';

@@ -623,7 +623,9 @@ function buildPalette(){
     const btn = document.createElement('button');
     btn.className = 'buildBtn';
     btn.dataset.key = key;
-    const reqLabel = t('terrainReq.' + def.validTerrain);
+    const reqLabel = Array.isArray(def.validTerrain)
+      ? def.validTerrain.map(v => t('terrainReq.' + v)).join(' / ')
+      : t('terrainReq.' + def.validTerrain);
     const costLabel = def.isMonument ? '' : t('economy.cost', { n: def.cost });
     btn.innerHTML = `<span class="swatch" style="background:${def.color}"></span>
       <span>${def.icon} ${t(def.name)}<small>${reqLabel}${costLabel ? ' · ' + costLabel : ''}</small></span>`;
@@ -801,7 +803,10 @@ function houseInspectorHtml(cell, col, row){
 function buildingInspectorHtml(type, col, row){
   const def = BUILDING_DEFS[type];
   let html = `<p><strong>${def.icon} ${t(def.name)}</strong></p>`;
-  html += `<p>🧱 ${t('inspector.terrain')} : ${t('terrainName.' + def.validTerrain)}</p>`;
+  const terrainLabel = Array.isArray(def.validTerrain)
+    ? def.validTerrain.map(v => t('terrainName.' + v)).join(' / ')
+    : t('terrainName.' + def.validTerrain);
+  html += `<p>🧱 ${t('inspector.terrain')} : ${terrainLabel}</p>`;
 
   let eco = `💰 ${t('inspector.cost')} : ${def.cost} dr.`;
   if (def.upkeep) eco += ` · ${t('inspector.upkeep')} : ${def.upkeep}${t('inspector.perTick')}`;
@@ -833,6 +838,13 @@ function buildingInspectorHtml(type, col, row){
       const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
       html += `<p>📦 ${t('inspector.produces')} : ${resLabel(def.produces)} — ${fmtRate(eff)}${t('inspector.perTick')} (${t('inspector.baseRate')} ${def.rate})</p>`;
       if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
+    }
+    if (def.produces){
+      const stock = Math.floor(resources[def.produces] || 0);
+      const caps = typeof computeCaps === 'function' ? computeCaps() : {};
+      const cap = caps[def.produces];
+      const capStr = cap != null ? ` / ${cap}` : '';
+      html += `<p>🏺 ${t('inspector.stock')} : ${stock}${capStr} ${resLabel(def.produces)}</p>`;
     }
   }
 
