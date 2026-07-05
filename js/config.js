@@ -241,8 +241,8 @@ const BUILDING_DEFS = {
   heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:150, upkeep:0.9, sprite:'assets/buildings/heroTemple.png', spriteOffsetX:-4, spriteOffsetY:-7 },
   barracks:   { name:'building.barracks',   icon:'🛡️', color:'#6a6f7a', validTerrain:'grass', isBarracks:true, cost:125, upkeep:0.6, workers:6, sprite:'assets/buildings/barracks.png', spriteOffsetX:-4, spriteOffsetY:-7 },
   // ---- Services à walker (desservent les maisons à portée) ----
-  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:12, sprite:'assets/buildings/fountain.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.3 },
-  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:12, sprite:'assets/buildings/market.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:60, upkeep:0.3 },
+  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:12, sprite:'assets/buildings/fountain.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.2 },
+  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:12, sprite:'assets/buildings/market.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:60, upkeep:0.2 },
   temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:12, sprite:'assets/buildings/temple.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:105, upkeep:0.6 },
   clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:12, sprite:'assets/buildings/clinic.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:105, upkeep:0.6 },
   taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:12, cost:105, upkeep:0.6, sprite:'assets/buildings/taxOffice.png', spriteOffsetX:-4, spriteOffsetY:-7 },
@@ -599,7 +599,7 @@ const NEED_ICONS = {
 // Marchés : 1 unité/bien/maison/jour. Croissance/émigration : 1 tirage/jour.
 // Impôts/entretien/production : chaque tick (~1 s). Commerce/armée : chaque mois.
 // Cité de départ type (~20 hab., 4 services + 1 ferme) : +8 à +15 dr./jour net.
-const STARTING_TREASURY = 2650;
+const STARTING_TREASURY = 3000;
 const TAX_PER_POP = 0.25;        // conservé pour compatibilité (non utilisé : voir TAX_BASE_PER_POP)
 const ROAD_COST = 4;             // coût de pose d'une case de route (pas un BUILDING_DEFS)
 const STAIR_COST = 8;            // escalier : relie deux niveaux de route voisins (±1)

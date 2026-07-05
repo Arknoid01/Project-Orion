@@ -4,6 +4,39 @@
 // passe sur une case route adjacente, avec un inventaire limité rechargé au bâtiment.
 let walkers = []; // { col, row, type, path, pathIndex, direction, servedHouses, inventory, servedToday }
 let lastWalkerServiceDay = -1;
+/** Besoins servis aujourd'hui — persiste entre recalculs de patrouille (pose route/bâtiment). */
+let passServiceToday = new Map(); // clé `${serviceType}:${col},${row}` → jour de service
+
+function passServiceKey(serviceType, col, row){
+  return `${serviceType}:${col},${row}`;
+}
+
+function markPassService(serviceType, col, row){
+  passServiceToday.set(passServiceKey(serviceType, col, row), getWalkerServiceDay());
+}
+
+function isPassServedToday(serviceType, col, row){
+  return passServiceToday.get(passServiceKey(serviceType, col, row)) === getWalkerServiceDay();
+}
+
+function syncWalkerServedToday(w){
+  w.servedToday = new Set();
+  for (const house of w.servedHouses){
+    if (isPassServedToday(w.serviceType, house.col, house.row)){
+      w.servedToday.add(tileKey(house.col, house.row));
+    }
+  }
+  if (w.serviceType === 'fire'){
+    forEachBuilding((type, col, row) => {
+      if (type === 'maison') return;
+      const bdef = BUILDING_DEFS[type];
+      if (bdef && bdef.isDecoration) return;
+      if (isWalkerEligibleFireBuilding(w, col, row) && isPassServedToday('fire', col, row)){
+        w.servedToday.add(tileKey(col, row));
+      }
+    });
+  }
+}
 /* ===================== GENERATION DU TRAJET ===================== */
 function tileKey(col, row){ return `${col},${row}`; }
 function roadNeighbors(col, row){
@@ -181,6 +214,7 @@ function ensureWalkerServiceDay(){
   resetWalkerDailyService();
 }
 function resetWalkerDailyService(){
+  passServiceToday.clear();
   walkers.forEach(w => {
     w.servedToday = new Set();
     w.inventory = w.carryCapacity != null ? w.carryCapacity : walkerCarryCapacity(BUILDING_DEFS[w.type] || {});
@@ -242,16 +276,18 @@ function deliverFireServiceAtTile(w, col, row){
   for (const house of housesAdjacentToTile(col, row)){
     if (!isWalkerEligibleHouse(w, house.col, house.row)) continue;
     const key = tileKey(house.col, house.row);
-    if (w.servedToday.has(key)) continue;
+    if (w.servedToday.has(key) || isPassServedToday('fire', house.col, house.row)) continue;
     w.inventory--;
     w.servedToday.add(key);
+    markPassService('fire', house.col, house.row);
   }
   for (const b of buildingsAdjacentToTile(col, row)){
     if (!isWalkerEligibleFireBuilding(w, b.col, b.row)) continue;
     const key = tileKey(b.col, b.row);
-    if (w.servedToday.has(key)) continue;
+    if (w.servedToday.has(key) || isPassServedToday('fire', b.col, b.row)) continue;
     w.inventory--;
     w.servedToday.add(key);
+    markPassService('fire', b.col, b.row);
   }
 }
 function isGranaryRoadLinked(serviceCol, serviceRow, maxSteps){
@@ -278,12 +314,17 @@ function isCultureVenueLinked(serviceCol, serviceRow, maxSteps){
   return linked;
 }
 function tryRefillWalkerAtHome(w){
-  if (walkerPassDeliveryEnabled()) return;
   if (!w.path.length) return;
   const home = w.path[0];
   const cur = w.path[w.pathIndex];
   if (!home || !cur || home.col !== cur.col || home.row !== cur.row) return;
-  w.inventory = w.carryCapacity;
+  w.inventory = w.carryCapacity != null ? w.carryCapacity : walkerCarryCapacity(BUILDING_DEFS[w.type] || {});
+}
+function servePassAt(w, col, row){
+  const key = tileKey(col, row);
+  w.inventory--;
+  w.servedToday.add(key);
+  markPassService(w.serviceType, col, row);
 }
 function deliverWalkerServiceAtTile(w, col, row){
   if (!walkerPassDeliveryEnabled()) return;
@@ -295,17 +336,15 @@ function deliverWalkerServiceAtTile(w, col, row){
   for (const house of housesAdjacentToTile(col, row)){
     if (!isWalkerEligibleHouse(w, house.col, house.row)) continue;
     const key = tileKey(house.col, house.row);
-    if (w.servedToday.has(key)) continue;
+    if (w.servedToday.has(key) || isPassServedToday(w.serviceType, house.col, house.row)) continue;
     if (w.serviceType === 'water'){
       if (!houseRequiresNeed(house.col, house.row, 'water')) continue;
-      w.inventory--;
-      w.servedToday.add(key);
+      servePassAt(w, house.col, house.row);
       continue;
     }
     if (w.serviceType === 'religion'){
       if (!houseRequiresNeed(house.col, house.row, 'religion')) continue;
-      w.inventory--;
-      w.servedToday.add(key);
+      servePassAt(w, house.col, house.row);
       continue;
     }
     if (w.serviceType === 'culture'){
@@ -313,30 +352,22 @@ function deliverWalkerServiceAtTile(w, col, row){
       const def = BUILDING_DEFS[w.type];
       const range = def && def.range != null ? def.range : 18;
       if (!isCultureVenueLinked(w.col, w.row, range)) continue;
-      w.inventory--;
-      w.servedToday.add(key);
+      servePassAt(w, house.col, house.row);
       continue;
     }
     if (w.serviceType === 'health'){
       if (!houseRequiresNeed(house.col, house.row, 'health')) continue;
-      w.inventory--;
-      w.servedToday.add(key);
+      servePassAt(w, house.col, house.row);
       continue;
     }
     if (w.serviceType === 'tax'){
-      if (typeof taxCollectionRate === 'function' && typeof treasury !== 'undefined'){
-        const pop = grid[house.row][house.col].population || 0;
-        treasury += pop * taxCollectionRate();
-      }
-      w.inventory--;
-      w.servedToday.add(key);
+      servePassAt(w, house.col, house.row);
       continue;
     }
     if (w.serviceType === 'market'){
       if (typeof deliverMarketAtHouse === 'function'){
         if (deliverMarketAtHouse(w, house.col, house.row)){
-          w.inventory--;
-          w.servedToday.add(key);
+          servePassAt(w, house.col, house.row);
         }
       }
     }
@@ -351,6 +382,12 @@ function processWalkerSegmentPass(w, fromTile, toTile){
 }
 /* ===================== RECALCUL / DEPLACEMENT ===================== */
 function recomputeAllWalkers(){
+  const prevInventory = new Map();
+  if (walkerPassDeliveryEnabled()){
+    walkers.forEach(w => {
+      prevInventory.set(`${w.col},${w.row},${w.type}`, w.inventory);
+    });
+  }
   walkers = [];
   forEachBuilding((type, col, row) => {
     const def = BUILDING_DEFS[type];
@@ -364,7 +401,12 @@ function recomputeAllWalkers(){
       facing: 'down', mirrorX: false, servedHouses,
       moveStartTime: performance.now(),
     };
-    if (walkerPassDeliveryEnabled()) initWalkerPassState(w, def);
+    if (walkerPassDeliveryEnabled()){
+      initWalkerPassState(w, def);
+      const prevInv = prevInventory.get(`${col},${row},${type}`);
+      if (prevInv != null) w.inventory = Math.min(prevInv, w.carryCapacity);
+      syncWalkerServedToday(w);
+    }
     walkers.push(w);
   });
   lastWalkerServiceDay = getWalkerServiceDay();
@@ -408,15 +450,14 @@ function advanceWalkers(){
   }
 }
 function isHouseServedBy(serviceType, col, row){
-  const key = tileKey(col, row);
-  return walkers.some(w => {
-    if (w.serviceType !== serviceType) return false;
-    if (!w.servedHouses.some(h => h.col === col && h.row === row)) return false;
-    if (walkerPassDeliveryEnabled()){
-      return w.servedToday && w.servedToday.has(key);
-    }
-    return true;
-  });
+  if (!walkers.some(w => w.serviceType === serviceType
+    && w.servedHouses.some(h => h.col === col && h.row === row))){
+    return false;
+  }
+  if (walkerPassDeliveryEnabled()){
+    return isPassServedToday(serviceType, col, row);
+  }
+  return true;
 }
 function isHouseEligibleForService(serviceType, col, row){
   return walkers.some(w => w.serviceType === serviceType
@@ -424,8 +465,7 @@ function isHouseEligibleForService(serviceType, col, row){
 }
 function isTileFireServed(col, row){
   if (walkerPassDeliveryEnabled()){
-    const key = tileKey(col, row);
-    return walkers.some(w => w.serviceType === 'fire' && w.servedToday && w.servedToday.has(key));
+    return isPassServedToday('fire', col, row);
   }
   return walkers.some(w => {
     if (w.serviceType !== 'fire') return false;

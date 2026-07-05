@@ -105,6 +105,7 @@ function resetGrid(){
   lastVenueEventDay = -1;
   resources.wine = 20;
   resources.sculpture = 10;
+  resetWalkerDailyService();
 }
 
 function layCultureLine(){

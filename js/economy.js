@@ -25,9 +25,6 @@ function spend(amount){
 }
 
 function collectTaxes(){
-  if (typeof WALKER_PASS_DELIVERY !== 'undefined' && WALKER_PASS_DELIVERY){
-    return 0; // impôts encaissés au passage du walker (walkers.js)
-  }
   let collected = 0;
   const perPop = taxCollectionRate();
   walkers
