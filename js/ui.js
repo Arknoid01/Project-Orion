@@ -79,7 +79,8 @@ function showNotification(message, type, opts){
   el.textContent = prefix + message;
   el.className = `show notif-${type || 'info'}`;
   clearTimeout(notificationTimer);
-  notificationTimer = setTimeout(() => { el.className = ''; }, opts.category === 'oracle' ? 5500 : 4500);
+  const baseDuration = opts.tutorialDuration || (opts.category === 'oracle' ? 5500 : 4500);
+  notificationTimer = setTimeout(() => { el.className = ''; }, baseDuration);
   const panel = document.getElementById('notificationHistoryPanel');
   if (panel && panel.classList.contains('open') && typeof renderNotificationHistoryPanel === 'function'){
     renderNotificationHistoryPanel();

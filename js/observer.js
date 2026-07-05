@@ -167,7 +167,49 @@ function observerDemolishTile(){
 function setObserverTileContext(col, row){
   observerTile = { col, row };
   if (typeof renderInspector === 'function') renderInspector(col, row);
+  // auto-affichage de la zone de couverture quand on tape un bâtiment de service
+  const cell = grid[row][col];
+  const def = cell.building ? BUILDING_DEFS[cell.building] : null;
+  if (def && def.isService){
+    if (typeof showServiceCoverage === 'function'){
+      showServiceCoverage(col, row, 10000);
+    }
+  }
 }
+
+/**
+ * Affiche l'overlay de couverture d'un bâtiment de service (routes + maisons).
+ * duration : durée d'affichage en ms (défaut 10 s).
+ */
+function showServiceCoverage(col, row, duration){
+  const cell = grid[row] && grid[row][col];
+  if (!cell) return;
+  const def = cell.building ? BUILDING_DEFS[cell.building] : null;
+  if (!def || !def.isService) return;
+  const walker = walkers.find(w => w.col === col && w.row === row);
+  let roads = [];
+  let houses = [];
+  if (walker){
+    if (typeof computeServiceReach === 'function'){
+      roads = computeServiceReach(col, row, def.range);
+    }
+    houses = walker.servedHouses.slice();
+  } else {
+    // bâtiment sans walker encore (recalcul en cours) : montrer juste la portée théorique
+    if (typeof computeServiceReach === 'function'){
+      roads = computeServiceReach(col, row, def.range);
+    }
+  }
+  if (typeof setObserverCoverage === 'function'){
+    setObserverCoverage({
+      origin: { col, row },
+      roads,
+      houses,
+      until: performance.now() + (duration || 10000),
+    });
+  }
+}
+window.showServiceCoverage = showServiceCoverage;
 
 function needStatusDetail(need, col, row){
   const ok = NEED_CHECKERS[need] && NEED_CHECKERS[need](col, row);
