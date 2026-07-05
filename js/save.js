@@ -2,7 +2,12 @@
 const LEGACY_SAVE_KEY = 'olympos_save_v1';
 const SAVE_KEY_PREFIX = 'olympos_save_v1_slot_';
 const SAVE_META_KEY = 'olympos_save_meta_v1';
-const SAVE_VERSION = 9;
+const SAVE_VERSION = 10;
+/** Encodage compact terrain (1 caractère / case) — évite le quota localStorage mobile (~5 Mo). */
+const SAVE_TERRAIN_ENC = {
+  grass: 'g', water: 'w', sand: 's', forest: 'f', hill: 'h', rock: 'k', marble: 'm', wheat: 'e', dirt: 'd',
+};
+const SAVE_TERRAIN_DEC = Object.fromEntries(Object.entries(SAVE_TERRAIN_ENC).map(([k, v]) => [v, k]));
 const SAVE_SLOT_COUNT = 5;
 
 let activeSaveSlot = 0;
@@ -58,6 +63,107 @@ function readRawSaveSlot(slot){
   }
 }
 
+function serializeGridCompact(sourceGrid){
+  const overlays = {};
+  let terrainChars = '';
+  for (let row = 0; row < GRID_ROWS; row++){
+    for (let col = 0; col < GRID_COLS; col++){
+      const cell = (sourceGrid[row] && sourceGrid[row][col]) || {};
+      const ter = cell.terrain || 'grass';
+      terrainChars += SAVE_TERRAIN_ENC[ter] || 'g';
+      const o = {};
+      if (cell.building) o.b = cell.building;
+      if (cell.hasRoad) o.r = 1;
+      if (cell.roadStairs) o.s = 1;
+      if (cell.houseLevel) o.h = cell.houseLevel;
+      if (cell.population) o.p = cell.population;
+      if (cell.patrolBlock) o.x = 1;
+      if (cell.beauty) o.e = cell.beauty;
+      if (cell.monumentPart) o.m = cell.monumentPart;
+      if (cell.godPatron) o.g = cell.godPatron;
+      if (Object.keys(o).length) overlays[row + ',' + col] = o;
+    }
+  }
+  return { t: terrainChars, o: overlays };
+}
+
+function expandGridCompact(compact){
+  if (!compact || typeof compact.t !== 'string') return null;
+  if (compact.t.length !== GRID_ROWS * GRID_COLS) return null;
+  const overlays = compact.o || compact.c || {};
+  const out = [];
+  let i = 0;
+  for (let row = 0; row < GRID_ROWS; row++){
+    const line = [];
+    for (let col = 0; col < GRID_COLS; col++){
+      const terrain = SAVE_TERRAIN_DEC[compact.t[i++]] || 'grass';
+      const cell = {
+        terrain,
+        building: null,
+        hasRoad: false,
+        roadStairs: false,
+        houseLevel: 0,
+        population: 0,
+        patrolBlock: false,
+        beauty: 0,
+        elevation: 0.4,
+        slope: 0,
+        monumentPart: null,
+        godPatron: null,
+      };
+      const o = overlays[row + ',' + col];
+      if (o){
+        if (o.b) cell.building = o.b;
+        if (o.r) cell.hasRoad = true;
+        if (o.s) cell.roadStairs = true;
+        if (o.h) cell.houseLevel = o.h;
+        if (o.p) cell.population = o.p;
+        if (o.x) cell.patrolBlock = true;
+        if (o.e) cell.beauty = o.e;
+        if (o.m) cell.monumentPart = o.m;
+        if (o.g) cell.godPatron = o.g;
+      }
+      line.push(cell);
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+function resolvePayloadGrid(payload){
+  if (!payload) return null;
+  if (payload.gridCompact) return expandGridCompact(payload.gridCompact);
+  if (Array.isArray(payload.grid)) return payload.grid;
+  return null;
+}
+
+function isSaveVersionSupported(version){
+  return version === SAVE_VERSION || version === 9 || version === 8 || version === 7 || version === 6
+    || version === 5 || version === 4 || version === 3 || version === 2 || version === 1;
+}
+
+function isGridShapeValid(gridData){
+  return Array.isArray(gridData)
+    && gridData.length === GRID_ROWS
+    && !gridData.some(row => !Array.isArray(row) || row.length !== GRID_COLS);
+}
+
+function isLocalStorageWritable(){
+  try {
+    const probeKey = '__olympos_storage_probe__';
+    localStorage.setItem(probeKey, '1');
+    localStorage.removeItem(probeKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isStorageQuotaError(err){
+  if (!err) return false;
+  return err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014;
+}
+
 function parseSavePayload(raw){
   if (!raw) return null;
   let payload;
@@ -67,17 +173,16 @@ function parseSavePayload(raw){
     debugError('Sauvegarde corrompue (JSON invalide)', { error: err.message });
     return null;
   }
-  if (!payload || !Array.isArray(payload.grid)) return null;
-  if (payload.version !== SAVE_VERSION && payload.version !== 8 && payload.version !== 7 && payload.version !== 6
-      && payload.version !== 5 && payload.version !== 4 && payload.version !== 3
-      && payload.version !== 2 && payload.version !== 1){
+  if (!payload || !isSaveVersionSupported(payload.version)){
     debugWarn('Sauvegarde dans un format inattendu, ignorée');
     return null;
   }
-  if (payload.grid.length !== GRID_ROWS || payload.grid.some(row => !Array.isArray(row) || row.length !== GRID_COLS)){
+  const gridData = resolvePayloadGrid(payload);
+  if (!isGridShapeValid(gridData)){
     debugWarn('Dimensions de grille incompatibles dans la sauvegarde, ignorée');
     return null;
   }
+  payload.grid = gridData;
   return payload;
 }
 
@@ -192,7 +297,7 @@ function buildSavePayload(slot){
   const population = typeof computeTotalPopulation === 'function' ? computeTotalPopulation() : null;
   return {
     version: SAVE_VERSION,
-    grid: serializeGridForSave(grid),
+    gridCompact: serializeGridCompact(grid),
     resources: Object.assign({}, resources || {}),
     treasury,
     favor,
@@ -249,6 +354,11 @@ function buildSavePayload(slot){
 function saveGame(opts){
   opts = opts || {};
   const slot = typeof opts.slot === 'number' ? opts.slot : activeSaveSlot;
+  if (!isLocalStorageWritable()){
+    debugError('Échec de la sauvegarde', { error: 'localStorage unavailable' });
+    if (!opts.silent) showNotification(t('save.saveError'), 'bad');
+    return;
+  }
   try {
     const payload = buildSavePayload(slot);
     localStorage.setItem(getSaveSlotStorageKey(slot), JSON.stringify(payload));
@@ -258,8 +368,10 @@ function saveGame(opts){
       showNotification(t('save.savedSlot', { n: slot + 1 }), 'good');
     }
   } catch (err) {
-    debugError('Échec de la sauvegarde', { error: err.message });
-    if (!opts.silent) showNotification(t('save.saveError'), 'bad');
+    debugError('Échec de la sauvegarde', { error: err.message, name: err.name, code: err.code });
+    if (!opts.silent){
+      showNotification(t(isStorageQuotaError(err) ? 'save.quotaError' : 'save.saveError'), 'bad');
+    }
   }
 }
 
@@ -400,6 +512,7 @@ function loadGame(slot){
     applySavePayload(payload);
     setActiveSaveSlot(slot);
     debugInfo('Partie chargée depuis la sauvegarde', { slot: slot + 1 });
+    if (payload.version < SAVE_VERSION) saveGame({ silent: true, slot });
     return true;
   } catch (err) {
     debugError('Échec du chargement de la sauvegarde', { error: err.message });

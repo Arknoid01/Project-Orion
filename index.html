@@ -994,12 +994,22 @@ h2{
 #gameMenuPanel{
   top:calc(var(--safeTop) + var(--hudOffset));
   left:var(--safeLeft);
+  bottom:calc(var(--safeBottom) + 10px);
   width:min(82vw,320px);
-  max-height:calc(100dvh - var(--safeTop) - var(--safeBottom) - 84px);
   border-left:0;
   border-radius:0 18px 18px 0;
   padding:20px;
+  padding-bottom:28px;
   transform:translateX(-105%);
+  display:flex !important;
+  flex-direction:column !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  scrollbar-width:thin;
+  min-height:0;
 }
 
 #gameMenuPanel.open{
@@ -1717,6 +1727,7 @@ h2{
   overflow-x:hidden !important;
   -webkit-overflow-scrolling:touch !important;
   overscroll-behavior:contain;
+  touch-action:pan-y;
   scrollbar-width:thin;
   min-height:0;
 }
@@ -2422,7 +2433,7 @@ h2{
 <script src="js/creatures.js?v=5"></script>
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
-<script src="js/save.js"></script>
+<script src="js/save.js?v=10"></script>
 <script src="js/loop.js?v=8"></script>
 <script src="js/pause.js"></script>
 <script src="js/characterSprites.js?v=5"></script>
