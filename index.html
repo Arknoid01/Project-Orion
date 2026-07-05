@@ -1996,6 +1996,79 @@ h2{
  border-color:rgba(210,162,74,.35);
 }
 
+/* Choix du mode nouvelle partie (bac à sable / scénarios / campagne) */
+#newGameModeList{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+ gap:12px;
+ text-align:left;
+}
+
+/* Emplacements de sauvegarde (écrans Charger / Sauvegarder) */
+.saveSlotList{
+ display:grid;
+ gap:10px;
+ text-align:left;
+}
+.saveSlotCard{
+ display:flex;
+ flex-direction:column;
+ gap:4px;
+ padding:12px 14px;
+ border:1px solid rgba(210,162,74,.35);
+ border-radius:12px;
+ background:rgba(255,255,255,.04);
+ color:var(--marble,#f4e8cc);
+ cursor:pointer;
+ transition:background .15s,border-color .15s;
+}
+.saveSlotCard:hover{
+ background:rgba(210,162,74,.12);
+ border-color:rgba(243,204,116,.65);
+}
+.saveSlotCard.save-slot-active{
+ border-color:rgba(243,204,116,.85);
+ box-shadow:0 0 10px rgba(243,204,116,.25);
+}
+.saveSlotCard.save-slot-empty{
+ opacity:.65;
+}
+.saveSlotHead{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+}
+.saveSlotNum{
+ font-weight:700;
+ color:var(--gold2,#f3cc74);
+ font-size:14px;
+}
+.saveSlotDelete{
+ border:1px solid rgba(210,162,74,.4);
+ border-radius:8px;
+ background:rgba(255,255,255,.05);
+ color:var(--marble,#f4e8cc);
+ cursor:pointer;
+ padding:4px 8px;
+ font-size:13px;
+}
+.saveSlotDelete:hover{ background:rgba(224,80,80,.25); }
+.saveSlotEmpty{ font-size:13px; opacity:.7; }
+.saveSlotCity{ font-size:14px; font-weight:600; }
+.saveSlotScenario{ font-size:13px; opacity:.9; }
+.saveSlotMeta{ font-size:12px; opacity:.8; }
+.saveSlotDate{ font-size:11px; opacity:.6; }
+
+/* Scroll tactile des menus ☰ / Performances — neutralise tout overflow hérité */
+#gameMenuPanel.panel,
+#perfSettingsPanel.panel{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  touch-action:pan-y !important;
+  overscroll-behavior:contain !important;
+}
+
 /* Écrans du menu d'accueil */
 .menu-screen-hidden{ display:none !important; }
 .homeActions{
@@ -2163,12 +2236,30 @@ h2{
        <h2 id="campaignEpisodeTitle">Épisodes</h2>
        <div id="campaignEpisodeList"></div>
      </div>
-     <div id="creditsScreen" class="menu-screen-hidden">
-       <button class="menuBack" id="menuBackCredits" onclick="showHomeScreen()">← Retour</button>
-       <h2 id="creditsTitle">Crédits</h2>
-       <div id="creditsBody" class="creditsBody"></div>
-     </div>
-   </div>
+    <div id="creditsScreen" class="menu-screen-hidden">
+      <button class="menuBack" id="menuBackCredits" onclick="showHomeScreen()">← Retour</button>
+      <h2 id="creditsTitle">Crédits</h2>
+      <div id="creditsBody" class="creditsBody"></div>
+    </div>
+    <div id="newGameModeScreen" class="menu-screen-hidden">
+      <button class="menuBack" type="button" onclick="showHomeScreen()">← Retour</button>
+      <h2 id="newGameModeTitle">Nouvelle partie</h2>
+      <p id="newGameModeSubtitle">Bac à sable libre ou scénarios à objectifs.</p>
+      <div id="newGameModeList"></div>
+    </div>
+    <div id="loadGameScreen" class="menu-screen-hidden">
+      <button class="menuBack" type="button" onclick="closeLoadGameScreen()">← Retour</button>
+      <h2 id="loadGameTitle">Charger une partie</h2>
+      <p id="loadGameSubtitle">5 emplacements — cliquez sur une sauvegarde existante.</p>
+      <div class="saveSlotList"></div>
+    </div>
+    <div id="saveGameScreen" class="menu-screen-hidden">
+      <button class="menuBack" type="button" onclick="closeSaveGameScreen()">← Retour</button>
+      <h2 id="saveGameTitle">Sauvegarder</h2>
+      <p id="saveGameSubtitle">Choisissez l'emplacement à utiliser (écrase si occupé).</p>
+      <div class="saveSlotList"></div>
+    </div>
+  </div>
  </div>
 
  <div class="hud">
@@ -2223,7 +2314,7 @@ h2{
 
  <aside id="gameMenuPanel" class="panel">
    <div class="menuList">
-     <button class="actionBtn" id="menuSaveBtn" onclick="callGameAction('saveGame')">💾 Sauvegarder</button>
+     <button class="actionBtn" id="menuSaveBtn" onclick="showSaveGameScreen()">💾 Sauvegarder</button>
      <button class="actionBtn" id="menuLoadBtn" onclick="loadGameFromMenu()">📂 Charger</button>
      <button class="actionBtn" id="menuPauseBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" id="menuCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
@@ -2433,7 +2524,7 @@ h2{
 <script src="js/creatures.js?v=5"></script>
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
-<script src="js/save.js?v=10"></script>
+<script src="js/save.js?v=11"></script>
 <script src="js/loop.js?v=8"></script>
 <script src="js/pause.js"></script>
 <script src="js/characterSprites.js?v=5"></script>
