@@ -1,20 +1,141 @@
-/* ===================== NOTIFICATIONS ===================== */
-// Bannière temporaire pour les événements visibles par le joueur (bénédictions,
-// catastrophes...). Générique, réutilisable par n'importe quel futur système.
-// Défensif : si l'interface actuelle n'a pas (encore) cet élément, on ne plante
-// jamais -- on logue juste en debug et on continue (voir le brief de migration UI).
+/* ===================== NOTIFICATIONS & CHRONIQUE ===================== */
+// Bannière temporaire + chronique consultable via 📜 (barre d'outils flottante).
+// category : 'event' | 'oracle' | 'chronicle'
+const NOTIFICATION_HISTORY_MAX = 60;
+let notificationHistory = [];
 let notificationTimer = null;
-function showNotification(message, type){
+
+function _escNotifHtml(text){
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function _historyCalendarMeta(){
+  if (typeof getCalendarState !== 'function'){
+    return { gameDay: 0, gameYear: 1, gameMonth: '', gameDayOfMonth: 1 };
+  }
+  const s = getCalendarState();
+  return {
+    gameDay: s.day,
+    gameYear: s.year,
+    gameMonth: s.month,
+    gameDayOfMonth: s.dayOfMonth,
+  };
+}
+
+function formatChronicleDate(entry){
+  if (!entry || !entry.gameMonth) return '';
+  const month = t('calendar.month.' + entry.gameMonth);
+  return t('chronicle.date', {
+    month,
+    year: entry.gameYear || 1,
+    day: entry.gameDayOfMonth || 1,
+  });
+}
+
+function pushNotificationHistory(message, type, meta){
+  meta = meta || {};
+  const cal = _historyCalendarMeta();
+  notificationHistory.unshift({
+    message: String(message),
+    type: type || 'info',
+    time: Date.now(),
+    category: meta.category || 'event',
+    major: !!meta.major,
+    gameDay: cal.gameDay,
+    gameYear: cal.gameYear,
+    gameMonth: cal.gameMonth,
+    gameDayOfMonth: cal.gameDayOfMonth,
+  });
+  if (notificationHistory.length > NOTIFICATION_HISTORY_MAX){
+    notificationHistory.length = NOTIFICATION_HISTORY_MAX;
+  }
+}
+
+/** Entrée majeure dans la chronique (📜) avec toast. */
+function chronicleLog(message, type){
+  showNotification(message, type || 'good', { category: 'chronicle', major: true });
+}
+
+function notifyMajor(message, type){
+  if (typeof chronicleLog === 'function') chronicleLog(message, type || 'good');
+  else showNotification(message, type || 'good');
+}
+
+function showNotification(message, type, opts){
+  opts = opts || {};
   const el = document.getElementById('notification');
   if (!el){
+    pushNotificationHistory(message, type, opts);
     if (typeof debugInfo === 'function') debugInfo('[notification ignorée, élément absent]', { message });
     return;
   }
-  el.textContent = message;
+  pushNotificationHistory(message, type, opts);
+  const prefix = opts.toastPrefix || (
+    opts.category === 'oracle' ? '🔮 ' : opts.category === 'chronicle' ? '📜 ' : ''
+  );
+  el.textContent = prefix + message;
   el.className = `show notif-${type || 'info'}`;
   clearTimeout(notificationTimer);
-  notificationTimer = setTimeout(() => { el.className = ''; }, 4000);
+  notificationTimer = setTimeout(() => { el.className = ''; }, opts.category === 'oracle' ? 5500 : 4500);
+  const panel = document.getElementById('notificationHistoryPanel');
+  if (panel && panel.classList.contains('open') && typeof renderNotificationHistoryPanel === 'function'){
+    renderNotificationHistoryPanel();
+  }
 }
+
+function _chronicleCategoryIcon(category){
+  if (category === 'oracle') return '🔮';
+  if (category === 'chronicle') return '📜';
+  return '·';
+}
+
+function renderNotificationHistoryPanel(){
+  const list = document.getElementById('notificationHistoryList');
+  if (!list) return;
+  if (!notificationHistory.length){
+    let html = `<p class="manageHint">${t('notification.empty')}</p>`;
+    if (typeof hasOracleAccess === 'function' && !hasOracleAccess()){
+      html += `<p class="manageHint chronicleOracleHint">${t('notification.oracleHint')}</p>`;
+    }
+    list.innerHTML = html;
+    return;
+  }
+  list.innerHTML = notificationHistory.map(entry => {
+    const cls = [
+      'notifHistoryItem',
+      entry.type === 'good' ? 'notif-good' : entry.type === 'bad' ? 'notif-bad' : 'notif-info',
+      entry.category === 'oracle' ? 'notif-oracle' : '',
+      entry.category === 'chronicle' ? 'notif-chronicle' : '',
+      entry.major ? 'notif-major' : '',
+    ].filter(Boolean).join(' ');
+    const date = formatChronicleDate(entry);
+    const icon = _chronicleCategoryIcon(entry.category);
+    return `<div class="${cls}">`
+      + `<span class="notifHistoryIcon" aria-hidden="true">${icon}</span>`
+      + `<div class="notifHistoryBody">`
+      + `<span class="notifHistoryTime">${_escNotifHtml(date)}</span>`
+      + `<span class="notifHistoryText">${_escNotifHtml(entry.message)}</span>`
+      + `</div></div>`;
+  }).join('');
+}
+
+function toggleNotificationHistoryPanel(){
+  const panel = document.getElementById('notificationHistoryPanel');
+  if (!panel) return;
+  const wasOpen = panel.classList.contains('open');
+  if (typeof togglePanel === 'function') togglePanel('notificationHistoryPanel');
+  else panel.classList.toggle('open');
+  if (!wasOpen && panel.classList.contains('open')) renderNotificationHistoryPanel();
+}
+
+window.renderNotificationHistoryPanel = renderNotificationHistoryPanel;
+window.toggleNotificationHistoryPanel = toggleNotificationHistoryPanel;
+window.chronicleLog = chronicleLog;
+window.notifyMajor = notifyMajor;
+window.pushNotificationHistory = pushNotificationHistory;
 
 /* ===================== TIROIR MOBILE ===================== */
 function toggleDrawer(){
@@ -127,6 +248,7 @@ function placeCellBuilding(col, row, key){
   if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
   else if (typeof invalidateDecorAt === 'function') invalidateDecorAt([{ col, row }]);
   if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
+  if (typeof onBuildingPlaced === 'function') onBuildingPlaced(key, col, row);
 }
 
 function confirmZonePlacement(c1, r1, c2, r2){
@@ -189,7 +311,10 @@ function canPlaceTerrain(col, row){
   }
   const cell = grid[row][col];
   if (cell.building || cell.monumentPart || cell.hasRoad) return false;
-  return cell.terrain === def.validTerrain || terrainMatchesBuilding(cell.terrain, def.validTerrain);
+  if (cell.terrain !== def.validTerrain && !terrainMatchesBuilding(cell.terrain, def.validTerrain)) return false;
+  if (def.requiresNearWater && typeof isAdjacentToWater === 'function' && !isAdjacentToWater(col, row)) return false;
+  if (def.requiresNearHarbor && typeof isAdjacentToHarbor === 'function' && !isAdjacentToHarbor(col, row)) return false;
+  return true;
 }
 
 // Version complète (terrain + budget) utilisée pour la surbrillance de survol.
@@ -530,6 +655,21 @@ function refreshAffordability(){
         : !canAfford(def.cost);
     btn.classList.toggle('unaffordable', unaffordable);
   });
+  document.querySelectorAll('#quickBuild .card[data-qb-kind]').forEach(btn => {
+    const kind = btn.dataset.qbKind;
+    let affordable = true;
+    if (kind === 'road') affordable = canAfford(ROAD_COST);
+    else if (kind === 'stairs') affordable = canAfford(typeof STAIR_COST === 'number' ? STAIR_COST : 8);
+    else if (kind === 'building'){
+      const def = BUILDING_DEFS[btn.dataset.qbKey];
+      if (def){
+        affordable = def.isMonument || ((typeof canAffordBuilding === 'function' && def.costResources)
+          ? canAffordBuilding(btn.dataset.qbKey)
+          : canAfford(def.cost));
+      }
+    }
+    btn.classList.toggle('unaffordable', !affordable);
+  });
   const roadBtn = document.getElementById('roadBtn');
   if (roadBtn) roadBtn.classList.toggle('unaffordable', !canAfford(ROAD_COST));
   const stairsBtn = document.getElementById('stairsBtn');
@@ -543,7 +683,9 @@ const QUICK_BUILD_SECTIONS = [
     { kind: 'road' }, { kind: 'stairs' }, { kind: 'block' }, { kind: 'demolish' },
   ]},
   { labelKey: 'catalog.production', items: [
-    { kind: 'building', key: 'farm' }, { kind: 'building', key: 'quarry' },
+    { kind: 'building', key: 'farm' }, { kind: 'building', key: 'carrotFarm', shortKey: 'catalog.carrotShort' },
+    { kind: 'building', key: 'huntingPavilion', shortKey: 'catalog.huntShort' },
+    { kind: 'building', key: 'quarry' },
     { kind: 'building', key: 'oliveGrove' }, { kind: 'building', key: 'vineyard' },
     { kind: 'building', key: 'sheepFarm' }, { kind: 'building', key: 'fishery' },
     { kind: 'building', key: 'charcoalPit', shortKey: 'catalog.charcoalShort' },
@@ -554,6 +696,17 @@ const QUICK_BUILD_SECTIONS = [
   { labelKey: 'catalog.storage', items: [
     { kind: 'building', key: 'granary' }, { kind: 'building', key: 'warehouse' },
     { kind: 'building', key: 'tradingPost' },
+  ]},
+  { labelKey: 'catalog.maritime', items: [
+    { kind: 'building', key: 'harbor', shortKey: 'catalog.harborShort' },
+    { kind: 'building', key: 'shipyard', shortKey: 'catalog.shipyardShort' },
+  ]},
+  { labelKey: 'catalog.culture', items: [
+    { kind: 'building', key: 'agora' },
+    { kind: 'building', key: 'theatre' },
+    { kind: 'building', key: 'gymnasium' },
+    { kind: 'building', key: 'stoa' },
+    { kind: 'building', key: 'academy' },
   ]},
   { labelKey: 'catalog.services', items: [
     { kind: 'building', key: 'fountain' }, { kind: 'building', key: 'market' },
@@ -577,21 +730,21 @@ const QUICK_BUILD_SECTIONS = [
 
 function quickBuildCardHtml(item){
   if (item.kind === 'road'){
-    return `<button class="card" onclick="callGameAction('selectRoadMode')">🛣️<span>${t('catalog.roadShort')}</span></button>`;
+    return `<button class="card" data-qb-kind="road" onclick="callGameAction('selectRoadMode')">🛣️<span>${t('catalog.roadShort')}</span></button>`;
   }
   if (item.kind === 'stairs'){
-    return `<button class="card" onclick="callGameAction('selectStairsMode')">🪜<span>${t('catalog.stairsShort')}</span></button>`;
+    return `<button class="card" data-qb-kind="stairs" onclick="callGameAction('selectStairsMode')">🪜<span>${t('catalog.stairsShort')}</span></button>`;
   }
   if (item.kind === 'block'){
-    return `<button class="card" onclick="callGameAction('selectBlockMode')">🚧<span>${t('catalog.block')}</span></button>`;
+    return `<button class="card" data-qb-kind="block" onclick="callGameAction('selectBlockMode')">🚧<span>${t('catalog.block')}</span></button>`;
   }
   if (item.kind === 'demolish'){
-    return `<button class="card" onclick="callGameAction('selectDemolishMode')">🔨<span>${t('catalog.demolishShort')}</span></button>`;
+    return `<button class="card" data-qb-kind="demolish" onclick="callGameAction('selectDemolishMode')">🔨<span>${t('catalog.demolishShort')}</span></button>`;
   }
   const def = BUILDING_DEFS[item.key];
   if (!def) return '';
   const label = item.shortKey ? t(item.shortKey) : t(def.name);
-  return `<button class="card" onclick="callGameAction('selectBuilding', '${item.key}')">${def.icon}<span>${label}</span></button>`;
+  return `<button class="card" data-qb-kind="building" data-qb-key="${item.key}" onclick="callGameAction('selectBuilding', '${item.key}')">${def.icon}<span>${label}</span></button>`;
 }
 
 function renderQuickBuildCatalog(){
@@ -659,9 +812,27 @@ function buildingInspectorHtml(type, col, row){
 
   // production simple (matière première depuis le terrain)
   if (def.produces && !def.consumes){
-    const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
-    html += `<p>📦 ${t('inspector.produces')} : ${resLabel(def.produces)} — ${fmtRate(eff)}${t('inspector.perTick')} (${t('inspector.baseRate')} ${def.rate})</p>`;
-    if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
+    if (def.isSeasonalCrop){
+      const labels = (typeof getSeasonalHarvestMonthLabels === 'function')
+        ? getSeasonalHarvestMonthLabels(def.produces)
+        : [];
+      const cfg = (typeof getSeasonalCropConfig === 'function') ? getSeasonalCropConfig(def.produces) : null;
+      const factor = productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
+      const yieldEst = cfg ? Math.round(cfg.yieldBase * factor) : 0;
+      const harvestList = labels.length ? labels.join(', ') : '—';
+      const state = (typeof getCalendarState === 'function') ? getCalendarState() : null;
+      const inHarvest = state && typeof isSeasonalHarvestMonth === 'function'
+        && isSeasonalHarvestMonth(def.produces, state.monthIndex);
+      html += `<p>🌾 ${t('inspector.seasonalCrop')} : ${resLabel(def.produces)}</p>`;
+      html += `<p>📅 ${t('inspector.harvestMonths')} : ${harvestList}</p>`;
+      html += `<p>📦 ${t('inspector.harvestYield')} : ~${yieldEst} ${resLabel(def.produces)} / ${t('inspector.harvestPerBuilding')}</p>`;
+      html += `<p class="${inHarvest ? 'need-ok' : ''}">${inHarvest ? '✅ ' + t('inspector.harvestNow') : '⏳ ' + t('inspector.harvestWait')}</p>`;
+      if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
+    } else {
+      const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
+      html += `<p>📦 ${t('inspector.produces')} : ${resLabel(def.produces)} — ${fmtRate(eff)}${t('inspector.perTick')} (${t('inspector.baseRate')} ${def.rate})</p>`;
+      if (employment.ratio < 1) html += `<p class="need-missing">⚠️ ${t('inspector.laborShortage')}</p>`;
+    }
   }
 
   // transformation (consomme une matière -> produit un bien)
@@ -685,11 +856,17 @@ function buildingInspectorHtml(type, col, row){
   // service à walker (couverture des maisons)
   if (def.isService){
     const walker = walkers.find(w => w.col === col && w.row === row);
-    const served = walker ? walker.servedHouses.length : 0;
+    const passStats = walker && typeof getWalkerPassStats === 'function' ? getWalkerPassStats(walker) : null;
+    const served = passStats ? passStats.served : (walker ? walker.servedHouses.length : 0);
+    const eligible = passStats ? passStats.eligible : def.capacity;
     const connected = !!walker && walker.path.length > 1;
     html += `<p>🚶 ${t('inspector.service')} : ${t('service.' + def.serviceType)}</p>`;
     html += `<p>📡 ${t('inspector.range')} : ${def.range} · ${t('inspector.capacity')} : ${def.capacity}</p>`;
-    html += `<p class="${served > 0 ? 'need-ok' : ''}">🏠 ${t('inspector.served')} : ${served}/${def.capacity}</p>`;
+    html += `<p class="${served > 0 ? 'need-ok' : ''}">🏠 ${t('inspector.served')} : ${served}/${eligible}${passStats ? ' ' + t('inspector.servedToday') : ''}</p>`;
+    if (passStats && typeof WALKER_PASS_DELIVERY !== 'undefined' && WALKER_PASS_DELIVERY){
+      html += `<p>🧺 ${t('inspector.walkerInventory')} : ${passStats.inventory}/${passStats.carry}</p>`;
+      html += `<p class="icon-legend">💡 ${t('iconStatus.legend')}</p>`;
+    }
     html += `<p class="${connected ? 'need-ok' : 'need-missing'}">${connected ? '✅ ' + t('inspector.connected') : '❌ ' + t('inspector.notConnected')}</p>`;
     if (def.serviceType === 'market'){
       const goods = MARKET_GOODS.map(g => `${resLabel(g.resource)} (${Math.floor(resources[g.resource])})`).join(', ');
@@ -699,6 +876,23 @@ function buildingInspectorHtml(type, col, row){
       const estimate = served * taxCollectionRate(); // approximation : population moyenne ignorée ici
       html += `<p>💰 ${t('government.collection')} (${t('government.thisOffice')}) ≈ ${estimate.toFixed(1)} dr.${t('inspector.perTick')}</p>`;
     }
+    if (def.serviceType === 'culture'){
+      const venues = typeof countCultureVenues === 'function' ? countCultureVenues() : 0;
+      const linked = typeof isCultureVenueLinked === 'function'
+        && isCultureVenueLinked(col, row, def.range);
+      html += `<p class="${linked ? 'need-ok' : 'need-missing'}">${linked ? '✅' : '❌'} ${t('inspector.cultureVenuesLinked')}</p>`;
+      html += `<p>🎭 ${t('inspector.cultureVenues')} : ${venues}</p>`;
+    }
+  }
+
+  if (def.isVenue){
+    html += `<p>🎭 ${t('inspector.venue')} : ${t('venue.kind.' + def.venueKind)}</p>`;
+    if (def.beauty) html += `<p>🎨 ${t('inspector.charm')} : ${def.beauty} · ${t('inspector.range')} : ${def.range}</p>`;
+    const onRoad = typeof hasRoadOnOrAdjacent === 'function' && hasRoadOnOrAdjacent(col, row);
+    const cultureLinked = typeof isVenueCultureNetworkLinked === 'function'
+      && isVenueCultureNetworkLinked(col, row);
+    html += `<p class="${onRoad ? 'need-ok' : 'need-missing'}">${onRoad ? '✅' : '❌'} ${t('inspector.venueRoadAccess')}</p>`;
+    html += `<p class="${cultureLinked ? 'need-ok' : 'need-missing'}">${cultureLinked ? '✅' : '❌'} ${t('inspector.venueCultureLinked')}</p>`;
   }
 
   // décoration (diffuse du cachet)
@@ -928,6 +1122,11 @@ _c.addEventListener('click', (e) => {
   if (!pick || !pick.hit) return;
   const { col, row } = pick;
   if (!inBounds(col, row)) return;
+
+  if (typeof handleBuildingSpriteDebugClick === 'function' && handleBuildingSpriteDebugClick(col, row)){
+    render();
+    return;
+  }
 
   const cell = grid[row][col];
 

@@ -17,12 +17,38 @@ function isTerrainGenerationInProgress(){
   return terrainGenerationInProgress;
 }
 
+function genProgressLabel(key, vars){
+  if (typeof t === 'function'){
+    const out = t('gen.' + key, vars || {});
+    if (out && out !== 'gen.' + key) return out;
+  }
+  const fallback = {
+    init: 'Initialisation…',
+    failed: 'Échec de la génération — détail ci-dessous (F12 aussi).',
+    heights: 'Relief (hauteurs)…',
+    biomes: 'Biomes…',
+    smooth: 'Lissage des biomes…',
+    coast: 'Côtes et montagnes…',
+    edges: 'Bords de carte…',
+    corridor: 'Corridor d\'entrée…',
+    retry: 'Nouvelle carte (essai {n}/{total})…',
+    finalize: 'Finalisation…',
+  };
+  let s = fallback[key] || key;
+  if (vars){
+    for (const [k, v] of Object.entries(vars)) s = s.replace('{' + k + '}', String(v));
+  }
+  return s;
+}
+
 function showGenLoading(){
   const el = document.getElementById('genLoadingOverlay');
   if (el) el.classList.add('open');
   const errBox = document.getElementById('genErrorBox');
   if (errBox){ errBox.style.display = 'none'; errBox.textContent = ''; }
-  reportGenProgress(0, 'Initialisation…');
+  const title = document.getElementById('genLoadingTitle');
+  if (title && typeof t === 'function') title.textContent = t('gen.title');
+  reportGenProgress(0, 'init');
 }
 
 function hideGenLoading(){
@@ -54,11 +80,15 @@ function waitForTerrainReady(timeoutMs){
   });
 }
 
-function reportGenProgress(pct, label){
+function reportGenProgress(pct, labelKey, vars){
   const bar = document.getElementById('genProgressBar');
   const lbl = document.getElementById('genProgressLabel');
   if (bar) bar.style.width = Math.max(0, Math.min(100, Math.round(pct))) + '%';
-  if (lbl && label) lbl.textContent = label;
+  if (lbl && labelKey){
+    lbl.textContent = typeof labelKey === 'string' && labelKey.startsWith('gen.')
+      ? (typeof t === 'function' ? t(labelKey, vars || {}) : labelKey)
+      : genProgressLabel(labelKey, vars);
+  }
 }
 
 /** Affiche l'erreur réelle dans l'overlay au lieu de laisser un freeze silencieux. */
@@ -70,7 +100,7 @@ function showGenError(err){
     box.textContent = (err && err.stack) ? err.stack : String(err);
   }
   const lbl = document.getElementById('genProgressLabel');
-  if (lbl) lbl.textContent = 'Échec de la génération — détail ci-dessous (F12 aussi).';
+  if (lbl) lbl.textContent = genProgressLabel('failed');
 }
 
 let mapSeed = 0;
@@ -1400,14 +1430,14 @@ async function _generateProceduralMapOnce(seed){
   mapLandBridgePath = null;
   mapEntryCorridorCells = null;
 
-  reportGenProgress(5, 'Relief (hauteurs)…');
+  reportGenProgress(5, 'heights');
   await yieldFrame();
   const fields = await computeTerrainFieldsAsync(mapSeed, false);
   const heights = fields.heights;
   const moisture = fields.moisture;
   const slopes = fields.slopes;
 
-  reportGenProgress(55, 'Biomes…');
+  reportGenProgress(55, 'biomes');
   await yieldFrame();
   grid = [];
   for (let row = 0; row < GRID_ROWS; row++){
@@ -1434,25 +1464,25 @@ async function _generateProceduralMapOnce(seed){
     grid.push(line);
   }
 
-  reportGenProgress(68, 'Lissage des biomes…');
+  reportGenProgress(68, 'smooth');
   await yieldFrame();
   smoothTerrainMap(typeof MAP_BIOME_SMOOTH === 'number' ? MAP_BIOME_SMOOTH : 0);
   enrichNaturalLandscape(heights, moisture);
   ensureStartZoneResources(heights, moisture);
   syncAllCellHeights(heights);
 
-  reportGenProgress(78, 'Côtes et montagnes…');
+  reportGenProgress(78, 'coast');
   await yieldFrame();
   polishCoastBiomes(heights, slopes);
   polishMountainBiomes(heights);
   closeMountainHoles(heights, 1);
   syncAllCellHeights(heights);
 
-  reportGenProgress(88, 'Bords de carte…');
+  reportGenProgress(88, 'edges');
   await yieldFrame();
   if (typeof polishMapEdges === 'function') polishMapEdges();
 
-  reportGenProgress(94, 'Corridor d\'entrée…');
+  reportGenProgress(94, 'corridor');
   await yieldFrame();
   ensureWalkerEntryCorridor(heights);
   syncAllCellHeights(heights);
@@ -1481,7 +1511,7 @@ async function generateProceduralMap(seed, opts){
 
   for (let attempt = 0; attempt < maxAttempts; attempt++){
     if (attempt > 0){
-      reportGenProgress(2, `Nouvelle carte (essai ${attempt + 1}/${maxAttempts})…`);
+      reportGenProgress(2, 'retry', { n: attempt + 1, total: maxAttempts });
       await yieldFrame();
     }
     const evalResult = await _generateProceduralMapOnce(attemptSeed);
@@ -1503,7 +1533,7 @@ async function generateProceduralMap(seed, opts){
     await _generateProceduralMapOnce(bestSeed);
   }
 
-  reportGenProgress(100, 'Finalisation…');
+  reportGenProgress(100, 'finalize');
   if (typeof invalidateMapDrawOrder === 'function') invalidateMapDrawOrder();
   terrainGenerationInProgress = false;
   if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();

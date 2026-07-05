@@ -533,7 +533,8 @@ function normalizeCampaignObjectivesForContinue(objectives, path, episodeIndex){
     const obj = Object.assign({}, o);
     const priorMax = maxPriorCampaignObjectiveTarget(path, episodeIndex, obj);
     let target = Math.max(obj.target || 0, priorMax);
-    const raw = (typeof evaluateObjectiveMetricRaw === 'function')
+    const raw = (typeof isGridReady === 'function' && isGridReady()
+      && typeof evaluateObjectiveMetricRaw === 'function')
       ? evaluateObjectiveMetricRaw(obj)
       : 0;
     target = Math.max(target, Math.ceil(raw));
@@ -571,7 +572,10 @@ async function advanceCampaignEpisode(pathId, episodeIndex){
   }
   if (typeof saveGame === 'function') saveGame({ silent: true });
   if (typeof markRenderDirty === 'function') markRenderDirty();
-  if (typeof showNotification === 'function'){
+  if (typeof renderHud === 'function') renderHud();
+  if (typeof showCampaignEpisodeStoryIntro === 'function'){
+    showCampaignEpisodeStoryIntro(path, episodeIndex);
+  } else if (typeof showNotification === 'function'){
     showNotification(t('campaign.episodeContinued', {
       n: episodeIndex + 1,
       total: path.episodes.length,
@@ -603,7 +607,9 @@ async function startCampaignEpisode(pathId, episodeIndex, opts){
     if (typeof refreshUI === 'function') refreshUI();
     if (typeof saveGame === 'function') saveGame({ silent: true });
     if (typeof markRenderDirty === 'function') markRenderDirty();
-    if (typeof showNotification === 'function'){
+    if (typeof showCampaignEpisodeStoryIntro === 'function'){
+      showCampaignEpisodeStoryIntro(path, episodeIndex);
+    } else if (typeof showNotification === 'function'){
       showNotification(t('campaign.episodeContinued', {
         n: episodeIndex + 1,
         total: path.episodes.length,
@@ -615,26 +621,39 @@ async function startCampaignEpisode(pathId, episodeIndex, opts){
 
   applyScenarioObjectives(scenario);
 
-  if (typeof showGenLoading === 'function') showGenLoading();
-  try {
-    await resetGameForScenario(scenario);
-  } catch (err){
-    if (typeof showGenError === 'function') showGenError(err);
-    else console.error(err);
+  if (typeof assignSaveSlotForNewGame === 'function') assignSaveSlotForNewGame();
+
+  const runEpisode = async () => {
+    if (typeof showGenLoading === 'function') showGenLoading();
+    try {
+      await resetGameForScenario(scenario);
+    } catch (err){
+      if (typeof showGenError === 'function') showGenError(err);
+      else console.error(err);
+      return;
+    }
+    hideMainMenu();
+    if (typeof centerMapView === 'function') centerMapView();
+    if (typeof waitForTerrainReady === 'function') await waitForTerrainReady();
+    if (typeof render === 'function') render();
+    if (typeof hideGenLoading === 'function') hideGenLoading();
+    if (typeof showCampaignEpisodeStoryIntro === 'function'){
+      showCampaignEpisodeStoryIntro(path, episodeIndex);
+    } else if (typeof showNotification === 'function'){
+      showNotification(t('campaign.episodeStarted', {
+        n: episodeIndex + 1,
+        total: path.episodes.length,
+        name: t(path.episodes[episodeIndex].nameKey),
+      }), 'info');
+    }
+  };
+
+  if (episodeIndex === 0 && typeof promptPlayerCityName === 'function'){
+    promptPlayerCityName(runEpisode);
     return;
   }
-  hideMainMenu();
-  if (typeof centerMapView === 'function') centerMapView();
-  if (typeof waitForTerrainReady === 'function') await waitForTerrainReady();
-  if (typeof render === 'function') render();
-  if (typeof hideGenLoading === 'function') hideGenLoading();
-  if (typeof showNotification === 'function'){
-    showNotification(t('campaign.episodeStarted', {
-      n: episodeIndex + 1,
-      total: path.episodes.length,
-      name: t(path.episodes[episodeIndex].nameKey),
-    }), 'info');
-  }
+
+  await runEpisode();
 }
 
 function startCampaignPath(pathId){
@@ -647,28 +666,37 @@ function onCampaignEpisodeVictory(){
   const path = getActiveCampaignPath();
   if (!path) return;
 
-  unlockCampaignEpisode(path.id, activeCampaignEpisode);
+  const epIdx = activeCampaignEpisode;
+  unlockCampaignEpisode(path.id, epIdx);
   victoryAnnounced = false;
 
-  const isLast = activeCampaignEpisode >= path.episodes.length - 1;
-  if (typeof showChoice === 'function'){
-    showChoice({
-      title: isLast ? t('campaign.pathCompleteTitle') : t('campaign.episodeCompleteTitle'),
-      body: isLast
-        ? t('campaign.pathCompleteBody', { name: t(path.nameKey) })
-        : t('campaign.episodeCompleteBody', { n: activeCampaignEpisode + 1 }),
-      dismissible: false,
-      choices: isLast
-        ? [
-            { label: t('campaign.backToMenu'), type: 'primary', onPick: () => { activeCampaignPathId = null; returnToMainMenu(); } },
-          ]
-        : [
-            { label: t('campaign.nextEpisode'), type: 'primary', onPick: () => advanceCampaignEpisode(path.id, activeCampaignEpisode + 1) },
-            { label: t('campaign.backToMenu'), type: 'neutral', onPick: () => returnToMainMenu() },
-          ],
-    });
-  } else if (!isLast){
-    advanceCampaignEpisode(path.id, activeCampaignEpisode + 1);
+  const isLast = epIdx >= path.episodes.length - 1;
+  const showVictoryChoices = () => {
+    if (typeof showChoice === 'function'){
+      showChoice({
+        title: isLast ? t('campaign.pathCompleteTitle') : t('campaign.episodeCompleteTitle'),
+        body: isLast
+          ? t('campaign.pathCompleteBody', { name: t(path.nameKey) })
+          : t('campaign.episodeCompleteBody', { n: epIdx + 1 }) + '\n\n' + t('campaign.hudHint'),
+        dismissible: false,
+        choices: isLast
+          ? [
+              { label: t('campaign.backToMenu'), type: 'primary', onPick: () => { activeCampaignPathId = null; returnToMainMenu(); } },
+            ]
+          : [
+              { label: t('campaign.nextEpisode'), type: 'primary', onPick: () => advanceCampaignEpisode(path.id, epIdx + 1) },
+              { label: t('campaign.backToMenu'), type: 'neutral', onPick: () => returnToMainMenu() },
+            ],
+      });
+    } else if (!isLast){
+      advanceCampaignEpisode(path.id, epIdx + 1);
+    }
+  };
+
+  if (typeof showCampaignEpisodeStoryOutro === 'function'){
+    showCampaignEpisodeStoryOutro(path, epIdx, showVictoryChoices);
+  } else {
+    showVictoryChoices();
   }
 }
 

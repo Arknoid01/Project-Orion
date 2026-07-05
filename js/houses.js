@@ -21,6 +21,7 @@ const NEED_CHECKERS = {
   fish:     (col, row) => isHouseSupplied('fish', col, row),
   clothing: (col, row) => isHouseSupplied('clothing', col, row),
   religion: (col, row) => isHouseServedBy('religion', col, row),
+  culture:  (col, row) => isHouseServedBy('culture', col, row),
   health:   (col, row) => isHouseServedBy('health', col, row),
   fire:     (col, row) => isHouseServedBy('fire', col, row),
   beauty:   (col, row) => isTileBeautiful(col, row),
@@ -116,6 +117,64 @@ function computeTotalPopulation(){
 }
 
 /* ===================== ICONES DE STATUT ===================== */
+// En mode pass (Zeus) : missing = hors réseau / hors capacité, pending = éligible mais
+// pas encore servi aujourd'hui, ok = pas d'icône.
+function walkerPassIconsEnabled(){
+  return typeof WALKER_PASS_DELIVERY !== 'undefined' && WALKER_PASS_DELIVERY;
+}
+
+function marketNeedBlocked(need, col, row){
+  if (need !== 'food') return false;
+  const walker = walkers.find(w => w.serviceType === 'market'
+    && w.servedHouses.some(h => h.col === col && h.row === row));
+  if (!walker) return true;
+  const def = BUILDING_DEFS[walker.type];
+  return typeof isGranaryRoadLinked === 'function'
+    && !isGranaryRoadLinked(walker.col, walker.row, def && def.range != null ? def.range : 18);
+}
+
+function cultureNeedBlocked(col, row){
+  const walker = walkers.find(w => w.serviceType === 'culture'
+    && w.servedHouses.some(h => h.col === col && h.row === row));
+  if (!walker) return true;
+  const def = BUILDING_DEFS[walker.type];
+  return typeof isCultureVenueLinked === 'function'
+    && !isCultureVenueLinked(walker.col, walker.row, def && def.range != null ? def.range : 18);
+}
+
+function needIconState(need, col, row){
+  const checker = NEED_CHECKERS[need];
+  if (!checker) return 'missing';
+
+  const marketNeeds = ['food', 'oil', 'wine', 'fish', 'clothing'];
+  const walkerNeeds = ['water', 'religion', 'health', 'fire', 'culture'];
+
+  if (marketNeeds.includes(need)){
+    if (!walkerPassIconsEnabled()) return checker(col, row) ? 'ok' : 'missing';
+    if (checker(col, row)) return 'ok';
+    if (!isHouseEligibleForService('market', col, row)) return 'missing';
+    if (!houseMarketNeeds(col, row).has(need)) return 'ok';
+    if (marketNeedBlocked(need, col, row)) return 'missing';
+    return 'pending';
+  }
+
+  if (walkerNeeds.includes(need)){
+    if (!walkerPassIconsEnabled()) return checker(col, row) ? 'ok' : 'missing';
+    if (checker(col, row)) return 'ok';
+    if (need === 'culture' && cultureNeedBlocked(col, row)) return 'missing';
+    if (isHouseEligibleForService(need, col, row)) return 'pending';
+    return 'missing';
+  }
+
+  return checker(col, row) ? 'ok' : 'missing';
+}
+
+function pushNeedIcon(icons, need, col, row){
+  const state = needIconState(need, col, row);
+  if (state === 'ok') return;
+  icons.push({ text: NEED_ICONS[need], status: state });
+}
+
 // Risques actifs (incendie/maladie) en premier -- ils s'appliquent à TOUTE maison,
 // peu importe son niveau (une cabane peut brûler tout comme un palais). Ensuite,
 // les besoins manquants pour le palier suivant. Pas de cap artificiel arbitraire,
@@ -123,14 +182,14 @@ function computeTotalPopulation(){
 function getHouseStatusIcons(col, row, cell){
   const icons = [];
 
-  if (!isHouseServedBy('fire', col, row)) icons.push(NEED_ICONS.fire);
-  if (!isHouseServedBy('health', col, row)) icons.push(NEED_ICONS.health);
+  pushNeedIcon(icons, 'fire', col, row);
+  pushNeedIcon(icons, 'health', col, row);
 
   const currentDef = HOUSE_LEVELS[cell.houseLevel];
   if (currentDef && cell.houseLevel > 0){
     for (const need of currentDef.requires){
       if (need === 'fire' || need === 'health') continue;
-      if (!NEED_CHECKERS[need](col, row)) icons.push(NEED_ICONS[need]);
+      pushNeedIcon(icons, need, col, row);
     }
   }
 
@@ -139,9 +198,27 @@ function getHouseStatusIcons(col, row, cell){
     for (const need of nextDef.requires){
       if (need === 'fire' || need === 'health') continue;
       if (currentDef && currentDef.requires.includes(need)) continue;
-      if (!NEED_CHECKERS[need](col, row)) icons.push(NEED_ICONS[need]);
+      pushNeedIcon(icons, need, col, row);
     }
   }
 
   return icons;
 }
+
+/** Icônes de statut pour bâtiments non résidentiels (incendie via tour de guet). */
+function getBuildingStatusIcons(col, row, type){
+  const def = BUILDING_DEFS[type];
+  if (!def || def.isHouse || def.isDecoration) return [];
+  const icons = [];
+  if (typeof isTileFireServed !== 'function') return icons;
+  if (isTileFireServed(col, row)) return icons;
+  if (walkerPassIconsEnabled() && typeof isTileFireEligible === 'function' && isTileFireEligible(col, row)){
+    icons.push({ text: NEED_ICONS.fire, status: 'pending' });
+  } else {
+    icons.push({ text: NEED_ICONS.fire, status: 'missing' });
+  }
+  return icons;
+}
+window.getHouseStatusIcons = getHouseStatusIcons;
+window.getBuildingStatusIcons = getBuildingStatusIcons;
+window.needIconState = needIconState;

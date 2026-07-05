@@ -115,7 +115,7 @@ def inject_heads(recipe: dict) -> dict:
 
 # Recettes : rendu le plus proche possible avec les assets LPC disponibles.
 RECIPES = [
-    # ========== WALKERS (6) ==========
+    # ========== WALKERS (7) ==========
     {
         "id": "water", "category": "walkers", "output": "water.png",
         "body_type": "female",
@@ -188,6 +188,19 @@ RECIPES = [
             {"sheet": SLEEVELESS, "variant": "red"},
             {"sheet": SASH, "variant": "red"},
             {"sheet": "sheet_definitions/hair/short/hair_messy2.json", "recolor": "dark_brown"},
+        ],
+    },
+    {
+        "id": "culture", "category": "walkers", "output": "culture.png",
+        "body_type": "male",
+        "layers": [
+            {"sheet": B, "recolor": "light"},
+            {"sheet": SAND, "variant": "brown"},
+            {"sheet": LEGION_SKIRT, "recolor": "purple"},
+            {"sheet": ROBE, "variant": "purple"},
+            {"sheet": SASH, "variant": "gold"},
+            {"sheet": CROWN, "variant": "gold"},
+            {"sheet": "sheet_definitions/hair/short/hair_parted.json", "recolor": "dark_brown"},
         ],
     },
     # ========== MIGRANTS (1 — arrivées / départs, sac à dos LPC) ==========

@@ -35,6 +35,7 @@ const SCENARIOS = [
     objectives: [
       { key: 'population', nameKey: 'objective.population', metric: 'population', target: 40 },
       { key: 'barracks', nameKey: 'scenario.objective.barracks', metric: 'barracks', target: 1 },
+      { key: 'militaryPoints', nameKey: 'campaign.objective.militaryPoints', metric: 'militaryPoints', target: 45 },
     ],
     startingTreasury: 1100,
     worldCityCount: 5,
@@ -47,6 +48,7 @@ const SCENARIOS = [
     objectives: [
       { key: 'barracks', nameKey: 'scenario.objective.barracks', metric: 'barracks', target: 1 },
       { key: 'conquered', nameKey: 'scenario.objective.conquer', metric: 'citiesConquered', target: 2 },
+      { key: 'fleet', nameKey: 'objective.fleetShips', metric: 'fleetShips', target: 2 },
     ],
     startingTreasury: 2000,
     worldCityCount: 8,
@@ -57,12 +59,26 @@ const SCENARIOS = [
     descKey: 'scenario.prosperityDesc',
     icon: '🏺',
     objectives: [
+      { key: 'agora', nameKey: 'objective.agora', metric: 'agora', target: 1 },
+      { key: 'cultureVenues', nameKey: 'objective.cultureVenues', metric: 'cultureVenues', target: 1 },
       { key: 'villa', nameKey: 'objective.villa', metric: 'villa', target: 1 },
       { key: 'favor', nameKey: 'objective.favor', metric: 'favor', target: 70 },
-      { key: 'sculpture', nameKey: 'campaign.objective.sculptureStock', metric: 'sculptureStock', target: 10 },
     ],
     startingTreasury: 1800,
     worldCityCount: 5,
+  },
+  {
+    id: 'culture',
+    nameKey: 'scenario.culture',
+    descKey: 'scenario.cultureDesc',
+    icon: '🎭',
+    objectives: [
+      { key: 'agora', nameKey: 'objective.agora', metric: 'agora', target: 1 },
+      { key: 'cultureServed', nameKey: 'objective.cultureServed', metric: 'cultureServed', target: 3 },
+      { key: 'domaine', nameKey: 'objective.domaine', metric: 'domaine', target: 1 },
+    ],
+    startingTreasury: 1600,
+    worldCityCount: 4,
   },
   {
     id: 'trade',
@@ -72,9 +88,87 @@ const SCENARIOS = [
     objectives: [
       { key: 'tradePosts', nameKey: 'campaign.objective.tradePosts', metric: 'tradePosts', target: 2 },
       { key: 'population', nameKey: 'objective.population', metric: 'population', target: 35 },
+      { key: 'fleet', nameKey: 'objective.fleetShips', metric: 'fleetShips', target: 1 },
     ],
     startingTreasury: 2200,
     worldCityCount: 7,
+  },
+  {
+    id: 'monuments',
+    nameKey: 'scenario.monuments',
+    descKey: 'scenario.monumentsDesc',
+    icon: '🏛️',
+    objectives: [
+      { key: 'templeZeus', nameKey: 'campaign.objective.godTemple', metric: 'godTemple', godKey: 'zeus', target: 1 },
+      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 45 },
+    ],
+    startingTreasury: 2400,
+    worldCityCount: 5,
+  },
+  {
+    id: 'beauty',
+    nameKey: 'scenario.beauty',
+    descKey: 'scenario.beautyDesc',
+    icon: '🌳',
+    objectives: [
+      { key: 'statues', nameKey: 'scenario.objective.statues', metric: 'buildingCount', buildingKey: 'statue', target: 2 },
+      { key: 'gardens', nameKey: 'scenario.objective.gardens', metric: 'buildingCount', buildingKey: 'garden', target: 2 },
+      { key: 'residence', nameKey: 'objective.residence', metric: 'residence', target: 1 },
+    ],
+    startingTreasury: 1900,
+    worldCityCount: 4,
+  },
+  {
+    id: 'industry',
+    nameKey: 'scenario.industry',
+    descKey: 'scenario.industryDesc',
+    icon: '⚒️',
+    objectives: [
+      { key: 'workshops', nameKey: 'campaign.objective.workshops', metric: 'workshops', target: 1 },
+      { key: 'sculptureStock', nameKey: 'campaign.objective.sculptureStock', metric: 'sculptureStock', target: 8 },
+      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 30 },
+    ],
+    startingTreasury: 1700,
+    worldCityCount: 5,
+  },
+  {
+    id: 'faith',
+    nameKey: 'scenario.faith',
+    descKey: 'scenario.faithDesc',
+    icon: '🛕',
+    objectives: [
+      { key: 'temple', nameKey: 'scenario.objective.temple', metric: 'buildingCount', buildingKey: 'temple', target: 1 },
+      { key: 'apolloSat', nameKey: 'campaign.objective.godSatisfaction', metric: 'godSatisfaction', godKey: 'apollo', target: 65 },
+      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 35 },
+    ],
+    startingTreasury: 2000,
+    worldCityCount: 5,
+  },
+  {
+    id: 'adventures',
+    nameKey: 'scenario.adventures',
+    descKey: 'scenario.adventuresDesc',
+    icon: '⚔️',
+    objectives: [
+      { key: 'adventures', nameKey: 'scenario.objective.adventures', metric: 'adventuresCompleted', target: 2 },
+      { key: 'heroTemple', nameKey: 'scenario.objective.heroTemple', metric: 'buildingCount', buildingKey: 'heroTemple', target: 1 },
+    ],
+    startingTreasury: 2100,
+    worldCityCount: 6,
+  },
+  {
+    id: 'harvest',
+    nameKey: 'scenario.harvest',
+    descKey: 'scenario.harvestDesc',
+    icon: '🌾',
+    objectives: [
+      { key: 'wheatProduced', nameKey: 'objective.wheatProduced', metric: 'wheatProduced', target: 120 },
+      { key: 'granary', nameKey: 'scenario.objective.granary', metric: 'buildingCount', buildingKey: 'granary', target: 1 },
+      { key: 'population', nameKey: 'objective.population', metric: 'population', target: 28 },
+    ],
+    startingTreasury: 1400,
+    worldCityCount: 4,
+    mapProfile: { landStyle: 'continent', boostTerrains: ['wheat'] },
   },
 ];
 
@@ -82,9 +176,15 @@ function getScenario(id){
   return SCENARIOS.find(s => s.id === id) || SCENARIOS[0];
 }
 
+function scenarioObjectiveSource(scenario){
+  // null = bac à sable sans objectifs ; undefined/absent = objectifs par défaut (OBJECTIVES)
+  if (scenario.objectives === null) return [];
+  return scenario.objectives || OBJECTIVES;
+}
+
 function applyScenarioObjectives(scenario, opts){
   opts = opts || {};
-  activeObjectives = (scenario.objectives || OBJECTIVES).map(o => {
+  activeObjectives = scenarioObjectiveSource(scenario).map(o => {
     const obj = Object.assign({}, o);
     if (opts.recordBaseline && typeof evaluateObjectiveMetric === 'function'){
       // Métriques cumulées depuis le début de la partie : viser un gain sur l'épisode.
@@ -95,6 +195,7 @@ function applyScenarioObjectives(scenario, opts){
 }
 
 async function startScenario(scenarioId){
+  if (typeof assignSaveSlotForNewGame === 'function') assignSaveSlotForNewGame();
   const scenario = getScenario(scenarioId);
   currentScenarioId = scenario.id;
   if (typeof clearActiveCampaign === 'function') clearActiveCampaign();
@@ -112,6 +213,7 @@ async function startScenario(scenarioId){
   if (typeof waitForTerrainReady === 'function') await waitForTerrainReady();
   if (typeof render === 'function') render();
   if (typeof hideGenLoading === 'function') hideGenLoading();
+  if (typeof showScenarioStoryIntro === 'function') showScenarioStoryIntro(scenario);
 }
 
 async function resetGameForScenario(scenario){
@@ -145,6 +247,9 @@ async function resetGameForScenario(scenario){
   defeatAnnounced = false;
   defeatReason = null;
   festivalTicksLeft = 0;
+  venueEventTicksLeft = 0;
+  if (typeof lastVenueEventDay !== 'undefined') lastVenueEventDay = -1;
+  if (typeof resetOracleState === 'function') resetOracleState();
   if (typeof resetObjectiveTracking === 'function') resetObjectiveTracking();
   generateWorldCities(scenario.worldCityCount);
   if (typeof configureWorldTradeForMapProfile === 'function'){
@@ -153,6 +258,7 @@ async function resetGameForScenario(scenario){
   initDiplomacy();
   initTrade();
   initArmy();
+  if (typeof initFleet === 'function') initFleet();
   resetCreatures();
   resetMigrants();
   resetInvasion();
@@ -175,12 +281,13 @@ function renderScenarioList(){
   const el = document.getElementById('scenarioList');
   const subtitle = document.getElementById('scenarioMenuSubtitle');
   const title = document.getElementById('newGameTitle');
-  if (subtitle) subtitle.textContent = t('scenario.menuSubtitle');
-  if (title) title.textContent = t('home.newGameTitle');
+  if (subtitle) subtitle.textContent = t('scenario.listSubtitle');
+  if (title) title.textContent = t('scenario.listTitle');
   if (!el) return;
-  el.innerHTML = SCENARIOS.map(s => {
+  const scenarios = SCENARIOS.filter(s => s.id !== 'sandbox');
+  el.innerHTML = scenarios.map(s => {
     const active = s.id === currentScenarioId ? ' scenario-active' : '';
-    return `<button class="scenarioCard${active}" onclick="startScenario('${s.id}')">
+    return `<button class="scenarioCard${active}" onclick="promptThenStartScenario('${s.id}')">
       <span class="scenarioIcon">${s.icon}</span>
       <span class="scenarioName">${t(s.nameKey)}</span>
       <span class="scenarioDesc">${t(s.descKey)}</span>

@@ -83,19 +83,18 @@ function spawnMonster(opts){
     facing: 'down', mirrorX: false,
   };
   const monsterName = t('monster.name.' + type.key);
-  if (opts.godKey){
-    const god = typeof godByKey === 'function' ? godByKey(opts.godKey) : null;
-    showNotification(t('god.wrath.monster', {
-      icon: god?.icon || '👹',
+  const msg = opts.godKey
+    ? t('god.wrath.monster', {
+      icon: (typeof godByKey === 'function' ? godByKey(opts.godKey)?.icon : null) || '👹',
       god: t('god.' + opts.godKey),
       monster: monsterName,
-    }), 'bad');
-  } else {
-    showNotification(t('monster.appearedWithHero', {
+    })
+    : t('monster.appearedWithHero', {
       monster: monsterName,
       hero: t('hero.name.' + type.heroKey),
-    }), 'bad');
-  }
+    });
+  if (typeof chronicleLog === 'function') chronicleLog(msg, 'bad');
+  else showNotification(msg, 'bad');
   debugInfo('Monstre apparu', { type: type.key, col: tile.col, row: tile.row, hp: maxHp });
   renderCreaturePanel();
   return true;
@@ -244,7 +243,8 @@ function tickHero(){
       const name = t('monster.name.' + monster.typeKey);
       monster = null;
       hero.leaving = true;
-      showNotification(t('hero.victory', { monster: name }), 'good');
+      if (typeof notifyMajor === 'function') notifyMajor(t('hero.victory', { monster: name }), 'good');
+      else showNotification(t('hero.victory', { monster: name }), 'good');
       debugInfo('Monstre vaincu par le héros désigné', { hero: hero.typeKey });
       renderCreaturePanel();
     } else {
@@ -255,7 +255,8 @@ function tickHero(){
         const name = t('monster.name.' + monster.typeKey);
         monster = null;
         hero.leaving = true;
-        showNotification(t('hero.victory', { monster: name }), 'good');
+        if (typeof notifyMajor === 'function') notifyMajor(t('hero.victory', { monster: name }), 'good');
+        else showNotification(t('hero.victory', { monster: name }), 'good');
         renderCreaturePanel();
       }
     }

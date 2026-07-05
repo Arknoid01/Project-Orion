@@ -1,12 +1,7 @@
 [
   {
-    "id": "friendly",
-    "category": "soldiers",
-    "path": "assets/characters/soldiers/friendly.png"
-  },
-  {
-    "id": "enemy",
-    "category": "soldiers",
-    "path": "assets/characters/soldiers/enemy.png"
+    "id": "culture",
+    "category": "walkers",
+    "path": "assets/characters/walkers/culture.png"
   }
 ]

@@ -74,6 +74,9 @@ function renderDebugPanel(){
 
 function toggleDebugPanel(){
   const el = document.getElementById('debugPanel');
+  if (!el) return;
   el.classList.toggle('open');
   if (el.classList.contains('open')) renderDebugPanel();
 }
+
+window.toggleDebugPanel = toggleDebugPanel;

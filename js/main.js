@@ -30,7 +30,7 @@ if (typeof renderQuickBuildCatalog === 'function') renderQuickBuildCatalog();
 applyGameUITranslations();
 if (typeof renderColonyHud === 'function') renderColonyHud();
 
-if (loadGame()){
+if (typeof tryAutoLoadOnStartup === 'function' ? tryAutoLoadOnStartup() : loadGame()){
   debugInfo('Sauvegarde restaurée au chargement de la page');
   document.getElementById('mainMenuOverlay').classList.remove('open');
   hideMainMenu();

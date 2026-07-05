@@ -1,6 +1,13 @@
 /* ===================== ETAT DE LA CARTE ===================== */
 let grid = []; // grid[row][col] = { terrain, building, hasRoad, elevation, ... }
 
+function isGridReady(){
+  if (!grid || grid.length !== GRID_ROWS) return false;
+  const row0 = grid[0];
+  return !!row0 && row0.length === GRID_COLS;
+}
+window.isGridReady = isGridReady;
+
 async function initGrid(opts){
   opts = opts || {};
   if (typeof bumpTerrainVersion === 'function') bumpTerrainVersion();

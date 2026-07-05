@@ -12,6 +12,11 @@ Deux modes de génération par asset, choisis automatiquement :
   - img2img  : si un fichier guide existe (denoise modéré, garde la silhouette)
   - txt2img  : sinon, génération complète depuis le prompt seul (denoise 1.0)
 
+Textures manquantes du jeu (carrotFarm, huntingPavilion, etc.) :
+  python comfy_batch_generate.py --list-missing-all   # audit complet
+  python comfy_batch_generate.py --gaps-only          # génère seulement ce qui manque
+  python import_comfy_raw.py --deploy                 # sprites_out -> assets/
+
 Pensé pour tourner en arrière-plan sans surveillance :
   - SKIP_EXISTING : les assets déjà produits sont ignorés -> on peut relancer
     le script pour reprendre là où il s'est arrêté
@@ -325,6 +330,20 @@ ASSETS = [
     },
     {
         "category": "buildings",
+        "output": "harbor.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek harbor port on land, stone pier and wooden dock, "
+                  "moored amphorae and rope coils, small stone warehouse shed, Mediterranean coast, "
+                  "no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "shipyard.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek shipyard, wooden trireme hull under construction on slipway, "
+                  "scaffolding, ropes, bronze fittings, stone tools shed, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
         "output": "taxOffice.png",
         "prompt": f"{STYLE_TRIGGER}, single ancient greek tax office, small administrative stone building, "
                   "wooden desk with clay tablets and coin chest, abacus, no base, no terrain, "
@@ -335,6 +354,53 @@ ASSETS = [
         "output": "watchtower.png",
         "prompt": f"{STYLE_TRIGGER}, single ancient greek fire watch tower, tall stone lookout tower with wooden platform, "
                   "brazier on top, ladder, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+
+    # ---------- CHAINES DE PRODUCTION (textures parfois déployées à la main, absentes du batch d'origine) ----------
+    {
+        "category": "buildings",
+        "output": "fishery.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek fishery, wooden pier with fishing nets drying, "
+                  "baskets of fish and clay amphorae, small stone shed, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "weaver.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek weaver workshop, stone building with loom and spinning wheel, "
+                  "rolls of wool and dyed fabric, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "foundry.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek bronze foundry, stone furnace with glowing embers, "
+                  "anvil, ingots and crucible, smoke hood, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "armory.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek armory weapons depot, stone building with racks of bronze shields, "
+                  "spears helmets and swords, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "charcoalPit.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek charcoal pit in forest, circular stone kiln mound with wood stacks, "
+                  "smoldering charcoal, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "carrotFarm.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek vegetable garden farm plot, rows of orange carrots and green tops, "
+                  "low irrigation ditch, wooden hoe, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "huntingPavilion.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek hunting pavilion lodge, rustic stone and timber shelter in woods, "
+                  "antlers and hunting bows on wall, game rack, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
     },
 
     # ---------- DECORATIONS (cachet / beaute) — flag decoration=True pour prompt adapté ----------
@@ -396,6 +462,13 @@ ASSETS = [
         "output": "villa.png",
         "prompt": f"{STYLE_TRIGGER}, single luxurious ancient greek villa, white marble columns, "
                   "large tiled roof, inner courtyard, ornate wealthy mansion, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "houses",
+        "output": "domaine.png",
+        "prompt": f"{STYLE_TRIGGER}, single wealthy ancient greek country estate domain, large rural mansion with courtyard, "
+                  "olive trees nearby, terracotta tiled roof, painted stone walls, no base, no terrain, "
                   "isometric game asset, isolated on plain white background",
     },
     {
@@ -464,7 +537,87 @@ ASSETS = [
     },
 ]
 
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sprites_out")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, "sprites_out")
+GAME_ASSET_DIRS = {
+    "buildings": os.path.join(SCRIPT_DIR, "assets", "buildings"),
+    "houses": os.path.join(SCRIPT_DIR, "assets", "houses"),
+    "tiles": os.path.join(SCRIPT_DIR, "assets", "tiles"),
+}
+
+# ===================== PHASE 1 — CULTURE (nouveaux batiments) =====================
+# Générer uniquement ce lot : python comfy_batch_generate.py --phase1-culture
+# Relance sans regénérer l'existant (sprites_out + assets/buildings).
+PHASE1_CULTURE_ASSETS = [
+    {
+        "category": "buildings",
+        "output": "agora.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek civic agora, open stone plaza with wide steps, "
+                  "surrounding marble columns and stoas, public assembly square, no market stall, "
+                  "no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "theatre.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek theatre, semicircular stone amphitheatre, "
+                  "tiered seating rows, small stage orchestra, no actors, no base, no terrain, "
+                  "isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "gymnasium.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek gymnasium palestra, rectangular courtyard with "
+                  "sand training ground, colonnade on one side, running track, no athletes, "
+                  "no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "stoa.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek civic stoa building, compact square footprint, "
+                  "short covered portico with white marble columns and tiled roof, "
+                  "no long horizontal extension, no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+    {
+        "category": "buildings",
+        "output": "academy.png",
+        "prompt": f"{STYLE_TRIGGER}, single ancient greek academy school, modest stone lecture hall, "
+                  "scrolls and lyre relief, small columned entrance, philosophers school, "
+                  "no base, no terrain, isometric game asset, isolated on plain white background",
+    },
+]
+
+
+ASSETS.extend(PHASE1_CULTURE_ASSETS)
+
+# Textures encore absentes ou réutilisées dans config.js (carrotFarm, huntingPavilion, domaine…).
+# Générer uniquement celles qui manquent : python comfy_batch_generate.py --gaps-only
+GAPS_ASSETS = [
+    e for e in ASSETS
+    if e["output"] in {
+        "fishery.png", "weaver.png", "foundry.png", "armory.png", "charcoalPit.png",
+        "carrotFarm.png", "huntingPavilion.png", "domaine.png",
+    }
+]
+
+
+def sprite_exists(entry, check_sprites_out=True, check_game=True):
+    """True si le PNG existe déjà dans sprites_out et/ou assets/."""
+    if check_sprites_out:
+        out = os.path.join(OUTPUT_DIR, entry["category"], entry["output"])
+        if os.path.isfile(out):
+            return True
+    if check_game:
+        game = os.path.join(GAME_ASSET_DIRS.get(entry["category"], ""), entry["output"])
+        if game and os.path.isfile(game):
+            return True
+    return False
+
+
+def filter_missing_assets(entries, check_game=True):
+    missing = [e for e in entries if not sprite_exists(e, check_game=check_game)]
+    present = len(entries) - len(missing)
+    return missing, present
+
 
 # ===================== COMFYUI API =====================
 def upload_image(filepath):
@@ -975,25 +1128,103 @@ if __name__ == "__main__":
         help="Ne générer qu'un seul asset (ex: grandTemple.png)",
     )
     parser.add_argument(
+        "--phase1-culture",
+        action="store_true",
+        help="Phase 1 : uniquement agora, theatre, gymnasium, stoa, academy (manquants seulement)",
+    )
+    parser.add_argument(
+        "--missing-only",
+        action="store_true",
+        help="Ignore les assets déjà présents dans sprites_out ou assets/",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Régénérer même si le fichier existe déjà (ignore SKIP_EXISTING)",
     )
+    parser.add_argument(
+        "--list-missing",
+        action="store_true",
+        help="Liste les textures Phase 1 culture manquantes puis quitte (sans ComfyUI)",
+    )
+    parser.add_argument(
+        "--list-missing-all",
+        action="store_true",
+        help="Liste toutes les textures ASSETS absentes de sprites_out/ et assets/ puis quitte",
+    )
+    parser.add_argument(
+        "--gaps-only",
+        action="store_true",
+        help="Uniquement les textures manquantes du jeu (fishery, carrotFarm, domaine…)",
+    )
     args = parser.parse_args()
 
+    if args.list_missing:
+        missing, present = filter_missing_assets(PHASE1_CULTURE_ASSETS)
+        print("=== Phase 1 culture — textures batiments ===")
+        for e in PHASE1_CULTURE_ASSETS:
+            status = "OK" if e not in missing else "MANQUANT"
+            print(f"  [{status}] {e['output']}")
+        print(f"\n{present}/{len(PHASE1_CULTURE_ASSETS)} déjà présents, {len(missing)} à générer.")
+        raise SystemExit(0)
+
+    if args.list_missing_all:
+        ai_assets = [
+            e for e in ASSETS
+            if not (e["category"] == "tiles" and TILE_MODE == "PROCEDURAL")
+        ]
+        missing, present = filter_missing_assets(ai_assets)
+        print("=== Toutes les textures ComfyUI (hors tuiles procédurales) ===")
+        for e in ai_assets:
+            status = "OK" if e not in missing else "MANQUANT"
+            print(f"  [{status}] {e['category']}/{e['output']}")
+        print(f"\n{present}/{len(ai_assets)} déjà présents, {len(missing)} à générer.")
+        if missing:
+            print("\nRelance ciblé :")
+            for e in missing:
+                print(f"  python comfy_batch_generate.py --only {e['output']}")
+        raise SystemExit(0)
+
     assets = ASSETS
-    if args.only:
+    if args.gaps_only:
+        assets = list(GAPS_ASSETS)
+        missing, present = filter_missing_assets(assets)
+        print(f"=== Textures manquantes (gaps) : {len(missing)} à générer "
+              f"({present}/{len(assets)} déjà présentes) ===\n")
+        if not missing and not args.force:
+            print("Rien à faire. Utilisez --force pour régénérer quand même.")
+            raise SystemExit(0)
+        if not args.force:
+            assets = missing
+    elif args.phase1_culture:
+        assets = list(PHASE1_CULTURE_ASSETS)
+        missing, present = filter_missing_assets(assets)
+        print(f"=== Phase 1 culture : {len(missing)} texture(s) à générer "
+              f"({present} déjà présentes, ignorées) ===\n")
+        if not missing and not args.force:
+            print("Rien à faire. Utilisez --force pour régénérer quand même.")
+            raise SystemExit(0)
+        if not args.force:
+            assets = missing
+    elif args.only:
         only_name = args.only if args.only.endswith(".png") else f"{args.only}.png"
         assets = [a for a in ASSETS if a["output"] == only_name]
         if not assets:
             raise SystemExit(f"Asset inconnu : {only_name}")
         print(f"Mode ciblé : {only_name}\n")
+    elif args.missing_only:
+        assets, present = filter_missing_assets(assets)
+        print(f"=== Mode missing-only : {len(assets)} asset(s) à générer "
+              f"({present} déjà présents) ===\n")
+        if not assets and not args.force:
+            print("Rien à faire.")
+            raise SystemExit(0)
 
     total = len(assets)
     done = 0
     skipped = 0
     failures = []
-    skip_existing = SKIP_EXISTING and not args.force
+    skip_existing = (SKIP_EXISTING or args.phase1_culture or args.missing_only or args.gaps_only) and not args.force
 
     print(f"=== Génération batch de {total} assets "
           f"(batiments/maisons={BUILDINGS_MODE}, terrains={TILES_MODE}) ===")
@@ -1012,8 +1243,8 @@ if __name__ == "__main__":
         # Les tuiles procédurales sont instantanées : on les régénère toujours
         # (pratique pour itérer sur l'apparence), SKIP_EXISTING ne s'y applique pas.
         is_procedural_tile = category == "tiles" and TILE_MODE == "PROCEDURAL"
-        if skip_existing and not is_procedural_tile and os.path.exists(out_path):
-            print("   déjà présent, ignoré (SKIP_EXISTING).\n")
+        if skip_existing and not is_procedural_tile and sprite_exists(entry):
+            print("   déjà présent (sprites_out ou assets/), ignoré.\n")
             skipped += 1
             continue
 

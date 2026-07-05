@@ -85,10 +85,10 @@ function isoFacingFromGridDelta(dcol, drow){
   const diagonal = isoDiagonalFromGridDelta(dcol, drow);
   if (!diagonal) return null;
   const map = typeof ISO_DIAGONAL_FACING !== 'undefined' ? ISO_DIAGONAL_FACING : {
-    se: { facing: 'left', mirror: true },
-    sw: { facing: 'left', mirror: false },
-    nw: { facing: 'left', mirror: false },
-    ne: { facing: 'left', mirror: true },
+    se: { facing: 'down',  mirror: false },
+    sw: { facing: 'left',  mirror: false },
+    nw: { facing: 'left',  mirror: false },
+    ne: { facing: 'down',  mirror: false },
   };
   const resolved = resolveIsoFacingEntry(map[diagonal]);
   return { diagonal, facing: resolved.facing, mirrorX: resolved.mirror };

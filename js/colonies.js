@@ -10,6 +10,8 @@ const COLONY_DEFINITIONS = [
     nameKey: 'colony.nemea.name',
     descKey: 'colony.nemea.desc',
     icon: '🏝️',
+    mapX: 0.42,
+    mapY: 0.55,
     mapSeed: 424242,
     startingTreasury: 1000,
     startingResources: { wheat: 45, marble: 0, sculpture: 0, olives: 15, oil: 0, grapes: 0, wine: 0, wool: 0 },
@@ -24,6 +26,8 @@ const COLONY_DEFINITIONS = [
     nameKey: 'colony.thasos.name',
     descKey: 'colony.thasos.desc',
     icon: '⛰️',
+    mapX: 0.68,
+    mapY: 0.28,
     mapSeed: 818181,
     startingTreasury: 850,
     startingResources: { wheat: 30, marble: 12, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 0 },
@@ -38,6 +42,8 @@ const COLONY_DEFINITIONS = [
     nameKey: 'colony.ionia.name',
     descKey: 'colony.ionia.desc',
     icon: '🍷',
+    mapX: 0.78,
+    mapY: 0.45,
     mapSeed: 919191,
     startingTreasury: 950,
     startingResources: { wheat: 35, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 45, wine: 12, wool: 0 },
@@ -53,6 +59,8 @@ const COLONY_DEFINITIONS = [
     nameKey: 'colony.delos.name',
     descKey: 'colony.delos.desc',
     icon: '🐟',
+    mapX: 0.55,
+    mapY: 0.52,
     mapSeed: 626262,
     startingTreasury: 900,
     startingResources: { wheat: 25, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 0, fish: 0, clothing: 0 },
@@ -67,6 +75,8 @@ const COLONY_DEFINITIONS = [
     nameKey: 'colony.cyrene.name',
     descKey: 'colony.cyrene.desc',
     icon: '🐑',
+    mapX: 0.38,
+    mapY: 0.72,
     mapSeed: 737373,
     startingTreasury: 880,
     startingResources: { wheat: 30, marble: 0, sculpture: 0, olives: 0, oil: 0, grapes: 0, wine: 0, wool: 20, fish: 0, clothing: 0 },
@@ -113,12 +123,14 @@ function captureMainCitySnapshot(){
     defeatAnnounced,
     defeatReason,
     festivalTicksLeft,
+    venueEventTicksLeft,
     diplomacy: cloneJson(diplomacy),
     worldCities: cloneJson(worldCities),
     selectedWorldCityId,
     tradeRoutes: cloneJson(tradeRoutes),
     selectedTradeCityId,
     army: Object.assign({}, army),
+    fleet: (typeof fleet !== 'undefined') ? Object.assign({}, fleet) : { ships: 0 },
     godAgents: cloneJson(godAgents || []),
     monster: monster ? cloneJson(monster) : null,
     hero: hero ? cloneJson(hero) : null,
@@ -128,6 +140,7 @@ function captureMainCitySnapshot(){
     activeObjectives: activeObjectives.map(o => Object.assign({}, o)),
     completedColonies: completedColonies.slice(),
     colonyTroopBonus,
+    playerCityName: (typeof getPlayerCityName === 'function') ? getPlayerCityName() : 'Olympos',
     tickCount: DEBUG.tickCount,
     ...(typeof serializeGodDispositions === 'function' ? serializeGodDispositions() : {}),
     ...(typeof serializeAdventureState === 'function' ? serializeAdventureState() : {}),
@@ -152,12 +165,15 @@ function applySnapshotToGame(snapshot){
   defeatAnnounced = !!snapshot.defeatAnnounced;
   defeatReason = snapshot.defeatReason || null;
   festivalTicksLeft = snapshot.festivalTicksLeft || 0;
+  venueEventTicksLeft = snapshot.venueEventTicksLeft || 0;
   worldCities = cloneJson(snapshot.worldCities || []);
   selectedWorldCityId = snapshot.selectedWorldCityId;
   diplomacy = cloneJson(snapshot.diplomacy || {});
   tradeRoutes = cloneJson(snapshot.tradeRoutes || {});
   selectedTradeCityId = snapshot.selectedTradeCityId;
   army = Object.assign({ morale: 1 }, snapshot.army || {});
+  if (snapshot.fleet) fleet = Object.assign({ ships: 0 }, snapshot.fleet);
+  else if (typeof ensureFleetState === 'function') ensureFleetState();
   godAgents = cloneJson(snapshot.godAgents || []);
   monster = snapshot.monster ? cloneJson(snapshot.monster) : null;
   hero = snapshot.hero ? cloneJson(snapshot.hero) : null;
@@ -166,6 +182,7 @@ function applySnapshotToGame(snapshot){
   activeObjectives = (snapshot.activeObjectives || []).map(o => Object.assign({}, o));
   completedColonies = (snapshot.completedColonies || []).slice();
   colonyTroopBonus = snapshot.colonyTroopBonus || 0;
+  if (snapshot.playerCityName && typeof initPlayerCityName === 'function') initPlayerCityName(snapshot.playerCityName);
   DEBUG.tickCount = snapshot.tickCount || 0;
   if (typeof restoreGodDispositions === 'function' && snapshot.godSatisfaction){
     restoreGodDispositions(snapshot);
@@ -203,6 +220,7 @@ async function resetColonyLocalState(colonyDef){
   defeatAnnounced = false;
   defeatReason = null;
   festivalTicksLeft = 0;
+  venueEventTicksLeft = 0;
   worldCities = [];
   selectedWorldCityId = null;
   if (typeof initDiplomacy === 'function') initDiplomacy();
@@ -287,10 +305,15 @@ async function launchColony(colonyId){
   if (typeof render === 'function') render();
   if (typeof hideGenLoading === 'function') hideGenLoading();
   if (typeof closePanels === 'function') closePanels();
-  showNotification(t('colony.started', { name: t(def.nameKey) }), 'good');
+  if (typeof notifyMajor === 'function') notifyMajor(t('colony.started', { name: t(def.nameKey) }), 'good');
+  else showNotification(t('colony.started', { name: t(def.nameKey) }), 'good');
   debugInfo('Colonie lancée', { colonyId });
   refreshColonyUI();
   saveGame({ silent: true });
+  if (typeof renderWorldMap === 'function'){
+    const panel = document.getElementById('worldMapPanel');
+    if (panel && panel.classList.contains('open')) renderWorldMap();
+  }
 }
 
 function applyColonyRewardsToSnapshot(snapshot, colonyDef){
@@ -323,11 +346,17 @@ function returnToMainCity(snapshot, colonyDef, success){
     renderObjectivesPanel();
   }
   saveGame({ silent: true });
+  if (typeof renderWorldMap === 'function'){
+    const panel = document.getElementById('worldMapPanel');
+    if (panel && panel.classList.contains('open')) renderWorldMap();
+  }
   if (success && colonyDef){
-    showNotification(t('colony.completedNotify', {
+    const msg = t('colony.completedNotify', {
       name: t(colonyDef.nameKey),
       rewards: formatColonyRewards(colonyDef.rewards),
-    }), 'good');
+    });
+    if (typeof notifyMajor === 'function') notifyMajor(msg, 'good');
+    else showNotification(msg, 'good');
   }
 }
 

@@ -51,10 +51,13 @@ function tradeCapacityBonus(){
 function tradeIncomeMultiplier(){
   let m = (typeof godTradeMultiplier === 'function') ? godTradeMultiplier() : 1;
   if (typeof artifactBonus === 'function') m *= (1 + artifactBonus('trade'));
+  if (typeof navalTradeIncomeMultiplier === 'function') m *= navalTradeIncomeMultiplier();
   return m;
 }
 function exportCapacity(){
-  return EXPORT_QTY_PER_POST * countTradePosts() + tradeCapacityBonus();
+  let cap = EXPORT_QTY_PER_POST * countTradePosts() + tradeCapacityBonus();
+  if (typeof navalExportBonus === 'function') cap += navalExportBonus();
+  return cap;
 }
 function importCapacity(){
   return IMPORT_QTY_PER_POST * countTradePosts() + tradeCapacityBonus();
@@ -85,14 +88,18 @@ function processForeignTrade(){
   if (!worldCities || worldCities.length === 0) return;
 
   let income = 0;
+  let exportRemaining = expCap;
   worldCities.forEach(city => {
+    if (exportRemaining <= 0) return;
     const route = tradeRoutes[city.id];
     if (!route || !route.export) return;
     city.buys.forEach(b => {
+      if (exportRemaining <= 0) return;
       if (!route.export[b.resource]) return;
-      const qty = Math.min(expCap, Math.floor(resources[b.resource] || 0));
+      const qty = Math.min(exportRemaining, Math.floor(resources[b.resource] || 0));
       if (qty <= 0) return;
       resources[b.resource] -= qty;
+      exportRemaining -= qty;
       income += Math.round(qty * cityExportPrice(city, b.price) * tradeIncomeMultiplier());
     });
   });

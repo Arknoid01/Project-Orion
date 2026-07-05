@@ -39,6 +39,12 @@ function showChoice(opts){
     p.textContent = opts.body;
     box.appendChild(p);
   }
+  if (opts.bodyHtml){
+    const extra = document.createElement('div');
+    extra.className = 'dialogExtra';
+    extra.innerHTML = opts.bodyHtml;
+    box.appendChild(extra);
+  }
 
   const actions = document.createElement('div');
   actions.className = 'dialogActions';

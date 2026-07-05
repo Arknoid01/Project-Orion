@@ -49,8 +49,13 @@ const OBJECTIVE_METRICS = {
   clothingStock:  () => Math.floor(resources.clothing || 0),
   armsStock:      () => Math.floor(resources.arms || 0),
   tradePosts:   () => (typeof countTradePosts === 'function') ? countTradePosts() : 0,
+  agora:        () => countBuildingsOfType('agora'),
+  adventuresCompleted: () => (typeof completedAdventures !== 'undefined') ? completedAdventures.length : 0,
+  cultureVenues: () => (typeof countCultureVenues === 'function') ? countCultureVenues() : 0,
+  cultureServed: () => (typeof countCultureServedHouses === 'function') ? countCultureServedHouses() : 0,
   workshops:    () => countBuildingsOfType('workshop'),
   buildingCount: (obj) => countBuildingsOfType(obj && obj.buildingKey),
+  fleetShips:   () => (typeof fleet !== 'undefined' && fleet) ? (fleet.ships || 0) : 0,
 };
 
 function evaluateObjectiveMetric(obj){
@@ -103,7 +108,7 @@ function resetObjectiveTracking(){
   objectiveNearNotified = {};
 }
 
-function showSandboxVictoryRecap(){
+function showSandboxVictoryRecapInner(){
   const pop = computeTotalPopulation();
   const colonies = (typeof completedColonies !== 'undefined') ? completedColonies.length : 0;
   const adventures = (typeof completedAdventures !== 'undefined') ? completedAdventures.length : 0;
@@ -122,15 +127,30 @@ function showSandboxVictoryRecap(){
       dismissible: true,
       choices: [{ label: t('dialog.ok'), type: 'primary', onPick: () => {} }],
     });
+  } else if (typeof notifyMajor === 'function') {
+    notifyMajor(t('objective.victory'), 'good');
   } else {
     showNotification(t('objective.victory'), 'good');
   }
   debugInfo('Victoire : tous les objectifs sont atteints !', { pop, colonies, adventures });
 }
 
+function showSandboxVictoryRecap(){
+  if (typeof showScenarioStoryOutro === 'function' && typeof currentScenarioId !== 'undefined'
+      && currentScenarioId && !String(currentScenarioId).startsWith('campaign:')){
+    showScenarioStoryOutro(currentScenarioId, showSandboxVictoryRecapInner);
+  } else {
+    showSandboxVictoryRecapInner();
+  }
+}
+
 /* ===================== VERIFICATION ===================== */
 function checkObjectives(){
   const objectives = (typeof activeObjectives !== 'undefined') ? activeObjectives : OBJECTIVES;
+  if (!objectives.length){
+    renderObjectivesPanel();
+    return;
+  }
   let allDone = true;
   objectives.forEach(obj => {
     obj.current = evaluateObjectiveMetric(obj);
@@ -173,25 +193,28 @@ function checkObjectives(){
 
 /* ===================== AFFICHAGE PANNEAU ===================== */
 function renderObjectivesPanel(){
-  const list = document.getElementById('objectivesList');
-  const victoryBanner = document.getElementById('victoryBanner');
-  const defeatBanner = document.getElementById('defeatBanner');
+  const el = document.getElementById('objectivesList');
   const objectives = (typeof activeObjectives !== 'undefined') ? activeObjectives : OBJECTIVES;
-  if (!list) return;
+  if (!el) return;
 
-  list.innerHTML = objectives.map(obj => {
+  let html = '';
+  if (victoryAnnounced){
+    html += `<div class="row manage-banner manage-banner-victory eco-good"><span>🏆 ${t('objective.victoryTitle')}</span></div>`;
+  }
+  if (typeof defeatAnnounced !== 'undefined' && defeatAnnounced){
+    html += `<div class="row manage-banner manage-banner-defeat eco-warn"><span>💀 ${t('defeat.' + defeatReason)}</span></div>`;
+  }
+
+  html += objectives.map(obj => {
     const icon = obj.done ? '✅' : '⏳';
     const current = Math.floor(obj.current || 0);
     const pct = obj.target > 0 ? Math.min(100, Math.round((current / obj.target) * 100)) : 0;
-    const nearClass = (!obj.done && pct >= 80) ? ' objective-near' : '';
-    return `<li class="${obj.done ? 'objective-done' : ''}${nearClass}">${icon} ${getObjectiveDisplayName(obj)} (${current}/${obj.target})</li>`;
+    const rowClass = obj.done ? ' objective-done' : ((!obj.done && pct >= 80) ? ' objective-near' : '');
+    const warnClass = (!obj.done && pct >= 80) ? ' eco-warn' : (obj.done ? ' eco-good' : '');
+    return `<div class="row${rowClass}${warnClass}"><span>${icon} ${getObjectiveDisplayName(obj)}</span><b>${current}/${obj.target}</b></div>`;
   }).join('');
 
-  if (victoryBanner) victoryBanner.style.display = victoryAnnounced ? '' : 'none';
-  if (defeatBanner){
-    defeatBanner.style.display = defeatAnnounced ? '' : 'none';
-    if (defeatAnnounced) defeatBanner.textContent = t('defeat.' + defeatReason);
-  }
+  el.innerHTML = html || `<div class="row"><span>${t('objective.none')}</span></div>`;
 }
 
 window.resetObjectiveTracking = resetObjectiveTracking;

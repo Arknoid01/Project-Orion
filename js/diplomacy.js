@@ -120,11 +120,19 @@ function renderDiplomacyPanel(){
   const el = document.getElementById('diplomacyList');
   if (!el) return;
   ensureDiplomacyState();
+  if (!worldCities || !worldCities.length){
+    el.innerHTML = `<div class="row"><span>${t('diplomacy.empty')}</span></div>`;
+    return;
+  }
   el.innerHTML = worldCities.map(c => {
     const status = relationStatusKey(c.relation);
+    const traded = typeof cityHasTradeRoute === 'function' && cityHasTradeRoute(c.id);
+    const personality = c.personality || 'diplomat';
+    const pIcon = personality === 'aggressive' ? '⚔️' : (personality === 'merchant' ? '⚖️' : '🕊️');
+    const tradeTag = traded ? ` · ${t('diplomacy.tradeActive')}` : '';
     return `<div class="diploRow">
-      <span class="diploCity">🏛️ ${c.name}</span>
-      <span class="diploStatus diplo-${status}">${t('diplomacy.status.' + status)}</span>
+      <span class="diploCity">${pIcon} ${c.name}${c.conquered ? ' ✅' : ''}</span>
+      <span class="diploStatus diplo-${status}">${t('diplomacy.status.' + status)}${tradeTag}</span>
       <div class="diploBar"><div class="diploBarFill diplo-${status}" style="width:${c.relation}%"></div></div>
       <span class="diploValue">${Math.round(c.relation)}/100</span>
     </div>`;

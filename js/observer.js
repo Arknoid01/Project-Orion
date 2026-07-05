@@ -1,11 +1,36 @@
 /* ===================== OBSERVATEUR (nouvelle interface) ===================== */
 // Remplace OBSERVER_DATA (mock, dans le script de l'UI) par de vraies données tirées
-// de l'état du jeu. Format attendu par setObserverTiles() (déjà défini dans le script
-// de l'UI) : { title, tiles: [{icon, title, status, rows: [[label, valeur, classeCss?]]}], actions }
+// Format attendu par setObserverTiles() (js/observerUi.js)
 // Au plus 4 tuiles affichées (limite du nombre de .obsTile statiques dans le HTML).
 
-const WALKER_SERVICE_NEEDS = ['water', 'religion', 'health', 'fire'];
+const WALKER_SERVICE_NEEDS = ['water', 'religion', 'health', 'fire', 'culture'];
 const MARKET_NEEDS = ['food', 'oil', 'wine', 'fish', 'clothing'];
+
+function observerWalkerPassEnabled(){
+  return typeof WALKER_PASS_DELIVERY !== 'undefined' && WALKER_PASS_DELIVERY
+    && typeof getWalkerPassStats === 'function';
+}
+
+function observerWalkerServiceStats(walker, def){
+  if (walker && observerWalkerPassEnabled()){
+    const ps = getWalkerPassStats(walker);
+    return {
+      served: ps.served,
+      eligible: ps.eligible,
+      status: `${ps.served}/${ps.eligible} ${t('inspector.servedToday')}`,
+      inventory: ps.inventory,
+      carry: ps.carry,
+    };
+  }
+  const served = walker ? walker.servedHouses.length : 0;
+  return {
+    served,
+    eligible: def.capacity,
+    status: `${served}/${def.capacity}`,
+    inventory: null,
+    carry: null,
+  };
+}
 
 /** Case actuellement inspectée dans l'observateur ({ col, row }). */
 let observerTile = null;
@@ -158,7 +183,16 @@ function needStatusDetail(need, col, row){
   if (WALKER_SERVICE_NEEDS.includes(need)){
     const type = need === 'fire' ? 'fire' : need;
     const w = typeof findServingWalker === 'function' ? findServingWalker(type, col, row) : null;
-    if (w) return ['✔', 'ok'];
+    if (w){
+      if (need === 'culture'){
+        const def = BUILDING_DEFS[w.type];
+        const range = def && def.range != null ? def.range : 18;
+        const venuesOk = typeof isCultureVenueLinked === 'function'
+          && isCultureVenueLinked(w.col, w.row, range);
+        if (!venuesOk) return [t('needHint.noVenues.culture'), 'bad'];
+      }
+      return ['✔', 'ok'];
+    }
     const hasService = walkers.some(x => x.serviceType === type);
     if (!hasService) return [t('needHint.noService.' + need), 'bad'];
     if (!hasAdjacentRoad(col, row)) return [t('needHint.noRoute'), 'bad'];
@@ -275,19 +309,23 @@ function buildBuildingObserverData(type, col, row){
 
   if (def.isService){
     const walker = walkers.find(w => w.col === col && w.row === row);
-    const served = walker ? walker.servedHouses.length : 0;
+    const svcStats = observerWalkerServiceStats(walker, def);
     const connected = !!walker && walker.path.length > 1;
     const reach = typeof serviceCoverageTileCount === 'function'
       ? serviceCoverageTileCount(col, row, def.range)
       : def.range;
+    const svcRows = [
+      [t('inspector.service'), t('service.' + def.serviceType)],
+      [t('inspector.patrolRange'), `${def.range} ${t('inspector.tilesAlongRoad')}`],
+      [t('inspector.coverageArea'), `${reach} ${t('inspector.roadTiles')}`],
+      [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
+    ];
+    if (svcStats.inventory != null){
+      svcRows.push([t('inspector.walkerInventory'), `${svcStats.inventory}/${svcStats.carry}`]);
+    }
     tiles.push({
-      icon: '🚶', title: t('inspector.service'), status: `${served}/${def.capacity}`,
-      rows: [
-        [t('inspector.service'), t('service.' + def.serviceType)],
-        [t('inspector.patrolRange'), `${def.range} ${t('inspector.tilesAlongRoad')}`],
-        [t('inspector.coverageArea'), `${reach} ${t('inspector.roadTiles')}`],
-        [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
-      ],
+      icon: '🚶', title: t('inspector.service'), status: svcStats.status,
+      rows: svcRows,
     });
   }
 
@@ -386,7 +424,11 @@ function buildCityObserverData(){
       },
       {
         icon: '🎯', title: t('panel.objectives'), status: victoryAnnounced ? '✔' : '…',
-        rows: OBJECTIVES.map(o => [t(o.nameKey), `${Math.floor(o.current || 0)}/${o.target}`, o.done ? 'ok' : '']),
+        rows: ((typeof activeObjectives !== 'undefined') ? activeObjectives : OBJECTIVES).map(o => [
+          (typeof getObjectiveDisplayName === 'function') ? getObjectiveDisplayName(o) : t(o.nameKey),
+          `${Math.floor(o.current || 0)}/${o.target}`,
+          o.done ? 'ok' : '',
+        ]),
       },
     ],
     actions: false,
@@ -397,6 +439,7 @@ function buildCityObserverData(){
       <button class="actionBtn" onclick="cityManagementAction('openTradePanel')">🚢 ${t('panel.trade')}</button>
       <button class="actionBtn" onclick="cityManagementAction('summonHero')">🦸 ${t('cityActions.hero')}</button>
       <button class="actionBtn" onclick="cityManagementAction('openArmyPanel')">⚔️ ${t('panel.army')}</button>
+      <button class="actionBtn" onclick="cityManagementAction('openNavyPanel')">⚓ ${t('panel.navy')}</button>
       <button class="actionBtn" onclick="cityManagementAction('launchAttack')">🔥 ${t('army.attack')}</button>
       <button class="actionBtn" onclick="cityManagementAction('openColoniesPanel')">🏝️ ${t('panel.colonies')}</button>
       <button class="actionBtn" onclick="cityManagementAction('openAdventuresPanel')">⚔️ ${t('panel.adventures')}</button>
@@ -411,7 +454,7 @@ function cityManagementAction(action){
   if (typeof window[action] === 'function') window[action]();
   // Ces actions ouvrent leur propre écran/modale : ne pas réafficher la gestion de ville
   // par-dessus (sinon on referme l'écran qu'on vient d'ouvrir).
-  const ownScreen = ['openTradePanel', 'openArmyPanel', 'launchAttack', 'openColoniesPanel', 'openAdventuresPanel'];
+  const ownScreen = ['openTradePanel', 'openArmyPanel', 'openNavyPanel', 'launchAttack', 'openColoniesPanel', 'openAdventuresPanel'];
   if (!ownScreen.includes(action) && typeof openCityManagement === 'function') openCityManagement();
 }
 
@@ -425,25 +468,36 @@ function buildWalkerObserverData(walker){
   const reach = typeof serviceCoverageTileCount === 'function'
     ? serviceCoverageTileCount(walker.col, walker.row, def.range)
     : walker.path.length;
+  const svcStats = observerWalkerServiceStats(walker, def);
+  const passOn = observerWalkerPassEnabled();
+  const servedKeys = walker.servedToday || new Set();
+  const houseRows = walker.servedHouses.length
+    ? walker.servedHouses.slice(0, 8).map(h => {
+      const ok = !passOn || servedKeys.has(`${h.col},${h.row}`);
+      return [`Maison (${h.col},${h.row})`, ok ? '✔' : '…', ok ? 'ok' : ''];
+    })
+    : [[t('inspector.served'), '0', 'bad']];
+  const patrolRows = [
+    [t('inspector.service'), t('service.' + walker.serviceType)],
+    ['Départ', `${t(def.name)} (${walker.col},${walker.row})`],
+    [t('inspector.patrolRange'), `${def.range} ${t('inspector.tilesAlongRoad')}`],
+    [t('inspector.coverageArea'), `${reach} ${t('inspector.roadTiles')}`],
+    [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
+  ];
+  if (svcStats.inventory != null){
+    patrolRows.push([t('inspector.walkerInventory'), `${svcStats.inventory}/${svcStats.carry}`]);
+  }
 
   return {
     title: `${def.icon} ${t('inspector.service')} : ${t('service.' + walker.serviceType)}`,
     tiles: [
       {
         icon: '🚶', title: t('inspector.service'), status: connected ? t('inspector.connected') : t('inspector.notConnected'),
-        rows: [
-          [t('inspector.service'), t('service.' + walker.serviceType)],
-          ['Départ', `${t(def.name)} (${walker.col},${walker.row})`],
-          [t('inspector.patrolRange'), `${def.range} ${t('inspector.tilesAlongRoad')}`],
-          [t('inspector.coverageArea'), `${reach} ${t('inspector.roadTiles')}`],
-          [t('inspector.connected'), connected ? '✔' : '✖', connected ? 'ok' : 'bad'],
-        ],
+        rows: patrolRows,
       },
       {
-        icon: '🏠', title: t('inspector.served'), status: `${walker.servedHouses.length}/${def.capacity}`,
-        rows: walker.servedHouses.length
-          ? walker.servedHouses.slice(0, 8).map(h => [`Maison (${h.col},${h.row})`, '✔', 'ok'])
-          : [[t('inspector.served'), '0', 'bad']],
+        icon: '🏠', title: t('inspector.served'), status: svcStats.status,
+        rows: houseRows,
       },
       {
         icon: '🧭', title: 'Trajet', status: current ? `(${current.col},${current.row})` : '—',
@@ -573,6 +627,7 @@ function openTradePanel(){
   const backdrop = document.getElementById('backdrop');
   if (backdrop) backdrop.classList.add('show');
   tradeScreenOpen = true;
+  if (typeof onTradePanelOpened === 'function') onTradePanelOpened();
 }
 
 function refreshTradeScreen(){

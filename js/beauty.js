@@ -41,7 +41,7 @@ function recomputeBeauty(){
   clearBeauty();
   forEachBuilding((type, col, row) => {
     const def = BUILDING_DEFS[type];
-    if (def.isDecoration) spreadBeauty(col, row, def);
+    if (def.isDecoration || def.isVenue) spreadBeauty(col, row, def);
   });
 }
 

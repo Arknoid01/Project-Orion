@@ -1,6 +1,6 @@
 /* ===================== ETAT RESSOURCES ===================== */
 const DEFAULT_RESOURCES = {
-  wheat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0,
+  wheat:0, carrots:0, meat:0, marble:0, sculpture:0, olives:0, oil:0, grapes:0, wine:0, wool:0,
   clothing:0, fish:0, coal:0, bronze:0, arms:0,
 };
 
@@ -39,6 +39,7 @@ function computeCaps(){
 }
 
 function forEachBuilding(callback){
+  if (!isGridReady()) return;
   for (let row = 0; row < GRID_ROWS; row++){
     for (let col = 0; col < GRID_COLS; col++){
       const b = grid[row][col].building;
@@ -54,6 +55,7 @@ function industryFactor(resource){
 
 function tick(){
   if (typeof isGamePaused === 'function' && isGamePaused()) return;
+  if (typeof defeatAnnounced !== 'undefined' && defeatAnnounced) return;
   if (!grid || !grid.length) return;
   DEBUG.tickCount++;
   lastTickTimestamp = performance.now();
@@ -86,7 +88,7 @@ function tick(){
   _safe('production', () => {
     forEachBuilding((type) => {
       const def = BUILDING_DEFS[type];
-      if (def.produces && !def.consumes){
+      if (def.produces && !def.consumes && !def.isSeasonalCrop){
         const factor = industryFactor(def.produces);
         const before = resources[def.produces];
         resources[def.produces] = Math.min(caps[def.produces], resources[def.produces] + def.rate * factor);
@@ -115,10 +117,14 @@ function tick(){
   _safe('objectives', () => checkObjectives());
   _safe('defeat', () => checkDefeat());
   _safe('festival', () => tickFestival());
+  _safe('venues', () => { if (typeof tickVenues === 'function') tickVenues(); });
+  _safe('oracle', () => { if (typeof tickOracle === 'function') tickOracle(); });
   _safe('tutorial', () => { if (typeof tickTutorial === 'function') tickTutorial(); });
   _safe('monthChange', () => checkMonthChange());
   _safe('diplomacyInvasion', () => {
     if (!(typeof isColonyPhase === 'function' && isColonyPhase())){
+      if (typeof tickRivalAI === 'function') tickRivalAI();
+      if (typeof tickNavalThreats === 'function') tickNavalThreats();
       tickDiplomacy();
       if (typeof tickInvasion === 'function') tickInvasion();
     }

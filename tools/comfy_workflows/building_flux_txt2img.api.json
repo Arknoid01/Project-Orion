@@ -1,0 +1,81 @@
+{
+  "20": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "flux1-dev-Q4_K_S.gguf"
+    }
+  },
+  "21": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    }
+  },
+  "22": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "23": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "lora_name": "1751268368.safetensors",
+      "strength_model": 0.8,
+      "model": ["20", 0]
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "isometric building, stylized realistic, mediterranean architecture, from above, single ancient greek farmhouse, no base, no terrain, weathered limestone walls, reddish terracotta clay roof tiles, isometric game asset, isolated on plain white background, single isolated object floating on pure white background, no base, no platform, no ground, no plaza, no courtyard, no pedestal, no statues, no debris, no plants, no bushes, no trees, no surrounding scenery, nothing else in frame",
+      "clip": ["21", 0]
+    }
+  },
+  "24": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "guidance": 3.5,
+      "conditioning": ["6", 0]
+    }
+  },
+  "13": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 512,
+      "height": 512,
+      "batch_size": 1
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 42424242,
+      "steps": 30,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["23", 0],
+      "positive": ["24", 0],
+      "negative": ["24", 0],
+      "latent_image": ["13", 0]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["22", 0]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["8", 0],
+      "filename_prefix": "olympos_asset"
+    }
+  }
+}

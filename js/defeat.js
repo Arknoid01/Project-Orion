@@ -27,6 +27,30 @@ function checkDefeat(){
   renderObjectivesPanel(); // affiche/masque la bannière de défaite
 }
 
+function showDefeatModal(){
+  if (typeof showChoice !== 'function') return;
+  showChoice({
+    title: t('defeat.title'),
+    body: t('defeat.' + defeatReason),
+    dismissible: false,
+    choices: [
+      {
+        label: t('defeat.retry'),
+        type: 'primary',
+        onPick: () => {
+          if (typeof hideMainMenu === 'function') hideMainMenu();
+          if (typeof startScenario === 'function') startScenario(currentScenarioId);
+        },
+      },
+      {
+        label: t('menu.returnMain'),
+        type: 'neutral',
+        onPick: () => { if (typeof returnToMainMenu === 'function') returnToMainMenu(); },
+      },
+    ],
+  });
+}
+
 function triggerDefeat(reason){
   if (typeof isColonyPhase === 'function' && isColonyPhase() && typeof abandonColony === 'function'){
     abandonColony(false);
@@ -36,6 +60,14 @@ function triggerDefeat(reason){
   }
   defeatAnnounced = true;
   defeatReason = reason;
+  if (typeof setGamePaused === 'function') setGamePaused(true);
   showNotification(t('defeat.' + reason), 'bad');
+  showDefeatModal();
   debugWarn('Défaite : ' + reason);
+}
+
+function resumeDefeatStateAfterLoad(){
+  if (!defeatAnnounced) return;
+  if (typeof setGamePaused === 'function') setGamePaused(true);
+  showDefeatModal();
 }

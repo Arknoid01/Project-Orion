@@ -41,6 +41,8 @@ window._uiQuadPool = [];
 
 window.markOverlayCameraDirty = function(){
   window._overlayCamKey = '';
+  window._overlayNeedsRender = true;
+  if (typeof markRenderDirty === 'function') markRenderDirty();
 };
 window.markOverlayDirty = function(){
   window._overlayNeedsRender = true;
@@ -180,6 +182,7 @@ window.initPixiOverlay = async function(){
     window._overlayBeautyContainer   = new PIXI.Container();
     window._overlayRoadContainer     = new PIXI.Container();
     window._overlayBuildingContainer = new PIXI.Container();
+    window._buildingDebugPreviewContainer = new PIXI.Container();
     window._overlayWalkerContainer   = new PIXI.Container();
     window._overlayHouseIconContainer = new PIXI.Container();
     window._overlayAgentContainer    = new PIXI.Container();
@@ -190,6 +193,7 @@ window.initPixiOverlay = async function(){
     app.stage.addChild(window._overlayBeautyContainer);
     app.stage.addChild(window._overlayRoadContainer);
     app.stage.addChild(window._overlayBuildingContainer);
+    app.stage.addChild(window._buildingDebugPreviewContainer);
     app.stage.addChild(window._overlayWalkerContainer);
     app.stage.addChild(window._overlayHouseIconContainer);
     app.stage.addChild(window._overlayAgentContainer);
@@ -344,8 +348,9 @@ function _pixiApplyTileScreenPlacement(display, placement){
   if (!placement) return;
   display.anchor.set(placement.footNx, placement.footNy);
   display.scale.set(placement.scale);
-  display.x = placement.x;
-  display.y = placement.y;
+  // Arrondi pixel : évite le scintillement des sprites overlay pendant le pan caméra.
+  display.x = Math.round(placement.x);
+  display.y = Math.round(placement.y);
 }
 
 function _pixiMonumentScreenPlacement(anchorCol, anchorRow, size, img, def){
@@ -448,7 +453,9 @@ window._pixiLoadTextures = async function(){
   // Walkers (spritesheets 288×384, 3 frames × 4 directions, 96×96/frame)
   // Ordre RÉEL des lignes de la planche : 0=dos(up) · 1=gauche · 2=droite · 3=face(down)
   const FRAME_W = 96, FRAME_H = 96, FRAMES = 3, DIRS = 4;
-  const DIR_ROW = { up:0, left:1, right:2, down:3 };
+  const DIR_ROW = (typeof WALKER_DIRECTION_ROWS !== 'undefined')
+    ? WALKER_DIRECTION_ROWS
+    : { up: 0, left: 1, right: 2, down: 3 };
 
   const walkerPaths = typeof SERVICE_WALKER_SPRITES !== 'undefined' ? SERVICE_WALKER_SPRITES : {};
   await Promise.all(Object.entries(walkerPaths).map(async ([service, path]) => {
@@ -675,13 +682,16 @@ window._buildBuildings = function(visible, overlay){
       const spr = new PIXI.Sprite(tex);
       const img = _pixiResolveBuildingImage(texKey, type, isHouse ? cell.houseLevel : undefined);
       const drawW = typeof buildingDrawWidthForDef === 'function'
-        ? buildingDrawWidthForDef(def || {}, img)
+        ? buildingDrawWidthForDef(def || {}, img, type)
         : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : TILE_W - 4);
+      const place = typeof getBuildingSpritePlacement === 'function'
+        ? getBuildingSpritePlacement(type, def || {})
+        : { offsetX: (def && def.spriteOffsetX) || 0, offsetY: 0 };
       const m = (img && typeof measureSpriteFoot === 'function') ? measureSpriteFoot(img) : null;
       spr.anchor.set(m ? m.footNx : 0.5, m ? m.footNy : 1);
       spr.scale.set(drawW / (tex.width || img?.naturalWidth || 62));
-      spr.x = north ? north.x : foot.x;
-      spr.y = foot.y;
+      spr.x = (north ? north.x : foot.x) + place.offsetX;
+      spr.y = foot.y + (place.offsetY || 0);
       container.addChild(spr);
     } else {
       const g = new PIXI.Graphics();
@@ -724,12 +734,20 @@ window._repositionOverlayBuildings = function(){
         ? _pixiResolveBuildingImage(e.texKey, e.type, houseLevel)
         : e.img;
       const drawW = typeof buildingDrawWidthForDef === 'function'
-        ? buildingDrawWidthForDef(e.def || {}, img)
+        ? buildingDrawWidthForDef(e.def || {}, img, e.type)
         : null;
-      placement = spritePlacementOnTileScreen(e.col, e.row, img, drawW, { building: true });
+      const place = typeof getBuildingSpritePlacement === 'function'
+        ? getBuildingSpritePlacement(e.type, e.def || {})
+        : { offsetX: (e.def && e.def.spriteOffsetX) || 0, offsetY: 0 };
+      placement = spritePlacementOnTileScreen(e.col, e.row, img, drawW, {
+        building: true,
+        offsetX: place.offsetX,
+        lift: place.offsetY,
+      });
     }
     _pixiApplyTileScreenPlacement(e.spr, placement);
   });
+  if (typeof updateBuildingSpriteDebugPreview === 'function') updateBuildingSpriteDebugPreview();
 };
 
 /* =========================================================
@@ -1270,10 +1288,16 @@ window._repositionOverlayRoads = function(){
     } else if (e.kind === 'block' && e.gfx && typeof gridToWorld3Anchor === 'function'){
       const w = gridToWorld3Anchor(e.col, e.row);
       const s = worldToScreen(w.x, w.y, w.z);
-      const r = _pixiThreeScale(8);
+      const scale = _pixiThreeScale(1);
+      const postW = 4 * scale;
+      const postH = 14 * scale;
+      const capR = 5 * scale;
       e.gfx.clear();
-      e.gfx.circle(s.x, s.y - r, r);
-      e.gfx.fill({ color: 0xff4444, alpha: 0.75 });
+      e.gfx.rect(s.x - postW / 2, s.y - postH, postW, postH);
+      e.gfx.fill({ color: 0x5a4a3a, alpha: 0.95 });
+      e.gfx.circle(s.x, s.y - postH - capR * 0.2, capR);
+      e.gfx.fill({ color: 0xcfcac0, alpha: 0.95 });
+      e.gfx.stroke({ color: 0x000000, alpha: 0.35, width: 1 });
     }
   });
 };
@@ -1365,11 +1389,15 @@ window._buildAgentsOverlay = function(now){
    ========================================================= */
 window._rebuildHouseIconEntries = function(){
   window._houseIconEntries = [];
-  if (!Array.isArray(grid) || typeof forEachBuilding !== 'function' || typeof getHouseStatusIcons !== 'function') return;
+  if (!Array.isArray(grid) || typeof forEachBuilding !== 'function') return;
   forEachBuilding(function(type, col, row){
-    if (type !== 'maison') return;
     const cell = grid[row][col];
-    const icons = getHouseStatusIcons(col, row, cell);
+    let icons = [];
+    if (type === 'maison' && typeof getHouseStatusIcons === 'function'){
+      icons = getHouseStatusIcons(col, row, cell);
+    } else if (typeof getBuildingStatusIcons === 'function'){
+      icons = getBuildingStatusIcons(col, row, type);
+    }
     if (icons.length) window._houseIconEntries.push({ col, row, icons });
   });
 };
@@ -1394,17 +1422,27 @@ window._buildHouseIconsOverlay = function(){
     const w = gridToWorld3Anchor(entry.col, entry.row);
     const s = worldToScreen(w.x, w.y, w.z);
     if (s.x < -pad || s.x > vw + pad || s.y < -pad || s.y > vh + pad) continue;
-    const spacing = _pixiThreeScale(12);
+    const spacing = _pixiThreeScale(14);
     const startX = s.x - ((entry.icons.length - 1) * spacing) / 2;
     for (let i = 0; i < entry.icons.length; i++){
+      const raw = entry.icons[i];
+      const iconText = typeof raw === 'string' ? raw : raw.text;
+      const status = typeof raw === 'string' ? 'missing' : raw.status;
       const t = _pixiPoolAcquire(pool, container, function(){
         return new PIXI.Text({ text: '', style: { fontFamily: 'serif', fontSize: 12 } });
       });
-      t.text = entry.icons[i];
-      t.style.fontSize = _pixiThreeScale(11);
+      t.text = iconText;
+      t.style.fontSize = _pixiThreeScale(13);
+      if (status === 'pending'){
+        t.style.fill = 0x664400;
+        t.style.stroke = { color: 0xffcc66, width: 3, join: 'round' };
+      } else {
+        t.style.fill = 0x1a1a1a;
+        t.style.stroke = { color: 0xff6666, width: 3, join: 'round' };
+      }
       t.anchor.set(0.5, 0.5);
       t.x = startX + i * spacing;
-      t.y = s.y - _pixiThreeScale(36);
+      t.y = s.y - _pixiThreeScale(38);
     }
   }
   _pixiPoolRelease(pool);
@@ -1601,18 +1639,16 @@ window.renderPixiOverlay = function(now){
     if (window._roadsDirty){
       window._buildRoadsOverlay();
       window._roadsDirty = false;
-    } else if (camMoved){
-      window._repositionOverlayRoads();
     }
     if (window._buildingDirty){
       window._buildBuildings(drawOrder, true);
-      window._repositionOverlayBuildings();
-    } else if (camMoved){
-      window._repositionOverlayBuildings();
+      window._buildingDirty = false;
     }
+    window._repositionOverlayBuildings();
+    window._repositionOverlayRoads();
   }
 
-  if (camMoved) window._repositionOverlayDecors();
+  window._repositionOverlayDecors();
 
   window._buildWalkers(now, 0, 0, window.innerWidth, window.innerHeight, true);
   window._buildAgentsOverlay(now);

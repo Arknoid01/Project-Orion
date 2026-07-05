@@ -2,13 +2,30 @@
 // Aide le joueur à voir si production journalière >= consommation journalière.
 // Les chiffres sont des estimations (emploi/taxes actuels, stock intermédiaire supposé disponible).
 
+function estimateSeasonalDailyAverage(){
+  const out = mergeResources({});
+  if (typeof SEASONAL_CROP_HARVEST === 'undefined' || typeof industryFactor !== 'function') return out;
+  const daysPerYear = DAYS_PER_MONTH * MONTHS.length;
+  for (const [resource, cfg] of Object.entries(SEASONAL_CROP_HARVEST)){
+    let count = 0;
+    forEachBuilding((type) => {
+      if (cfg.buildingTypes.includes(type)) count++;
+    });
+    if (count <= 0) continue;
+    const harvestsPerYear = cfg.monthIndices.length;
+    const factor = industryFactor(resource);
+    out[resource] = (count * cfg.yieldBase * factor * harvestsPerYear) / daysPerYear;
+  }
+  return out;
+}
+
 function estimateDailyProduction(){
   const out = mergeResources({});
   if (typeof industryFactor !== 'function') return out;
   const day = DAY_DURATION_TICKS;
   forEachBuilding((type) => {
     const def = BUILDING_DEFS[type];
-    if (!def) return;
+    if (!def || def.isSeasonalCrop) return;
     if (def.produces && !def.consumes){
       const f = industryFactor(def.produces);
       out[def.produces] += def.rate * f * day;
@@ -20,6 +37,10 @@ function estimateDailyProduction(){
     const f = industryFactor(def.produces);
     out[def.produces] += def.rate * f * day;
   });
+  const seasonal = estimateSeasonalDailyAverage();
+  for (const [res, amount] of Object.entries(seasonal)){
+    out[res] = (out[res] || 0) + amount;
+  }
   return out;
 }
 
@@ -57,7 +78,7 @@ function renderEconomyBalance(){
   const prod = estimateDailyProduction();
   const demand = estimateDailyMarketDemand();
   const interUse = estimateDailyIntermediateUse();
-  const keys = ['wheat', 'fish', 'olives', 'grapes', 'marble', 'oil', 'wine', 'wool', 'clothing', 'coal', 'bronze', 'arms', 'sculpture'];
+  const keys = ['wheat', 'carrots', 'meat', 'fish', 'olives', 'grapes', 'marble', 'oil', 'wine', 'wool', 'clothing', 'coal', 'bronze', 'arms', 'sculpture'];
   el.innerHTML = keys.map(k => {
     const p = prod[k] || 0;
     const need = (demand[k] || 0) + (interUse[k] || 0);

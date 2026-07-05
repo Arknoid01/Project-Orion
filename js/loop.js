@@ -31,7 +31,8 @@ function startRenderLoop(){
       || (typeof godAgents !== 'undefined' && godAgents.length > 0)
       || (typeof monster !== 'undefined' && monster)
       || (typeof hero !== 'undefined' && hero)
-      || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0);
+      || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0)
+      || (typeof fleet !== 'undefined' && fleet.ships > 0 && typeof countHarbors === 'function' && countHarbors() > 0);
 
     const hasHoverUi = (typeof hoverTile !== 'undefined' && hoverTile)
       && ((typeof selectedBuilding !== 'undefined' && selectedBuilding)

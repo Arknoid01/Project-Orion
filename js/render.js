@@ -746,6 +746,7 @@ function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
 
   let dx = cx - targetW * footNx;
   let dy = footY - targetH * footNy + lift;
+  if (opts.offsetX != null) dx += opts.offsetX;
   let dw = targetW;
   let dh = targetH;
 
@@ -794,8 +795,12 @@ function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
   outCtx.imageSmoothingQuality = prevQuality;
 }
 
-function buildingDrawWidth(def, sprite){
+function buildingDrawWidth(def, sprite, typeKey){
   const footprintScale = typeof BUILDING_FOOTPRINT_SCALE === 'number' ? BUILDING_FOOTPRINT_SCALE : 1;
+  if (typeof getBuildingSpritePlacement === 'function' && typeKey){
+    const p = getBuildingSpritePlacement(typeKey, def);
+    if (p.spriteScale != null) return Math.round(p.spriteScale * footprintScale);
+  }
   if (def.spriteScale) return Math.round(def.spriteScale * footprintScale);
   const fp = def.isMonument ? (def.footprint || 2) : 1;
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
@@ -857,6 +862,7 @@ window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, 
       y += ay * northPx / len;
     }
   }
+  if (opts.offsetX != null) x += opts.offsetX * pxScale;
 
   return {
     x,
@@ -870,6 +876,19 @@ window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, 
 };
 
 const SPRITE_TILE_OPTS = { lift: 0 };
+function buildingSpriteDrawOpts(def, typeKey){
+  const opts = { cyIsFoot: true, lift: 0 };
+  if (typeof getBuildingSpritePlacement === 'function' && typeKey){
+    const p = getBuildingSpritePlacement(typeKey, def);
+    if (typeof p.offsetX === 'number') opts.offsetX = p.offsetX;
+    if (typeof p.offsetY === 'number') opts.lift = p.offsetY;
+    return opts;
+  }
+  if (def && typeof def.spriteOffsetX === 'number') opts.offsetX = def.spriteOffsetX;
+  if (def && typeof def.spriteOffsetY === 'number') opts.lift = def.spriteOffsetY;
+  return opts;
+}
+window.buildingSpriteDrawOpts = buildingSpriteDrawOpts;
 const SPRITE_TREE_OPTS = { lift: 0, anchorCenter: true };
 const SPRITE_DECOR_OPTS = { lift: typeof NATURE_DECOR_LIFT === 'number' ? NATURE_DECOR_LIFT : -5 };
 const SPRITE_FOOT_OPTS = { cyIsFoot: true, lift: 0 };
@@ -910,11 +929,13 @@ function drawBuilding(cx, cy, type, col, row){
     return;
   }
 
+  const spriteOpts = buildingSpriteDrawOpts(def, type);
+
   if (def.isHouse){
     const cell = grid[row][col];
     const sprite = houseSpriteForLevel(cell.houseLevel);
     if (sprite){
-      drawSpriteOnTile(north.x, north.y, sprite, buildingDrawWidth(def, sprite), SPRITE_TILE_OPTS);
+      drawSpriteOnTile(north.x, north.y, sprite, buildingDrawWidth(def, sprite, type), spriteOpts);
       return;
     }
     const variant = composeHouseVariant(hashSeed(col, row));
@@ -924,10 +945,10 @@ function drawBuilding(cx, cy, type, col, row){
   }
 
   const sprite = BUILDING_SPRITES[type];
-  const drawW = buildingDrawWidth(def, sprite);
+  const drawW = buildingDrawWidth(def, sprite, type);
   if (def.isDecoration){
     if (sprite && sprite.complete && sprite.naturalWidth > 0){
-      drawSpriteOnTile(north.x, north.y, sprite, drawW, SPRITE_TILE_OPTS);
+      drawSpriteOnTile(north.x, north.y, sprite, drawW, spriteOpts);
       return;
     }
     drawDecoration(north.x, north.y, type);
@@ -935,7 +956,7 @@ function drawBuilding(cx, cy, type, col, row){
   }
 
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
-    drawSpriteOnTile(north.x, north.y, sprite, drawW, SPRITE_TILE_OPTS);
+    drawSpriteOnTile(north.x, north.y, sprite, drawW, spriteOpts);
     return;
   }
 
@@ -969,9 +990,9 @@ function drawMonument(type, anchorCol, anchorRow){
     ? monumentScreenCenter(anchorCol, anchorRow, size)
     : tileCenter(anchorCol, anchorRow);
   const sprite = BUILDING_SPRITES[type];
-  const targetW = buildingDrawWidth(def, sprite);
+  const targetW = buildingDrawWidth(def, sprite, type);
   if (sprite && sprite.complete && sprite.naturalWidth > 0){
-    drawSpriteOnTile(x, y, sprite, targetW, SPRITE_FOOT_OPTS);
+    drawSpriteOnTile(x, y, sprite, targetW, buildingSpriteDrawOpts(def, type));
     return;
   }
   // repli procédural : grand temple stylisé
@@ -1292,23 +1313,31 @@ function drawHouseStatusIcons(cx, cy, col, row, cell){
     ? tileEntityFoot(col, row)
     : { x: cx, y: cy + TILE_H / 2 };
 
-  const iconSize = 11;
-  const spacing = iconSize + 1;
+  const iconSize = 13;
+  const spacing = iconSize + 2;
   const startX = foot.x - ((icons.length - 1) * spacing) / 2;
-  const y = foot.y - 38;
+  const y = foot.y - 40;
 
   ctx.font = `${iconSize}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  icons.forEach((icon, i) => {
+  icons.forEach((entry, i) => {
+    const icon = typeof entry === 'string' ? entry : entry.text;
+    const status = typeof entry === 'string' ? 'missing' : entry.status;
     const x = startX + i * spacing;
     ctx.beginPath();
     ctx.arc(x, y, iconSize / 2 + 1.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    if (status === 'pending'){
+      ctx.fillStyle = 'rgba(255, 220, 120, 0.9)';
+      ctx.strokeStyle = 'rgba(180, 120, 0, 0.65)';
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.strokeStyle = 'rgba(200, 60, 60, 0.55)';
+    }
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
     ctx.fillText(icon, x, y + 1);
   });
 }
@@ -1438,6 +1467,7 @@ function render(now){
 
   drawWalkers(now, viewBounds);
   drawCreatures(now, viewBounds);
+  if (typeof drawNavalShips === 'function') drawNavalShips(now, viewBounds);
 
   // surbrillance de la/les case(s) survolée(s) — zone 2 clics, monument 2×2, ou case unique
   if (hoverTile && inBounds(hoverTile.col, hoverTile.row)){

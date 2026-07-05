@@ -60,8 +60,8 @@ function initGodDispositions(announce){
   syncGlobalFavor();
   debugInfo('Disposition des dieux', { hostile: hostileGods, friendly: friendlyGods });
 
-  if (announce !== false && typeof showChoice === 'function'){
-    setTimeout(() => announceGodDispositions(), 500);
+  if (announce !== false){
+    window._pendingGodDispositionAnnounce = true;
   }
 }
 
@@ -377,6 +377,18 @@ function announceGodDispositions(){
     choices: [{ label: t('dialog.yes'), type: 'primary' }],
   });
 }
+
+function flushGodDispositionAnnounce(){
+  if (!window._pendingGodDispositionAnnounce) return;
+  if (typeof isDialogOpen === 'function' && isDialogOpen()){
+    setTimeout(flushGodDispositionAnnounce, 120);
+    return;
+  }
+  window._pendingGodDispositionAnnounce = false;
+  announceGodDispositions();
+}
+window.flushGodDispositionAnnounce = flushGodDispositionAnnounce;
+window.announceGodDispositions = announceGodDispositions;
 
 function getGodSatisfactionRows(){
   return GODS.map(g => ({

@@ -50,7 +50,8 @@ global.innerWidth = 1200;
 global.innerHeight = 800;
 
 for (const f of order) {
-  const file = path.join(root, 'js', f.replace(/\//g, path.sep));
+  const base = f.replace(/\?.*$/, '');
+  const file = path.join(root, 'js', base.replace(/\//g, path.sep));
   try {
     eval(fs.readFileSync(file, 'utf8'));
     console.log('OK', f);

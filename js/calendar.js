@@ -15,20 +15,30 @@ function getCalendarState(){
 // appel (chargement de page ou reprise de sauvegarde), on mémorise sans notifier --
 // sinon reprendre une partie en plein hiver déclencherait une fausse notification.
 let lastMonthIndex = null;
+let lastCalendarYear = null;
 
 function checkMonthChange(){
   const state = getCalendarState();
   if (lastMonthIndex === null){
     lastMonthIndex = state.monthIndex;
+    lastCalendarYear = state.year;
     return;
+  }
+  if (state.year > lastCalendarYear){
+    lastCalendarYear = state.year;
+    showNotification(t('calendar.newYear', { year: state.year }), 'good');
+    debugInfo('Nouvelle année', { year: state.year });
   }
   if (state.monthIndex !== lastMonthIndex){
     lastMonthIndex = state.monthIndex;
     const icon = SEASON_ICONS[state.season];
     showNotification(t('calendar.monthChange', { icon, month: t('calendar.month.' + state.month) }), 'good');
     debugInfo('Changement de mois', { month: state.month, year: state.year });
+    if (typeof processSeasonalHarvest === 'function') processSeasonalHarvest(state.monthIndex);
     if (typeof processForeignTrade === 'function') processForeignTrade(); // ventes mensuelles à l'export
     if (typeof processArmyUpkeep === 'function') processArmyUpkeep();     // solde + moral de l'armée
+    if (typeof processFleetUpkeep === 'function') processFleetUpkeep();
+    if (typeof processShipyardMonthly === 'function') processShipyardMonthly();
     if (typeof processTributes === 'function') processTributes();         // tributs des cités conquises
     if (typeof processMonumentMonthly === 'function') processMonumentMonthly(); // avantages divins mensuels
   }

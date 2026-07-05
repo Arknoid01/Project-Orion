@@ -11,6 +11,17 @@ Usage typique après un batch ComfyUI dont la sauvegarde a échoué :
 
      python import_comfy_raw.py --from-comfy "C:\\chemin\\vers\\ComfyUI\\output"
      python import_comfy_raw.py --deploy          # copie sprites_out -> assets/
+     python import_comfy_raw.py --deploy --phase1-culture   # uniquement les 5 lieux culture (sans maisons)
+
+  Textures encore manquantes (carrotFarm, huntingPavilion, domaine…) :
+
+     python comfy_batch_generate.py --list-missing-all
+     python comfy_batch_generate.py --gaps-only
+     python import_comfy_raw.py --deploy
+
+  Import par numéro olympos_asset (ComfyUI local) :
+
+     python import_comfy_raw.py --assign 81:carrotFarm.png 82:huntingPavilion.png --deploy
 
   Remplacer des sprites manquants / supprimés par les PNG surplus ComfyUI
   (olympos_asset_00030+, ~30 fichiers libres après le batch de 29) :
@@ -34,15 +45,22 @@ import os
 import re
 import shutil
 import sys
+import tempfile
+
+import requests
 
 from comfy_batch_generate import (
     ASSETS,
     CATEGORY_DEFAULTS,
+    COMFY_URL,
     OUTPUT_DIR,
+    PHASE1_CULTURE_ASSETS,
     TILE_MODE,
     finalize_asset,
     generate_tile_procedural,
 )
+
+PHASE1_CULTURE_OUTPUTS = {e["output"] for e in PHASE1_CULTURE_ASSETS}
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RAW_DIR = os.path.join(SCRIPT_DIR, "comfy_raw")
@@ -112,6 +130,59 @@ def comfy_files(comfy_output_dir):
         print(f"Aucun fichier olympos_asset*.png dans : {comfy_output_dir}")
         sys.exit(1)
     return files
+
+
+def comfy_asset_filename(asset_id):
+    return f"olympos_asset_{int(asset_id):05d}_.png"
+
+
+def fetch_comfy_output(filename, comfy_url=None):
+    base = (comfy_url or COMFY_URL).rstrip("/")
+    resp = requests.get(
+        f"{base}/view",
+        params={"filename": filename, "type": "output"},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    return resp.content
+
+
+def parse_assignments(items):
+    """['81:carrotFarm.png', '82:huntingPavilion.png'] -> [(81, 'carrotFarm.png'), ...]"""
+    out = []
+    for item in items:
+        if ":" not in item:
+            raise SystemExit(f"Format --assign invalide : {item} (attendu NUM:fichier.png)")
+        left, name = item.split(":", 1)
+        name = name if name.endswith(".png") else f"{name}.png"
+        out.append((int(left.strip()), name))
+    return out
+
+
+def import_assigned_ids(assignments, comfy_url=None, deploy=True):
+    imported = []
+    for asset_id, output_name in assignments:
+        entry = entry_for_output(output_name)
+        filename = comfy_asset_filename(asset_id)
+        print(f"-> {filename} -> {entry['category']}/{entry['output']}")
+        raw_bytes = fetch_comfy_output(filename, comfy_url)
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(raw_bytes)
+            tmp_path = tmp.name
+        try:
+            dst = process_entry(tmp_path, entry)
+            imported.append(dst)
+            print(f"OK  {entry['category']}/{entry['output']}")
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    if deploy and imported:
+        print()
+        deploy_to_assets(only_outputs={name for _, name in assignments})
+    return imported
 
 
 def entry_for_output(name):
@@ -202,12 +273,16 @@ def generate_procedural_tiles():
             print(f"OK  tiles/{entry['output']} (procédural)")
 
 
-def deploy_to_assets(include_tiles=False):
+def deploy_to_assets(include_tiles=False, only_outputs=None, skip_categories=None):
     """Copie sprites_out vers assets/. Les tuiles de sol ne sont pas écrasées par défaut
-    (utilisez process_terrain_textures.py pour les sols marketing)."""
+    (utilisez process_terrain_textures.py pour les sols marketing).
+    only_outputs : set de noms de fichiers (ex. agora.png) — ne copie que ceux-là."""
+    skip_categories = skip_categories or set()
     copied = 0
     for category, game_dir in GAME_DIRS.items():
         if category == "tiles" and not include_tiles:
+            continue
+        if category in skip_categories:
             continue
         src_dir = os.path.join(OUTPUT_DIR, category)
         if not os.path.isdir(src_dir):
@@ -215,6 +290,8 @@ def deploy_to_assets(include_tiles=False):
         os.makedirs(game_dir, exist_ok=True)
         for name in os.listdir(src_dir):
             if not name.lower().endswith(".png"):
+                continue
+            if only_outputs is not None and name not in only_outputs:
                 continue
             shutil.copy2(os.path.join(src_dir, name), os.path.join(game_dir, name))
             copied += 1
@@ -239,6 +316,11 @@ def main():
         "--deploy",
         action="store_true",
         help="Copie sprites_out/buildings et houses vers assets/ (sans import)",
+    )
+    parser.add_argument(
+        "--phase1-culture",
+        action="store_true",
+        help="Avec --deploy : uniquement agora, theatre, gymnasium, stoa, academy (ne touche pas aux maisons ni aux autres bâtiments)",
     )
     parser.add_argument(
         "--with-tiles",
@@ -266,10 +348,35 @@ def main():
         action="store_true",
         help="Regénère aussi les tuiles procédurales (grass, wheat…)",
     )
+    parser.add_argument(
+        "--assign",
+        nargs="+",
+        metavar="ID:FICHIER",
+        help="Importe olympos_asset_NNNNN_.png depuis ComfyUI (ex: 81:carrotFarm.png)",
+    )
+    parser.add_argument(
+        "--comfy-url",
+        default=None,
+        help=f"URL ComfyUI pour --assign (défaut: {COMFY_URL})",
+    )
     args = parser.parse_args()
 
+    if args.assign:
+        assignments = parse_assignments(args.assign)
+        print(f"Import assigné depuis ComfyUI ({args.comfy_url or COMFY_URL})\n")
+        import_assigned_ids(assignments, comfy_url=args.comfy_url, deploy=not args.no_deploy)
+        print("\nTerminé.")
+        return
+
     if args.deploy and not args.from_comfy and not args.from_spare and not args.tiles:
-        deploy_to_assets(include_tiles=args.with_tiles)
+        if args.phase1_culture:
+            deploy_to_assets(
+                include_tiles=args.with_tiles,
+                only_outputs=PHASE1_CULTURE_OUTPUTS,
+                skip_categories={"houses"},
+            )
+        else:
+            deploy_to_assets(include_tiles=args.with_tiles)
         return
 
     print(f"Dossier de sortie : {OUTPUT_DIR}\n")

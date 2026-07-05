@@ -1508,6 +1508,33 @@ h2{
 .debug-warn{ color:#ffd479; }
 .debug-error{ color:var(--bad); }
 
+.diploRow{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:4px 8px;
+  padding:8px 0;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:13px;
+}
+.diploCity{ grid-column:1 / -1; font-weight:600; }
+.diploStatus{ font-size:12px; opacity:.85; }
+.diploBar{
+  grid-column:1 / -1;
+  height:5px;
+  border-radius:3px;
+  background:rgba(255,255,255,.12);
+  overflow:hidden;
+}
+.diploBarFill{ height:100%; border-radius:3px; }
+.diploBarFill.diplo-ally{ background:#6ecf8a; }
+.diploBarFill.diplo-neutral{ background:#d4b86a; }
+.diploBarFill.diplo-hostile{ background:#e07070; }
+.diploValue{ font-size:12px; text-align:right; }
+#quickBuild .card.unaffordable{
+  opacity:.42;
+  filter:grayscale(.55);
+}
+
 /* ===== Pastille de sélection cliquable (annule et repasse en observation) ===== */
 #selectedBuildPill{ cursor:pointer; }
 #selectedBuildPill:active{ background:linear-gradient(#9a512e,#6d341f); }
@@ -2139,6 +2166,8 @@ h2{
    <div class="hud-pill">👥 <b id="hudPopulation">0</b></div>
    <div id="selectedBuildPill" class="hud-pill" onclick="cancelSelection()" title="Annuler — revenir au mode observation">🔨 <b id="selectedBuildName">Aucun</b> <span class="pillClose">✕</span></div>
    <div class="hud-spacer"></div>
+   <div class="hud-pill" id="hudCampaignBadge" style="display:none" title="">🗺️ <b id="hudCampaignName">Campagne</b></div>
+   <div class="hud-pill" id="hudNavyBadge" style="display:none" onclick="openNavyPanel()" title="">⚓ <b id="hudNavyShips">0</b></div>
    <div class="hud-pill" id="hudColonyBadge" style="display:none" onclick="openColoniesPanel()" title="">🏝️ <b id="hudColonyName">Colonie</b></div>
    <div class="hud-pill" id="hudAdventureBadge" style="display:none" onclick="openAdventuresPanel()" title="">⚔️ <b id="hudAdventureCount">0</b></div>
    <div class="hud-pill" id="hudCalendar">📅 …</div>
@@ -2151,6 +2180,7 @@ h2{
    <button class="iconBtn" id="mapModeBtn" type="button" onclick="toggleMapClickMode()" title="Mode observateur — clic ouvre l'inspecteur" aria-pressed="false">👁️</button>
    <button class="iconBtn" id="hudPauseBtn" onclick="callGameAction('togglePause')" title="Pause">⏸</button>
    <button class="iconBtn" id="cityMapBtn" onclick="toggleCityMap()" title="Carte de la cité">🗺️</button>
+   <button class="iconBtn" id="buildingSpriteDebugBtn" type="button" onclick="toggleBuildingSpriteDebugPanel()" title="Calage sprites bâtiments">📐</button>
  </div>
 
  <aside id="cityMapPanel" aria-label="Carte de la cité">
@@ -2173,6 +2203,8 @@ h2{
 
  <div id="backdrop" class="backdrop" onclick="closePanels()"></div>
 
+ <aside id="buildingSpriteDebugPanel" class="panel" aria-label="Calage sprites bâtiments"></aside>
+
  <!-- Modale de choix (diplomatie, commerce, attaque, confirmations) -->
  <div id="dialogOverlay" onclick="onDialogBackdrop(event)">
    <div id="dialogBox"></div>
@@ -2184,7 +2216,8 @@ h2{
      <button class="actionBtn" id="menuLoadBtn" onclick="loadGameFromMenu()">📂 Charger</button>
      <button class="actionBtn" id="menuPauseBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" id="menuCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
-     <button class="actionBtn" onclick="openPerfSettings()">⚙️ Performances</button>
+     <button class="actionBtn" onclick="openPerfSettings()">⚙️ <span data-i18n="perf.title">Performances</span></button>
+     <button class="actionBtn" id="menuDebugBtn" onclick="toggleDebugPanel()">🐛 Debug</button>
      <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
      <div class="actionBtn langRow">
        <span id="settingsLanguageLabel">Langue</span>
@@ -2199,21 +2232,17 @@ h2{
 
  <aside id="perfSettingsPanel" class="panel">
    <button class="close" onclick="closePanels()">×</button>
-   <h2>⚙️ Performances</h2>
-   <p class="manageHint">
-     Choisis le niveau qui marche le mieux sur ton appareil/navigateur. Le jeu se
-     recharge pour appliquer le changement. Si un navigateur refuse de charger ou
-     rame, essaie un niveau différent — ça compte plus que le navigateur lui-même.
-   </p>
+   <h2 id="perfTitle">⚙️ Performances</h2>
+   <p class="manageHint" id="perfHint">…</p>
    <div class="menuList" id="perfLevelList">
      <button class="actionBtn perfLevelBtn" data-level="faible" onclick="choosePerfLevel('faible')">
-       🐢 Faible optimisation<br><small>Meilleure qualité visuelle. Pour PC ou mobile haut de gamme.</small>
+       🐢 <span id="perfLowTitle">Faible optimisation</span><br><small id="perfLowDesc">…</small>
      </button>
      <button class="actionBtn perfLevelBtn" data-level="normal" onclick="choosePerfLevel('normal')">
-       ⚖️ Normal<br><small>Bon équilibre. Réglage par défaut sur mobile.</small>
+       ⚖️ <span id="perfNormalTitle">Normal</span><br><small id="perfNormalDesc">…</small>
      </button>
      <button class="actionBtn perfLevelBtn" data-level="forte" onclick="choosePerfLevel('forte')">
-       🚀 Forte optimisation<br><small>Le plus économe en mémoire et le plus fluide.</small>
+       🚀 <span id="perfHighTitle">Forte optimisation</span><br><small id="perfHighDesc">…</small>
      </button>
    </div>
    <p class="manageHint" id="perfCurrentLabel"></p>
@@ -2230,6 +2259,15 @@ h2{
    <h3 data-i18n="panel.gods">Dieux</h3>
    <p class="manageHint" data-i18n="god.panelHint">Humour de chaque dieu · exigences non remplies = colère accrue.</p>
    <div id="godSatisfactionList" class="manageList"></div>
+   <h3 data-i18n="panel.objectives">Objectifs</h3>
+   <p class="manageHint" data-i18n="manage.objectivesHint">Progression vers la victoire (sandbox / colonie).</p>
+   <div id="objectivesList" class="manageList"></div>
+   <h3 data-i18n="panel.diplomacy">Diplomatie</h3>
+   <p class="manageHint" data-i18n="diplomacy.panelHint">Relations avec les cités-États voisines (0–100).</p>
+   <div id="diplomacyList" class="manageList"></div>
+   <h3 data-i18n="manage.cityStatus">État de la cité</h3>
+   <p class="manageHint" data-i18n="manage.cityStatusHint">Population, emploi et risques en un coup d'œil.</p>
+   <div id="cityBriefList" class="manageList"></div>
    <div class="menuList">
      <button class="actionBtn" id="manageCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
      <button class="actionBtn" id="manageWorldBtn" onclick="openWorldMap()">🗺️ Carte du monde</button>
@@ -2318,26 +2356,6 @@ h2{
    <div id="worldCityDetail"></div>
  </aside>
 
- <aside id="buildPanel" class="panel">
-   <button class="close" onclick="closePanels()">×</button>
-   <h2>Construction</h2>
-   <div class="grid">
-     <button class="card" onclick="selectBuildMock('Maison','selectBuilding','maison','Coût : 🪙 18','Habitation de base. Elle évolue avec eau, nourriture, beauté et services.')"><span class="sprite">🏠</span><span>Maison</span></button>
-     <button class="card" onclick="selectBuildMock('Ferme','selectBuilding','farm','Coût : 🪙 100','Produit du blé sur les terrains fertiles. Sert à nourrir les quartiers via le marché.')"><span class="sprite">🌾</span><span>Ferme</span></button>
-     <button class="card" onclick="selectBuildMock('Fontaine','selectBuilding','fountain','Coût : 🪙 80','Envoie un porteur d’eau sur les routes et dessert les maisons proches.')"><span class="sprite">⛲</span><span>Fontaine</span></button>
-     <button class="card" onclick="selectBuildMock('Marché','selectBuilding','market','Coût : 🪙 120','Distribue nourriture et biens aux maisons avec un walker marchand.')"><span class="sprite">🏪</span><span>Marché</span></button>
-     <button class="card" onclick="selectBuildMock('Route','selectRoadMode',null,'Coût : 🪙 4 / case','Connecte les bâtiments et guide les walkers dans la ville.')"><span class="sprite">🛣️</span><span>Route</span></button>
-     <button class="card" onclick="selectBuildMock('Escalier','selectStairsMode',null,'Coût : 🪙 8 / case','Monte d\'un niveau entre deux routes voisines (montagne, roche).')"><span class="sprite">🪜</span><span>Escalier</span></button>
-     <button class="card" onclick="selectBuildMock('Démolir','selectDemolishMode',null,'Remboursement partiel','Supprime routes et bâtiments sélectionnés.')"><span class="sprite">🔨</span><span>Démolir</span></button>
-   </div>
-
-   <div id="buildInfo">
-     <div id="buildInfoTitle">Sélectionnez un bâtiment</div>
-     <div id="buildInfoText">Touchez une tuile pour voir son rôle sans masquer davantage la ville.</div>
-     <div id="buildInfoCost"></div>
-   </div>
- </aside>
-
  <nav id="quickBuild" class="panel">
   <div id="quickBuildContent">
     <button class="close" onclick="closePanels()">×</button>
@@ -2359,7 +2377,8 @@ h2{
 <script src="js/pixi.min.js"></script>
 <script src="js/settings.js?v=5"></script>
 <script src="js/debug.js"></script>
-<script src="js/i18n.js?v=6"></script>
+<script src="js/i18n.js?v=21"></script>
+<script src="js/storyI18n.js"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
 <script src="js/config.js?v=57"></script>
@@ -2387,21 +2406,26 @@ h2{
 <script src="js/market.js"></script>
 <script src="js/godSatisfaction.js?v=3"></script>
 <script src="js/mythology.js?v=2"></script>
-<script src="js/objectives.js?v=2"></script>
-<script src="js/tutorial.js?v=1"></script>
+<script src="js/objectives.js?v=7"></script>
+<script src="js/tutorial.js?v=2"></script>
 <script src="js/defeat.js"></script>
 <script src="js/festivals.js?v=2"></script>
-<script src="js/calendar.js"></script>
+<script src="js/venues.js?v=3"></script>
+<script src="js/seasonalCrops.js?v=1"></script>
+<script src="js/calendar.js?v=3"></script>
 <script src="js/dialog.js"></script>
+<script src="js/playerCity.js"></script>
 <script src="js/diplomacy.js"></script>
-<script src="js/trade.js?v=2"></script>
-<script src="js/creatures.js?v=4"></script>
+<script src="js/trade.js?v=3"></script>
+<script src="js/navy.js"></script>
+<script src="js/navalSprites.js"></script>
+<script src="js/creatures.js?v=5"></script>
 <script src="js/adventures.js"></script>
 <script src="js/military.js"></script>
 <script src="js/save.js"></script>
 <script src="js/loop.js?v=8"></script>
 <script src="js/pause.js"></script>
-<script src="js/characterSprites.js?v=4"></script>
+<script src="js/characterSprites.js?v=5"></script>
 <script src="js/forestTrees.js?v=19"></script>
 <script src="js/grassDecor.js?v=15"></script>
 <script src="js/rockDecor.js?v=2"></script>
@@ -2409,390 +2433,32 @@ h2{
 <script src="js/mediterraneanDecor.js?v=6"></script>
 <script src="js/camera.js"></script>
 <script src="js/zoom.js?v=5"></script>
-<script src="js/render.js?v=50"></script>
-<script src="js/pixiRenderer.js?v=25"></script>
-<script src="js/threeRenderer.js?v=30"></script>
+<script src="js/render.js?v=54"></script>
+<script src="js/buildingSpriteDebug.js"></script>
+<script src="js/pixiRenderer.js?v=29"></script>
+<script src="js/threeRenderer.js?v=31"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
 <script src="js/migrationAgents.js?v=5"></script>
 <script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
-<script src="js/scenarios.js?v=6"></script>
-<script src="js/campaign.js?v=5"></script>
-<script src="js/colonies.js?v=4"></script>
+<script src="js/rivalAI.js"></script>
+<script src="js/scenarioNarrative.js"></script>
+<script src="js/scenarios.js?v=10"></script>
+<script src="js/campaign.js?v=7"></script>
+<script src="js/colonies.js?v=5"></script>
 <script src="js/home.js"></script>
 <script src="js/economy.js"></script>
 <script src="js/labor.js"></script>
-<script src="js/production.js?v=3"></script>
-<script src="js/hud.js"></script>
+<script src="js/production.js?v=8"></script>
+<script src="js/hud.js?v=4"></script>
 <script src="js/economyBalance.js"></script>
-<script src="js/ui.js?v=9"></script>
-<script src="js/observer.js?v=4"></script>
+<script src="js/ui.js?v=17"></script>
+<script src="js/oracle.js?v=1"></script>
+<script src="js/observerUi.js"></script>
+<script src="js/observer.js?v=8"></script>
+<script src="js/gameShell.js"></script>
 <script src="js/scriptLoader.js"></script>
-<script src="js/main.js?v=5"></script>
-
-<!-- ===== Interface (gestion des panneaux, catalogue de construction) ===== -->
-<script>
-
-function saveCatalogState(){
-  const state = [...document.querySelectorAll('.catalogCategory')]
-    .map((cat, index)=>({index, open:cat.classList.contains('open')}));
-  try{ localStorage.setItem('olympos_catalog_state', JSON.stringify(state)); }catch(e){}
-}
-
-function restoreCatalogState(){
-  try{
-    const raw = localStorage.getItem('olympos_catalog_state');
-    if(!raw) return;
-    const state = JSON.parse(raw);
-    state.forEach(item=>{
-      const cat = document.querySelectorAll('.catalogCategory')[item.index];
-      if(cat) cat.classList.toggle('open', !!item.open);
-    });
-    // Assainit une sauvegarde antérieure à la règle accordéon (qui pouvait avoir
-    // plusieurs catégories ouvertes en même temps) -- n'en garde qu'une.
-    const openCats = [...document.querySelectorAll('#quickBuild .catalogCategory.open')];
-    openCats.slice(1).forEach(c => c.classList.remove('open'));
-  }catch(e){}
-}
-
-function toggleCatalog(btn){
-  const cat = btn.closest('.catalogCategory');
-  const wasOpen = cat.classList.contains('open');
-  // Accordéon : une seule catégorie ouverte à la fois -- moins de cartes visibles
-  // simultanément = glissement du panneau plus léger à animer.
-  document.querySelectorAll('#quickBuild .catalogCategory').forEach(c => c.classList.remove('open'));
-  if (!wasOpen) cat.classList.add('open');
-  saveCatalogState();
-}
-
-function isPlacementAction(fnName){
-  return ['selectBuilding','selectRoadMode','selectStairsMode','selectBlockMode','selectDemolishMode'].includes(fnName);
-}
-
-function setSelectedBuildLabel(fnName, arg){
-  const pill = document.getElementById('selectedBuildPill');
-  const name = document.getElementById('selectedBuildName');
-  if(!pill || !name) return;
-
-  if(fnName === 'selectBuilding'){
-    const def = (typeof BUILDING_DEFS !== 'undefined') ? BUILDING_DEFS[arg] : null;
-    name.textContent = (def && typeof t === 'function') ? t(def.name) : arg;
-    pill.classList.add('show');
-  }else if(fnName === 'selectRoadMode'){
-    name.textContent = (typeof t === 'function') ? t('catalog.roadShort') : 'Route';
-    pill.classList.add('show');
-  }else if(fnName === 'selectStairsMode'){
-    name.textContent = (typeof t === 'function') ? t('catalog.stairsShort') : 'Escalier';
-    pill.classList.add('show');
-  }else if(fnName === 'selectBlockMode'){
-    name.textContent = (typeof t === 'function') ? t('catalog.block') : 'Block';
-    pill.classList.add('show');
-  }else if(fnName === 'selectDemolishMode'){
-    name.textContent = (typeof t === 'function') ? t('action.demolishShort') : 'Demolish';
-    pill.classList.add('show');
-  }
-}
-
-function callGameAction(fnName, arg){
-  const fn = window[fnName];
-  if(typeof fn === 'function'){
-    if(arg !== undefined) fn(arg);
-    else fn();
-  }
-
-  if(isPlacementAction(fnName)){
-    setSelectedBuildLabel(fnName, arg);
-    saveCatalogState();
-    closePanels(); // retour direct à la ville pour placer l'objet
-  }
-}
-
-function toggleFullscreen(){
-  if (!document.fullscreenElement){
-    document.documentElement.requestFullscreen().catch(() => {
-      const msg = (typeof t === 'function') ? t('menu.fullscreenUnavailable') : 'Fullscreen unavailable';
-      if (typeof showNotification === 'function') showNotification(msg, 'bad');
-    });
-  } else {
-    document.exitFullscreen();
-  }
-}
-document.addEventListener('fullscreenchange', () => {
-  const label = document.getElementById('fullscreenBtnLabel');
-  if (label && typeof t === 'function'){
-    label.textContent = document.fullscreenElement ? t('menu.fullscreenExit') : t('menu.fullscreen');
-  }
-});
-
-document.addEventListener('DOMContentLoaded', restoreCatalogState);
-
-
-const OBSERVER_DATA = {
-  house: {
-    title: "Maison modeste",
-    tiles: [
-      {icon:"🏠", title:"Identité", status:"Niv. 2", rows:[
-        ["Type","Maison modeste"],["Population","6 / 8"],["Bonheur","82%"],["Impôts payés","12 / mois"]
-      ]},
-      {icon:"📋", title:"Besoins", status:"3/5", rows:[
-        ["Eau","✔ Fontaine","ok"],["Nourriture","✔ Marché","ok"],["Emploi","✔ Disponible","ok"],["Huile","✖ Manquante","bad"],["Beauté","✖ 42 / 60","bad"]
-      ]},
-      {icon:"🛡️", title:"Risques", status:"⚠️", rows:[
-        ["Incendie","✔","ok"],["Maladie","✖","bad"]
-      ]}
-    ],
-    actions:true
-  },
-  farm: {
-    title:"Ferme",
-    tiles:[
-      {icon:"🌾", title:"Production", status:"+24/mois", rows:[
-        ["Produit","Blé"],["Stock local","18 / 50"],["Rendement","100%"],["Employés","8 / 8"]
-      ]},
-      {icon:"🛣️", title:"Connexion", status:"OK", rows:[
-        ["Route","✔ Connectée","ok"],["Grenier proche","✔ Accessible","ok"],["Distance","12 cases"]
-      ]},
-      {icon:"⚠️", title:"Alertes", status:"0", rows:[
-        ["État","Aucun problème","ok"],["Fertilité","Bonne"]
-      ]}
-    ],
-    actions:true
-  },
-  walker: {
-    title:"Porteur d'eau",
-    tiles:[
-      {icon:"🚶", title:"État", status:"en patrouille", rows:[
-        ["Service","Eau"],["Départ","Fontaine"],["Direction","Quartier nord"],["Distance restante","9 cases"]
-      ]},
-      {icon:"🏠", title:"Maisons desservies", status:"8", rows:[
-        ["Couverture","8 maisons"],["Capacité","8 / 12"],["Prochain arrêt","Maison modeste"]
-      ]},
-      {icon:"🧭", title:"Trajet", status:"actif", rows:[
-        ["Route bloquée","Non"],["Retour prévu","dans 18s"]
-      ]}
-    ],
-    actions:false
-  },
-  road: {
-    title:"Route pavée",
-    tiles:[
-      {icon:"🛣️", title:"Connexion", status:"connectée", rows:[
-        ["Réseau","Quartier central"],["Walkers présents","3"],["Longueur réseau","184 cases"]
-      ]},
-      {icon:"🚧", title:"Contrôle", status:"libre", rows:[
-        ["Borne","Aucune"],["Priorité","Normale"],["Conseil","Ajoutez une borne pour guider les walkers"]
-      ]}
-    ],
-    actions:true
-  }
-};
-
-function setObserverTiles(data){
-  const panel = document.getElementById('observerPanel');
-  const tiles = [...panel.querySelectorAll('.obsTile')].filter(t => t.id !== 'actionsTile');
-
-  tiles.forEach((tile, index)=>{
-    const d = data.tiles[index];
-    if(!d){
-      tile.style.display = 'none';
-      return;
-    }
-    tile.style.display = 'block';
-    tile.classList.toggle('open', index < 2);
-    tile.querySelector('.icon').textContent = d.icon;
-    tile.querySelector('.title').textContent = d.title;
-    tile.querySelector('.status').textContent = d.status;
-    tile.querySelector('.obsTileBody').innerHTML = d.rows.map(row=>{
-      const cls = row[2] ? ` class="${row[2]}"` : "";
-      return `<div class="row"><span>${row[0]}</span><b${cls}>${row[1]}</b></div>`;
-    }).join('');
-  });
-
-  const actions = document.getElementById('actionsTile');
-  if(actions){
-    // Mémorise le contenu d'origine de la tuile d'actions une seule fois, pour pouvoir
-    // le restaurer après l'avoir détourné pour les actions de la cité.
-    if(!window._actionsTilePristine){
-      window._actionsTilePristine = {
-        icon: (actions.querySelector('.icon')||{}).textContent || '⚙️',
-        title: (actions.querySelector('.title')||{}).textContent || 'Actions',
-        status: (actions.querySelector('.status')||{}).textContent || '',
-        body: actions.querySelector('.obsTileBody').innerHTML,
-      };
-    }
-    // Bloc d'actions personnalisé (ex : actions de la cité -- offrande, festival,
-    // commerce, héros). Sinon, on restaure le contenu d'origine.
-    if(data.actionsHtml){
-      actions.style.display = 'block';
-      actions.classList.add('open');
-      const ic = actions.querySelector('.icon'); if(ic) ic.textContent = '⚙️';
-      const ti = actions.querySelector('.title'); if(ti) ti.textContent = data.actionsTitle || 'Actions';
-      const st = actions.querySelector('.status'); if(st) st.textContent = '';
-      actions.querySelector('.obsTileBody').innerHTML = data.actionsHtml;
-    }else{
-      const p = window._actionsTilePristine;
-      const ic = actions.querySelector('.icon'); if(ic) ic.textContent = p.icon;
-      const ti = actions.querySelector('.title'); if(ti) ti.textContent = p.title;
-      const st = actions.querySelector('.status'); if(st) st.textContent = p.status;
-      actions.querySelector('.obsTileBody').innerHTML = p.body;
-      actions.style.display = data.actions ? 'block' : 'none';
-    }
-  }
-}
-
-
-function openCityManagement(){
- closePanels();
-
- // Vraies données de la cité (voir js/observer.js) au lieu des chiffres en dur.
- const data = (typeof buildCityObserverData === 'function')
-   ? buildCityObserverData()
-   : { title:"Gestion de la ville", tiles:[], actions:false }; // repli si le moteur n'est pas chargé
-
- document.getElementById('observerTitle').textContent = 'Observateur · ' + data.title;
- setObserverTiles(data);
- document.getElementById('observerPanel').classList.add('open');
- document.getElementById('backdrop').classList.add('show');
- mock("openCityManagement()");
-}
-
-function openObjectObserver(type){
- closePanels();
- const data = OBSERVER_DATA[type] || OBSERVER_DATA.house;
- document.getElementById('observerTitle').textContent = 'Observateur · ' + data.title;
- setObserverTiles(data);
- document.getElementById('observerPanel').classList.add('open');
- document.getElementById('backdrop').classList.add('show');
- mock("openObserver('" + type + "')");
-}
-
-function closePanels(){
- document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));
- document.getElementById('backdrop').classList.remove('show');
- if (typeof closeCityMap === 'function') closeCityMap();
-}
-function togglePanel(id){
- const panel=document.getElementById(id);
- if(!panel) return; // panneau absent du DOM : on n'ouvre rien plutôt que de planter
- const wasOpen=panel.classList.contains('open');
- closePanels();
- if(!wasOpen){
-   panel.classList.add('open');
-   document.getElementById('backdrop').classList.add('show');
- }
-}
-
-function openPerfSettings(){
- closePanels();
- document.getElementById('perfSettingsPanel').classList.add('open');
- document.getElementById('backdrop').classList.add('show');
- refreshPerfSettingsUI();
-}
-
-function refreshPerfSettingsUI(){
- const current = typeof PERF_LEVEL === 'string' ? PERF_LEVEL : 'normal';
- document.querySelectorAll('.perfLevelBtn').forEach(btn => {
-   btn.classList.toggle('active', btn.dataset.level === current);
- });
- const labels = { faible: 'Faible optimisation', normal: 'Normal', forte: 'Forte optimisation' };
- const lbl = document.getElementById('perfCurrentLabel');
- if (lbl) lbl.textContent = 'Niveau actuel : ' + (labels[current] || current);
-}
-
-function choosePerfLevel(level){
- if (typeof setPerfLevel === 'function') setPerfLevel(level); // recharge la page pour appliquer proprement
-}
-function openObserver(title){
- closePanels();
- document.getElementById('observerTitle').textContent = 'Observateur · ' + title;
- const a=document.getElementById('actionsTile');
- if(a) a.style.display='block';
- document.getElementById('observerPanel').classList.add('open');
- document.getElementById('backdrop').classList.add('show');
- mock('openObserver(selectedObject)');
-}
-function toggleTile(btn){
- btn.closest('.obsTile').classList.toggle('open');
-}
-
-function openCityObserver(){
- closePanels();
- document.getElementById('observerTitle').textContent = 'Observateur · Ville';
-
- const panel = document.getElementById('observerPanel');
- panel.classList.add('open');
- document.getElementById('backdrop').classList.add('show');
-
- // Contenu mocké : dans le vrai jeu, tu rempliras ces tuiles depuis l'état global.
- const tiles = panel.querySelectorAll('.obsTile');
- if(tiles[0]){
-   tiles[0].querySelector('.title').textContent = 'Résumé';
-   tiles[0].querySelector('.status').textContent = 'Athènes';
-   tiles[0].querySelector('.icon').textContent = '🏛️';
-   tiles[0].querySelector('.obsTileBody').innerHTML = `
-     <div class="row"><span>Trésor</span><b>12 450</b></div>
-     <div class="row"><span>Population</span><b>2 450</b></div>
-     <div class="row"><span>Bonheur</span><b>82%</b></div>
-     <div class="row"><span>Faveur</span><b>92%</b></div>
-   `;
- }
- if(tiles[1]){
-   tiles[1].querySelector('.title').textContent = 'Économie';
-   tiles[1].querySelector('.status').textContent = '+350/mois';
-   tiles[1].querySelector('.icon').textContent = '💰';
-   tiles[1].querySelector('.obsTileBody').innerHTML = `
-     <div class="row"><span>Impôts</span><b>15%</b></div>
-     <div class="row"><span>Revenus</span><b class="ok">+350 / mois</b></div>
-     <div class="row"><span>Emplois</span><b>1950 / 2070</b></div>
-     <div class="row"><span>Chômage</span><b>30</b></div>
-   `;
- }
- if(tiles[2]){
-   tiles[2].querySelector('.title').textContent = 'Alertes';
-   tiles[2].querySelector('.status').textContent = '2';
-   tiles[2].querySelector('.icon').textContent = '⚠️';
-   tiles[2].querySelector('.obsTileBody').innerHTML = `
-     <div class="row"><span>Huile</span><b class="bad">Stock faible</b></div>
-     <div class="row"><span>Beauté</span><b class="bad">Quartier nord faible</b></div>
-   `;
- }
- if(tiles[3]){
-   tiles[3].querySelector('.title').textContent = 'Objectifs';
-   tiles[3].querySelector('.status').textContent = 'en cours';
-   tiles[3].querySelector('.icon').textContent = '🎯';
-   tiles[3].querySelector('.obsTileBody').innerHTML = `
-     <div class="row"><span>Temple d'Athéna</span><b>0 / 1</b></div>
-     <div class="row"><span>Population visée</span><b>450 / 500</b></div>
-   `;
- }
- const a=document.getElementById('actionsTile');
- if(a) a.style.display='none';
- mock('openCityObserver()');
-}
-
-function mock(hook){}
-
-function selectBuildMock(title, fnName, arg, cost, desc){
- // Marque visuellement le dernier bouton choisi.
- const clicked = event && event.currentTarget ? event.currentTarget : null;
- if(clicked){
-   document.querySelectorAll('#buildPanel .card, #quickBuild .card').forEach(b=>b.classList.remove('selected'));
-   clicked.classList.add('selected');
- }
-
- const t=document.getElementById('buildInfoTitle');
- const d=document.getElementById('buildInfoText');
- const c=document.getElementById('buildInfoCost');
- if(t){ t.textContent = title; }
- if(d){ d.textContent = desc; }
- if(c){ c.textContent = cost; }
-
- // Déclenche réellement l'action de jeu (même mécanisme que les cartes du
- // catalogue rapide) -- avant : affichait juste le hook en texte sans l'exécuter.
- if(arg === null || arg === undefined) callGameAction(fnName);
- else callGameAction(fnName, arg);
-}
-</script>
+<script src="js/main.js?v=6"></script>
 </body>
 </html>

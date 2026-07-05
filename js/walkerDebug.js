@@ -112,8 +112,13 @@ function copyWalkerDebugIsoMap(){
 function toggleWalkerDebugPanel(){
   const panel = document.getElementById('walkerDebugPanel');
   if (!panel) return;
-  panel.classList.toggle('open');
-  if (panel.classList.contains('open')) _renderWalkerDebugPanel();
+  const wasOpen = panel.classList.contains('open');
+  if (typeof togglePanel === 'function') togglePanel('walkerDebugPanel');
+  else panel.classList.toggle('open');
+  if (!wasOpen && panel.classList.contains('open')){
+    if (WALKER_DEBUG.mode === 'off') setWalkerDebugMode('calibrate');
+    else _renderWalkerDebugPanel();
+  }
 }
 
 function _walkerDebugLabel(d){
@@ -160,7 +165,7 @@ function _renderWalkerDebugPanel(){
   panel.innerHTML = `
     <button class="close" type="button" onclick="toggleWalkerDebugPanel()" title="Fermer">×</button>
     <h3>🧭 Calibrage walkers</h3>
-    <p class="walkerDebugHint">Ligne sprite : 0=dos · 1=gauche · 2=face · 3=droite</p>
+    <p class="walkerDebugHint">Planche walkers : 0=dos · 1=gauche · 2=droite · 3=face</p>
     <div class="walkerDebugModes">${modeBtns}</div>
     <div class="walkerDebugSection" style="display:${mode === 'force' ? '' : 'none'}">
       <p><b>Forcer la même orientation sur tous les walkers :</b></p>
