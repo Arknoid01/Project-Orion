@@ -493,9 +493,11 @@ async function _pixiLoadCharacterSheet(id, path){
   if (!path || window._characterTextures[id]) return;
   try {
     const base = await PIXI.Assets.load(path);
-    const dirRow = typeof CHARACTER_DIRECTION_ROWS !== 'undefined'
-      ? CHARACTER_DIRECTION_ROWS
-      : { up: 0, left: 1, down: 2, right: 3 };
+    const dirRow = (id === 'migrant' && typeof WALKER_DIRECTION_ROWS !== 'undefined')
+      ? WALKER_DIRECTION_ROWS
+      : (typeof CHARACTER_DIRECTION_ROWS !== 'undefined'
+        ? CHARACTER_DIRECTION_ROWS
+        : { up: 0, left: 1, down: 2, right: 3 });
     const frames = [];
     const maxRow = Math.max(...Object.values(dirRow), 3);
     for (let d = 0; d <= maxRow; d++){
@@ -856,9 +858,26 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
 /* =========================================================
    DÉCORS NATURE + CACHET (overlay Three)
    ========================================================= */
+/**
+ * Retourne true si la case (col, row) est visuellement occultée par un bloc
+ * de terrain plus élevé situé au sud ou à l'est (direction caméra en iso NE→SO).
+ * Dans ce cas les sprites décor doivent être masqués pour éviter de passer
+ * par-dessus la face visible du bloc voisin.
+ */
+function _decorOccludedByTerrain(col, row){
+  if (typeof window.getTerrainSurfaceY !== 'function') return false;
+  const myY = window.getTerrainSurfaceY(col, row);
+  // Faces sud (+row) et est (+col) sont visibles depuis la caméra ISO SE
+  if (window.getTerrainSurfaceY(col,   row + 1) > myY) return true;
+  if (window.getTerrainSurfaceY(col + 1, row)   > myY) return true;
+  return false;
+}
+
 function _pixiDecorSpecsForCell(col, row, cell){
   const out = [];
   if (!cell) return out;
+  // Masquer les décors derrière un bloc de terrain plus élevé (falaises, rochers)
+  if (_decorOccludedByTerrain(col, row)) return out;
 
   if (typeof cellShowsWheatCrop === 'function' && cellShowsWheatCrop(cell, col, row)){
     if (typeof WHEAT_CROP_IMG !== 'undefined' && WHEAT_CROP_IMG.complete && WHEAT_CROP_IMG.naturalWidth){
@@ -1360,8 +1379,10 @@ window._buildAgentsOverlay = function(now){
   }
   if (Array.isArray(migrants)){
     migrants.forEach(function(m){
-      const s = getGridAgentScreenPos(m.prevCol, m.prevRow, m.col, m.row, now);
-      const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(m, now);
+      const s = typeof getMigrantsScreenPos === 'function'
+        ? getMigrantsScreenPos(m, now)
+        : getGridAgentScreenPos(m.prevCol, m.prevRow, m.col, m.row, now);
+      const moving = typeof isMigrantMoving === 'function' && isMigrantMoving(m, now);
       if (!_pixiDrawCharacterSprite(container, 'migrant', s, m, now, moving, charPool)){
         _pixiAgentToken(container, s, m.type === 'in' ? '🧳' : '🚶', m.type === 'in' ? 0x50a05a : 0xb4783c, gfxPool, textPool);
       }

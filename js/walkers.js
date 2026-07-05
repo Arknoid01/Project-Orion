@@ -1,7 +1,7 @@
 /* ===================== ETAT DES WALKERS ===================== */
 // Un walker = un bâtiment de service + son trajet de patrouille figé + maisons éligibles.
-// Mode WALKER_PASS_DELIVERY (Zeus-like) : la maison n'est servie que lorsque le walker
-// passe sur une case route adjacente, avec un inventaire limité rechargé au bâtiment.
+// Mode WALKER_PASS_DELIVERY : passage du walker pour stats / marché ; la couverture
+// gameplay (isHouseServedBy) reste basée sur la zone tant que le bâtiment existe.
 let walkers = []; // { col, row, type, path, pathIndex, direction, servedHouses, inventory, servedToday }
 let lastWalkerServiceDay = -1;
 /** Besoins servis aujourd'hui — persiste entre recalculs de patrouille (pose route/bâtiment). */
@@ -516,14 +516,15 @@ function advanceWalkers(){
   }
 }
 function isHouseServedBy(serviceType, col, row){
-  const inReach = w => w.serviceType === serviceType && (
-    walkerPassDeliveryEnabled()
-      ? isTileInServiceReach(w, col, row)
-      : w.servedHouses.some(h => h.col === col && h.row === row));
-  if (!walkers.some(inReach)) return false;
-  if (walkerPassDeliveryEnabled()){
-    return isPassServedToday(serviceType, col, row);
+  const walker = findServingWalker(serviceType, col, row);
+  if (!walker) return false;
+  if (serviceType === 'culture'){
+    const def = BUILDING_DEFS[walker.type];
+    const range = def && def.range != null ? def.range : 18;
+    if (!isCultureVenueLinked(walker.col, walker.row, range)) return false;
   }
+  // Dans la zone du bâtiment de service = couvert tant que le bâtiment existe
+  // (le passage du walker sert aux stats / marché, pas à retirer l'accès).
   return true;
 }
 function isHouseEligibleForService(serviceType, col, row){
@@ -533,7 +534,6 @@ function isHouseEligibleForService(serviceType, col, row){
       : w.servedHouses.some(h => h.col === col && h.row === row)));
 }
 function isTileFireServed(col, row){
-  if (walkerPassDeliveryEnabled()) return isPassServedToday('fire', col, row);
   return walkers.some(w => w.serviceType === 'fire' && isTileInServiceReach(w, col, row));
 }
 function isTileFireEligible(col, row){

@@ -414,7 +414,9 @@ html,body{
  .hud{height:40px}
  .hud-pill,.iconBtn{height:40px}
  .iconBtn{width:40px;font-size:20px}
- #observerPanel,#buildPanel{top:calc(var(--safeTop) + 54px)}
+ :root{ --hudOffset:52px; }
+ #observerPanel,#buildPanel{top:calc(var(--safeTop) + var(--hudOffset))}
+ #managePanel,#perfSettingsPanel,#gameMenuPanel{top:calc(var(--safeTop) + var(--hudOffset))}
  #quickBuild{height:min(52dvh,190px)}
  .card{min-height:52px}
  .grid{grid-template-columns:repeat(4,1fr)}
@@ -2196,6 +2198,92 @@ h2{
  filter:brightness(1.12);
 }
 .langSelect option{ color:#1c1410; background:#f4e8cc; }
+
+/* Mobile paysage : HUD compact sans débordement ; bouton Gestion remonté d'un cran */
+@media (max-height:480px) and (orientation:landscape){
+  :root{
+    --hudOffset:52px;
+    --manageLandscapeLift:10px;
+  }
+  .hud{
+    height:38px;
+    gap:4px;
+    left:calc(var(--safeLeft) + 6px);
+    right:calc(var(--safeRight) + 96px);
+    overflow-x:auto;
+    overflow-y:hidden;
+    flex-wrap:nowrap;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .hud::-webkit-scrollbar{ display:none; }
+  .hud-pill{
+    height:34px;
+    padding:0 7px;
+    font-size:11px;
+    gap:4px;
+    flex-shrink:0;
+  }
+  .iconBtn{
+    width:34px;
+    height:34px;
+    font-size:16px;
+    flex-shrink:0;
+  }
+  #hudCalendar{
+    max-width:108px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #manageBtn{
+    top:calc(var(--safeTop) + var(--hudOffset) - var(--manageLandscapeLift));
+    height:32px;
+    padding:0 9px;
+    font-size:11px;
+    right:calc(var(--safeRight) + 6px);
+  }
+  #observerPanel,
+  #buildPanel,
+  #managePanel,
+  #perfSettingsPanel,
+  #gameMenuPanel{
+    top:calc(var(--safeTop) + var(--hudOffset) + 2px);
+    bottom:calc(var(--safeBottom) + 6px);
+  }
+  #quickBuild{
+    height:min(48dvh,168px) !important;
+    padding:10px 12px !important;
+  }
+  #quickBuild .card{
+    min-height:52px;
+    padding:5px 3px;
+  }
+  #quickBuild .card span{
+    font-size:10px;
+  }
+  .floatingTools{
+    gap:5px;
+    right:calc(var(--safeRight) + 6px);
+    bottom:calc(var(--safeBottom) + 6px);
+  }
+  .floatingTools .iconBtn{
+    width:34px;
+    height:34px;
+    font-size:16px;
+  }
+  #notification{
+    top:calc(var(--safeTop) + var(--hudOffset) + 4px);
+    max-width:min(86vw,340px);
+    font-size:12px;
+    padding:8px 14px;
+  }
+  #cityMapPanel{
+    max-height:min(58dvh,240px);
+  }
+  #cityMapCanvas{
+    max-height:min(46dvh,200px);
+  }
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2502,8 +2590,9 @@ h2{
 <script src="js/storyI18n.js"></script>
 <script src="js/grassDecorSprites.js"></script>
 <script src="js/rockDecorSprites.js"></script>
-<script src="js/config.js?v=57"></script>
+<script src="js/config.js?v=58"></script>
 <script src="js/mediterraneanDecorSprites.js?v=4"></script>
+<script src="js/generatedNatureSprites.js?v=1"></script>
 <script src="js/world.js"></script>
 <script src="js/monuments.js?v=4"></script>
 <script src="js/procgen.js"></script>
@@ -2519,9 +2608,9 @@ h2{
 <script src="js/terrainIso.js?v=7"></script>
 <script src="js/mapView.js"></script>
 <script src="js/cityMap.js?v=3"></script>
-<script src="js/houses.js?v=4"></script>
+<script src="js/houses.js?v=5"></script>
 <script src="js/roadStairs.js?v=3"></script>
-<script src="js/walkers.js?v=9"></script>
+<script src="js/walkers.js?v=10"></script>
 <script src="js/maintenance.js?v=5"></script>
 <script src="js/beauty.js"></script>
 <script src="js/market.js"></script>
@@ -2546,7 +2635,7 @@ h2{
 <script src="js/save.js?v=11"></script>
 <script src="js/loop.js?v=8"></script>
 <script src="js/pause.js"></script>
-<script src="js/characterSprites.js?v=5"></script>
+<script src="js/characterSprites.js?v=6"></script>
 <script src="js/forestTrees.js?v=19"></script>
 <script src="js/grassDecor.js?v=15"></script>
 <script src="js/rockDecor.js?v=2"></script>
@@ -2554,13 +2643,13 @@ h2{
 <script src="js/mediterraneanDecor.js?v=6"></script>
 <script src="js/camera.js"></script>
 <script src="js/zoom.js?v=5"></script>
-<script src="js/render.js?v=54"></script>
+<script src="js/render.js?v=55"></script>
 <script src="js/buildingSpriteDebug.js"></script>
-<script src="js/pixiRenderer.js?v=29"></script>
+<script src="js/pixiRenderer.js?v=31"></script>
 <script src="js/threeRenderer.js?v=31"></script>
 <script src="js/taxes.js"></script>
 <script src="js/migration.js"></script>
-<script src="js/migrationAgents.js?v=5"></script>
+<script src="js/migrationAgents.js?v=7"></script>
 <script src="js/militaryAgents.js?v=2"></script>
 <script src="js/invasions.js"></script>
 <script src="js/rivalAI.js"></script>

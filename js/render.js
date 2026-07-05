@@ -1276,7 +1276,7 @@ function drawCreatures(now, viewBounds){
       const { x, y } = getMigrantsScreenPos(m, now);
       if (!_posInView(x, y, viewBounds)) return;
       const iso = typeof getAgentIsoFacing === 'function' ? getAgentIsoFacing(m) : null;
-      const moving = typeof isCreatureMoving === 'function' && isCreatureMoving(m, now);
+      const moving = typeof isMigrantMoving === 'function' && isMigrantMoving(m, now);
       const drew = (typeof drawCharacterSprite === 'function')
         && drawCharacterSprite('migrant', x, y,
           iso ? iso.facing : (m.facing || 'down'), now, undefined, iso ? iso.mirrorX : m.mirrorX, moving);

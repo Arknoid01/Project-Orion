@@ -117,8 +117,7 @@ function computeTotalPopulation(){
 }
 
 /* ===================== ICONES DE STATUT ===================== */
-// En mode pass (Zeus) : missing = hors réseau / hors capacité, pending = éligible mais
-// pas encore servi aujourd'hui, ok = pas d'icône.
+// En mode pass (Zeus) : missing = hors réseau ; pending = marché en attente de livraison.
 function walkerPassIconsEnabled(){
   return typeof WALKER_PASS_DELIVERY !== 'undefined' && WALKER_PASS_DELIVERY;
 }

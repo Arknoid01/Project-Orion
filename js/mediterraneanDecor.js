@@ -20,6 +20,10 @@ function mediterraneanDecorEnabled(){
 }
 
 function mediterraneanTreeSpritePaths(){
+  if (typeof GENERATED_NATURE_USE !== 'undefined' && GENERATED_NATURE_USE
+    && typeof GENERATED_NATURE_TREE_SPRITES === 'object' && GENERATED_NATURE_TREE_SPRITES.length){
+    return GENERATED_NATURE_TREE_SPRITES;
+  }
   if (typeof MEDITERRANEAN_TREE_SPRITES === 'object' && Array.isArray(MEDITERRANEAN_TREE_SPRITES)){
     return MEDITERRANEAN_TREE_SPRITES;
   }
@@ -27,6 +31,10 @@ function mediterraneanTreeSpritePaths(){
 }
 
 function mediterraneanPropSpritePaths(){
+  if (typeof GENERATED_NATURE_USE !== 'undefined' && GENERATED_NATURE_USE
+    && typeof GENERATED_NATURE_PROP_SPRITES === 'object' && GENERATED_NATURE_PROP_SPRITES.length){
+    return GENERATED_NATURE_PROP_SPRITES;
+  }
   if (typeof MEDITERRANEAN_PROP_SPRITES === 'object' && Array.isArray(MEDITERRANEAN_PROP_SPRITES)){
     return MEDITERRANEAN_PROP_SPRITES;
   }
@@ -197,7 +205,11 @@ function mediterraneanTreeSpawnChance(col, row){
       if (edge < 0.42) chance *= 0.12;
     }
 
-    return Math.min(0.98, chance + clusterBoost);
+    let out = Math.min(0.98, chance + clusterBoost);
+    if (typeof GENERATED_NATURE_USE !== 'undefined' && GENERATED_NATURE_USE){
+      out = Math.min(0.55, out * 0.48 + clusterBoost * 0.45);
+    }
+    return out;
   }
 
   if (terrain === 'grass' || terrain === 'hill'){

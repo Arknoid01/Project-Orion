@@ -679,6 +679,7 @@ window.initThreeRenderer = async function(){
     else document.getElementById('canvasWrap').appendChild(rnd.domElement);
 
     window._threeRenderer = rnd;
+
     _resizeThreeView();
 
     // Scene — ciel clair, brume légère

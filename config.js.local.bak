@@ -31,18 +31,14 @@ const TERRAIN_CANVAS_H = 88;              // hauteur export normalisée (assets/
 const TERRAIN_FACE_ROW_FRAC = 38 / 88;    // ligne face iso dans le PNG (export normalisé)
 
 /* ===================== ZOOM ===================== */
-const ZOOM_DEFAULT = 1.22;  // vue serrée style Zeus (~3–4 tuiles en largeur)
-const ZOOM_LOCKED = true;   // zoom fixe (pas de +/-, molette ni pincement)
-const ZOOM_MIN = ZOOM_DEFAULT;
-const ZOOM_MAX = ZOOM_DEFAULT;
+const ZOOM_DEFAULT = 0.55;  // ~6 tuiles visibles en largeur — vue proche style Zeus
+const ZOOM_MIN = 0.20;      // vue d'ensemble carte
+const ZOOM_MAX = 1.20;      // très proche, détail d'un bâtiment
 const ZOOM_STEP = 0.15;
 // Résolution interne du canvas (indépendante du zoom affiché) — limite le lag au zoom.
 const RENDER_DPR_CAP = PERF.dprCap;           // résolution du canvas principal, pilotée par le niveau de perf choisi dans Paramètres
-const BUILDING_SPRITE_W = TILE_W;             // largeur cible à l'écran — pleine tuile
-const BUILDING_FOOTPRINT_SCALE = 1.40;        // bâtiments imposants, débordent légèrement la case (Zeus)
-const BUILDING_FOOT_LIFT = -12;               // pied calé avec sprites plus grands
-const BUILDING_WORLD_DEPTH_PX = 2;       // enfoncement en profondeur 3D (px écran → Y monde)
-const BUILDING_GRID_NORTH_PX = 5;        // remontée le long de la grille (pied → nord, px écran)
+const BUILDING_SPRITE_W = TILE_W - 4; // largeur cible à l'écran — proportionnel à TILE_W
+const BUILDING_FOOTPRINT_SCALE = 0.85; // base visuelle sur 1 tuile (un peu plus petit que la case)
 
 /* ===================== ARBRES DE FORÊT (décor constructible) ===================== */
 // Sprites iso « Isometric Asset - Lite » — affichés comme des bâtiments sur le terrain
@@ -152,44 +148,10 @@ const MEDITERRANEAN_PROP_DENSITY = 1;
 const MEDITERRANEAN_TREE_SIZE = 0.79;
 const MEDITERRANEAN_PROP_SIZE = 0.47;
 
-/* ===================== FILTRE COULEUR (rendu) ===================== */
-const VIEWPORT_GRADE_PRESET = 'warmSoft';
-
-const VIEWPORT_GRADE_PRESETS = {
-  off: { enabled: false, passes: [] },
-  natural: {
-    enabled: true,
-    passes: [
-      { mode: 'screen', color: 'rgba(255, 255, 255, 0.07)' },
-      { mode: 'soft-light', color: 'rgba(255, 255, 255, 0.04)' },
-    ],
-  },
-  verdant: {
-    enabled: true,
-    passes: [
-      { mode: 'screen', color: 'rgba(238, 255, 244, 0.09)' },
-      { mode: 'soft-light', color: 'rgba(255, 255, 255, 0.06)' },
-    ],
-  },
-  mediterraneanDay: {
-    enabled: true,
-    passes: [
-      { mode: 'screen', color: 'rgba(255, 251, 238, 0.08)' },
-      { mode: 'soft-light', color: 'rgba(255, 244, 220, 0.05)' },
-    ],
-  },
-  warmSoft: {
-    enabled: true,
-    passes: [
-      { mode: 'screen', color: 'rgba(255, 253, 248, 0.045)' },
-      { mode: 'multiply', color: 'rgba(255, 250, 242, 0.06)' },
-      { mode: 'soft-light', color: 'rgba(255, 246, 232, 0.045)' },
-    ],
-  },
-};
-
-/** Override manuel (laisser null pour utiliser le preset) */
-const VIEWPORT_COLOR_GRADE_ENABLED = null;
+/* ===================== TEINTE CHAUDE (rendu) ===================== */
+const MEDITERRANEAN_COLOR_GRADE_ENABLED = true;
+const MEDITERRANEAN_WARM_MULTIPLY = 'rgba(255, 238, 210, 0.14)';
+const MEDITERRANEAN_WARM_HIGHLIGHT = 'rgba(255, 210, 130, 0.09)';
 
 /* ===================== OVERLAY BLÉ (épis sur terrain wheat) ===================== */
 const WHEAT_CROPS_ENABLED = true;
@@ -210,82 +172,55 @@ const WHEAT_CROP_SIZE = 0.4;    // 0.6 × 0.67 (−33 %)
 // ou en "consumes"ant une ressource intermédiaire). Ex. olives -> huile, raisin -> vin.
 const BUILDING_DEFS = {
   // ---- Industrie : matières premières (depuis le terrain) ----
-  farm:      { name:'building.farm',      icon:'🌾', color:'#c9a227', validTerrain:'wheat',  produces:'wheat',  rate:0, isSeasonalCrop:true, cost:50, upkeep:0.3, workers:5, sprite:'assets/buildings/farm.png', spriteOffsetX:-4, spriteOffsetY:-7 },
-  quarry:    { name:'building.quarry',    icon:'⛏️', color:'#9aa5ab', validTerrain:'marble', produces:'marble', rate:1.1, sprite:'assets/buildings/quarry.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:60, upkeep:0.3, workers:5 },
-  oliveGrove:{ name:'building.oliveGrove',icon:'🫒', color:'#7a8b3a', validTerrain:'grass',  produces:'olives', rate:1.35, sprite:'assets/buildings/oliveGrove.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:45, upkeep:0.3, workers:4 },
-  vineyard:  { name:'building.vineyard',  icon:'🍇', color:'#6b3a6b', validTerrain:'grass',  produces:'grapes', rate:1.35, sprite:'assets/buildings/vineyard.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:45, upkeep:0.3, workers:4 },
-  sheepFarm: { name:'building.sheepFarm', icon:'🐑', color:'#cbc6b8', validTerrain:'grass',  produces:'wool',   rate:1.0, sprite:'assets/buildings/sheepFarm.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.3, workers:4 },
-  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:1.2, sprite:'assets/buildings/fishery.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3, workers:4 },
-  carrotFarm:{ name:'building.carrotFarm',icon:'🥕', color:'#e07830', validTerrain:'wheat',  produces:'carrots', rate:0, isSeasonalCrop:true, sprite:'assets/buildings/carrotFarm.png', spriteOffsetX:-4, spriteOffsetY:-10, cost:48, upkeep:0.3, workers:4 },
-  huntingPavilion:{ name:'building.huntingPavilion', icon:'🏹', color:'#7a5a3a', validTerrain:'forest', produces:'meat', rate:1.15, sprite:'assets/buildings/huntingPavilion.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:58, upkeep:0.35, workers:4 },
-  charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:'forest', produces:'coal',   rate:0.9, sprite:'assets/buildings/charcoalPit.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:65, upkeep:0.3, workers:5 },
+  farm:      { name:'building.farm',      icon:'🌾', color:'#c9a227', validTerrain:'wheat',  produces:'wheat',  rate:2.0, sprite:'assets/buildings/farm.png', cost:70, upkeep:0.5, workers:5 },
+  quarry:    { name:'building.quarry',    icon:'⛏️', color:'#9aa5ab', validTerrain:'marble', produces:'marble', rate:1.1, sprite:'assets/buildings/quarry.png', cost:85, upkeep:0.5, workers:5 },
+  oliveGrove:{ name:'building.oliveGrove',icon:'🫒', color:'#7a8b3a', validTerrain:'grass',  produces:'olives', rate:1.35, sprite:'assets/buildings/oliveGrove.png', cost:65, upkeep:0.5, workers:4 },
+  vineyard:  { name:'building.vineyard',  icon:'🍇', color:'#6b3a6b', validTerrain:'grass',  produces:'grapes', rate:1.35, sprite:'assets/buildings/vineyard.png', cost:65, upkeep:0.5, workers:4 },
+  sheepFarm: { name:'building.sheepFarm', icon:'🐑', color:'#cbc6b8', validTerrain:'grass',  produces:'wool',   rate:1.0, sprite:'assets/buildings/sheepFarm.png', cost:75, upkeep:0.5, workers:4 },
+  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:1.2, sprite:'assets/buildings/fishery.png', cost:70, upkeep:0.5, workers:4 },
+  charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:'forest', produces:'coal',   rate:0.9, sprite:'assets/buildings/charcoalPit.png', cost:90, upkeep:0.5, workers:5 },
   // ---- Industrie : ateliers de transformation (consomment une matière) ----
-  workshop:  { name:'building.workshop',  icon:'⚒️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:1.05, sprite:'assets/buildings/workshop.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:70, upkeep:0.6, workers:7 },
-  oilPress:  { name:'building.oilPress',  icon:'🛢️', color:'#b9a93a', validTerrain:'grass',  consumes:{olives:1}, produces:'oil',       rate:1.05, sprite:'assets/buildings/oilPress.png', spriteOffsetX:-4, spriteOffsetY:-5, cost:70, upkeep:0.3, workers:5 },
-  winery:    { name:'building.winery',    icon:'🍷', color:'#7d2b46', validTerrain:'grass',  consumes:{grapes:1}, produces:'wine',      rate:1.05, sprite:'assets/buildings/winery.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:70, upkeep:0.3, workers:5 },
-  weaver:    { name:'building.weaver',    icon:'🧵', color:'#9a8b72', validTerrain:'grass',  consumes:{wool:1},   produces:'clothing', rate:0.95, sprite:'assets/buildings/weaver.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:80, upkeep:0.3, workers:5 },
-  foundry:   { name:'building.foundry',   icon:'🔥', color:'#8b6914', validTerrain:'grass',  consumes:{coal:1, marble:0.4}, produces:'bronze', rate:0.9, sprite:'assets/buildings/foundry.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:110, upkeep:0.6, workers:6 },
-  armory:    { name:'building.armory',    icon:'🗡️', color:'#5c6b7a', validTerrain:'grass',  consumes:{bronze:1, clothing:0.5}, produces:'arms', rate:0.85, cost:140, upkeep:0.6, workers:7, isArmory:true, sprite:'assets/buildings/armory.png', spriteOffsetX:-4, spriteOffsetY:-7 },
+  workshop:  { name:'building.workshop',  icon:'⚒️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:1.05, sprite:'assets/buildings/workshop.png', cost:140, upkeep:1, workers:7 },
+  oilPress:  { name:'building.oilPress',  icon:'🛢️', color:'#b9a93a', validTerrain:'grass',  consumes:{olives:1}, produces:'oil',       rate:1.05, sprite:'assets/buildings/oilPress.png', cost:100, upkeep:0.5, workers:5 },
+  winery:    { name:'building.winery',    icon:'🍷', color:'#7d2b46', validTerrain:'grass',  consumes:{grapes:1}, produces:'wine',      rate:1.05, sprite:'assets/buildings/winery.png', cost:100, upkeep:0.5, workers:5 },
+  weaver:    { name:'building.weaver',    icon:'🧵', color:'#9a8b72', validTerrain:'grass',  consumes:{wool:1},   produces:'clothing', rate:0.95, sprite:'assets/buildings/weaver.png', cost:115, upkeep:0.5, workers:5 },
+  foundry:   { name:'building.foundry',   icon:'🔥', color:'#8b6914', validTerrain:'grass',  consumes:{coal:1, marble:0.4}, produces:'bronze', rate:0.9, sprite:'assets/buildings/foundry.png', cost:155, upkeep:1, workers:6 },
+  armory:    { name:'building.armory',    icon:'🗡️', color:'#5c6b7a', validTerrain:'grass',  consumes:{bronze:1, clothing:0.5}, produces:'arms', rate:0.85, cost:195, upkeep:1, workers:7, isArmory:true, sprite:'assets/buildings/armory.png' },
   // ---- Stockage ----
-  granary:   { name:'building.granary',   icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150, carrots:80, meat:60}, sprite:'assets/buildings/granary.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.3 },
-  warehouse: { name:'building.warehouse', icon:'📦', color:'#9c7b4a', validTerrain:'grass',  storageBonus:{ marble:40, sculpture:30, olives:80, oil:100, grapes:80, wine:100, wool:80, clothing:60, fish:60, carrots:50, meat:45, coal:50, bronze:40, arms:30 }, sprite:'assets/buildings/warehouse.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3 },
+  granary:   { name:'building.granary',   icon:'🏺', color:'#8a5a3b', validTerrain:'grass',  storageBonus:{wheat:150}, sprite:'assets/buildings/granary.png', cost:55, upkeep:0.5 },
+  warehouse: { name:'building.warehouse', icon:'📦', color:'#9c7b4a', validTerrain:'grass',  storageBonus:{ marble:40, sculpture:30, olives:80, oil:100, grapes:80, wine:100, wool:80, clothing:60, fish:60, coal:50, bronze:40, arms:30 }, sprite:'assets/buildings/warehouse.png', cost:70, upkeep:0.5 },
   // ---- Commerce extérieur ----
   // Exporte chaque mois les marchandises sélectionnées (voir trade.js). Plusieurs
   // comptoirs cumulent leur débit d'export.
-  tradingPost:{ name:'building.tradingPost', icon:'⚖️', color:'#b08d57', validTerrain:'grass', isTradePost:true, cost:125, upkeep:0.6, workers:4, sprite:'assets/buildings/tradingPost.png', spriteOffsetX:3, spriteOffsetY:-7 },
-  // ---- Marine (Phase 6) : port côtier + chantier naval ----
-  harbor:    { name:'building.harbor',    icon:'⚓', color:'#3d7a9e', validTerrain:'grass', requiresNearWater:true, isHarbor:true, cost:110, upkeep:0.5, workers:3, sprite:'assets/buildings/harbor.png', spriteOffsetX:-4, spriteOffsetY:-7 },
-  shipyard:  { name:'building.shipyard',  icon:'🚢', color:'#5a6a7a', validTerrain:'grass', requiresNearHarbor:true, isShipyard:true, cost:140, upkeep:0.6, workers:5, sprite:'assets/buildings/shipyard.png', spriteOffsetX:-4, spriteOffsetY:-7 },
+  tradingPost:{ name:'building.tradingPost', icon:'⚖️', color:'#b08d57', validTerrain:'grass', isTradePost:true, cost:175, upkeep:1, workers:4, sprite:'assets/buildings/tradingPost.png' },
   // ---- Défense mythologique ----
   // Permet d'invoquer un héros quand un monstre menace la cité (voir creatures.js).
-  heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:150, upkeep:0.9, sprite:'assets/buildings/heroTemple.png', spriteOffsetX:-4, spriteOffsetY:-7 },
-  barracks:   { name:'building.barracks',   icon:'🛡️', color:'#6a6f7a', validTerrain:'grass', isBarracks:true, cost:125, upkeep:0.6, workers:6, sprite:'assets/buildings/barracks.png', spriteOffsetX:-4, spriteOffsetY:-7 },
+  heroTemple: { name:'building.heroTemple', icon:'⚔️', color:'#9a4a4a', validTerrain:'grass', isHeroTemple:true, cost:210, upkeep:1.5, sprite:'assets/buildings/heroTemple.png' },
+  barracks:   { name:'building.barracks',   icon:'🛡️', color:'#6a6f7a', validTerrain:'grass', isBarracks:true, cost:175, upkeep:1, workers:6, sprite:'assets/buildings/barracks.png' },
   // ---- Services à walker (desservent les maisons à portée) ----
-  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:12, sprite:'assets/buildings/fountain.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.2 },
-  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:12, sprite:'assets/buildings/market.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:60, upkeep:0.2 },
-  temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:12, sprite:'assets/buildings/temple.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:105, upkeep:0.6 },
-  clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:12, sprite:'assets/buildings/clinic.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:105, upkeep:0.6 },
-  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:12, cost:105, upkeep:0.6, sprite:'assets/buildings/taxOffice.png', spriteOffsetX:-4, spriteOffsetY:-7 },
-  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:18, capacity:12, cost:105, upkeep:0.6, sprite:'assets/buildings/watchtower.png', spriteOffsetX:-4, spriteOffsetY:-7 },
-  // ---- Culture (Phase 1) : agora = walker ; théâtre/gymnase/stoa/académie = lieux sur le réseau ----
-  agora:     { name:'building.agora',     icon:'🏛️', color:'#c4a882', validTerrain:'grass',  isService:true, serviceType:'culture',  range:18, capacity:14, cost:95,  upkeep:0.5, sprite:'assets/buildings/agora.png?v=2', spriteOffsetX:-4, spriteOffsetY:-7 },
-  theatre:   { name:'building.theatre',   icon:'🎭', color:'#b87a8a', validTerrain:'grass',  isVenue:true, venueKind:'theatre',   beauty:4, range:3, cost:120, upkeep:0.6, sprite:'assets/buildings/theatre.png?v=2', spriteOffsetX:-4, spriteOffsetY:-7 },
-  gymnasium: { name:'building.gymnasium', icon:'🏟️', color:'#8a9a6a', validTerrain:'grass',  isVenue:true, venueKind:'gymnasium', beauty:3, range:2, cost:110, upkeep:0.55, sprite:'assets/buildings/gymnasium.png?v=2', spriteOffsetX:8, spriteOffsetY:-10 },
-  stoa:      { name:'building.stoa',      icon:'🏺', color:'#d4cbb8', validTerrain:'grass',  isVenue:true, venueKind:'stoa',      beauty:3, range:2, cost:85,  upkeep:0.4, spriteScale:112, spriteOffsetX:-22, spriteOffsetY:-10, sprite:'assets/buildings/stoa.png?v=4' },
-  academy:   { name:'building.academy',   icon:'📜', color:'#7a8aa8', validTerrain:'grass',  isVenue:true, venueKind:'academy',   beauty:4, range:2, cost:115, upkeep:0.55, sprite:'assets/buildings/academy.png?v=2', spriteOffsetX:-4, spriteOffsetY:-7 },
+  fountain:  { name:'building.fountain',  icon:'⛲', color:'#5a8fae', validTerrain:'grass',  isService:true, serviceType:'water',    range:18, capacity:6, sprite:'assets/buildings/fountain.png', cost:55, upkeep:0.5 },
+  market:    { name:'building.market',    icon:'🏪', color:'#c97b3d', validTerrain:'grass',  isService:true, serviceType:'market',   range:18, capacity:6, sprite:'assets/buildings/market.png', cost:85, upkeep:0.5 },
+  temple:    { name:'building.temple',    icon:'🛕', color:'#c4b27a', validTerrain:'grass',  isService:true, serviceType:'religion', range:18, capacity:6, sprite:'assets/buildings/temple.png', cost:105, upkeep:1 },
+  clinic:    { name:'building.clinic',    icon:'⚕️', color:'#9ec2c4', validTerrain:'grass',  isService:true, serviceType:'health',   range:18, capacity:6, sprite:'assets/buildings/clinic.png', cost:105, upkeep:1 },
+  taxOffice: { name:'building.taxOffice', icon:'💰', color:'#b8943a', validTerrain:'grass',  isService:true, serviceType:'tax',      range:18, capacity:6, cost:105, upkeep:1, sprite:'assets/buildings/taxOffice.png' },
+  watchtower:{ name:'building.watchtower',icon:'🗼', color:'#a05a3a', validTerrain:'grass',  isService:true, serviceType:'fire',     range:18, capacity:6, cost:105, upkeep:1, sprite:'assets/buildings/watchtower.png' },
   // ---- Habitation ----
-  maison:    { name:'building.maison',    icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true, cost:30, spriteOffsetX:-4, spriteOffsetY:-7 },
+  maison:    { name:'building.maison',    icon:'🏠', color:'#c9b68f', validTerrain:'grass',  isHouse:true, cost:30 },
   // ---- Décorations : diffusent du "cachet" (beauty) autour d'elles (voir beauty.js) ----
-  statue:    { name:'building.statue',    icon:'🗿', color:'#cdc7ba', validTerrain:'grass', isDecoration:true, beauty:6, range:2, cost:60, upkeep:0.3, sprite:'assets/buildings/statue.png', spriteOffsetX:30, spriteOffsetY:-12 },
-  garden:    { name:'building.garden',    icon:'🌳', color:'#6f9a4c', validTerrain:'grass', isDecoration:true, beauty:4, range:3, cost:40, sprite:'assets/buildings/garden.png', spriteOffsetX:-4, spriteOffsetY:-7 },
-  colonnade: { name:'building.colonnade', icon:'🏛️', color:'#e3ddcf', validTerrain:'grass', isDecoration:true, beauty:5, range:2, cost:50, upkeep:0.3, sprite:'assets/buildings/colonnade.png', spriteOffsetX:-3, spriteOffsetY:-22 },
+  statue:    { name:'building.statue',    icon:'🗿', color:'#cdc7ba', validTerrain:'grass', isDecoration:true, beauty:6, range:2, cost:85, upkeep:0.5, sprite:'assets/buildings/statue.png' },
+  garden:    { name:'building.garden',    icon:'🌳', color:'#6f9a4c', validTerrain:'grass', isDecoration:true, beauty:4, range:3, cost:40 },
+  colonnade: { name:'building.colonnade', icon:'🏛️', color:'#e3ddcf', validTerrain:'grass', isDecoration:true, beauty:5, range:2, cost:70, upkeep:0.5, sprite:'assets/buildings/colonnade.png' },
   // ---- Temples monumentaux (2×2 cases) : alliance avec un dieu, avantages puissants ----
   // Voir monuments.js. Coût propre à chaque dieu (GODS), affiché dans la modale de choix.
-  grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:152,
+  grandTemple: { name:'building.grandTemple', icon:'🏛️', color:'#d4af37', validTerrain:'grass', isMonument:true, footprint:2, spriteScale:118,
     sprite:'assets/buildings/grandTemple.png', upkeep:2.5 },
 };
-
-/* ===================== SPRITES BÂTIMENTS ===================== */
-// Chaque bâtiment utilise son PNG homonyme dans assets/buildings/ (voir BUILDING_DEFS.sprite).
-function resolveBuildingSpritePath(type){
-  const def = BUILDING_DEFS[type];
-  if (def && def.sprite) return def.sprite;
-  return 'assets/buildings/' + type + '.png';
-}
-window.resolveBuildingSpritePath = resolveBuildingSpritePath;
-
-Object.keys(BUILDING_DEFS).forEach(function(key){
-  const path = resolveBuildingSpritePath(key);
-  if (BUILDING_DEFS[key] && path) BUILDING_DEFS[key].sprite = path;
-});
 
 // Biens distribués par les marchés — consommation PAR JOUR DE JEU (voir market.js).
 // Chaque bien consomme 'perHouse' unités par maison et par jour lorsque le besoin
 // correspond au palier actuel OU au palier suivant (voir houseMarketNeeds dans houses.js).
 const MARKET_GOODS = [
   { need:'food', resource:'wheat', perHouse:1 },
-  { need:'food', resource:'carrots', perHouse:1 },
-  { need:'food', resource:'meat', perHouse:1 },
   { need:'fish', resource:'fish', perHouse:1 },
   { need:'oil',  resource:'oil',   perHouse:1 },
   { need:'wine', resource:'wine',  perHouse:1 },
@@ -299,8 +234,6 @@ const MARKET_GOODS = [
 // EXPORT_QTY_PER_POST unités de chaque bien activé (trade.js).
 const EXPORT_GOODS = [
   { resource:'wheat',     price:4 },
-  { resource:'carrots',   price:5 },
-  { resource:'meat',      price:8 },
   { resource:'olives',    price:5 },
   { resource:'grapes',    price:5 },
   { resource:'oil',       price:10 },
@@ -342,16 +275,16 @@ const TRADE_RELATION_IMPORT_DISCOUNT = 0.15;
 // Plus la cité est peuplée, plus l'armée peut être nombreuse -- mais elle coûte un
 // entretien mensuel (or + blé) proportionnel. Si l'entretien n'est pas payé, le moral
 // chute et les points de combat effectifs baissent. Voir military.js.
-const TROOPS_PER_BARRACKS = 24;   // points de troupe soutenus par caserne
-const TROOPS_PER_POP = 0.35;       // plafond lié à la population (35 % des habitants)
-const ARMY_UPKEEP_GOLD = 1.55;    // drachmes/mois par point de troupe
-const ARMY_UPKEEP_WHEAT = 2.0;    // blé/mois par point de troupe
-const ARMY_UPKEEP_ARMS = 0.12;    // armes/mois par point de troupe (armurerie)
+const TROOPS_PER_BARRACKS = 30;   // points de troupe soutenus par caserne
+const TROOPS_PER_POP = 0.4;       // plafond lié à la population (40 % des habitants)
+const ARMY_UPKEEP_GOLD = 1.35;    // drachmes/mois par point de troupe
+const ARMY_UPKEEP_WHEAT = 1.8;    // blé/mois par point de troupe
+const ARMY_UPKEEP_ARMS = 0.10;    // armes/mois par point de troupe (armurerie)
 const ARMORY_TROOP_BONUS = 8;     // points de troupe par armurerie approvisionnée
 
 // Puissance militaire des cités voisines (générée à la création, voir world.js). Sert de
 // score adverse lors d'une attaque : on gagne si nos points sont strictement supérieurs.
-const WORLD_CITY_BASE_POWER = 58;        // puissance de référence
+const WORLD_CITY_BASE_POWER = 45;        // puissance de référence
 const TRIBUTE_PER_POWER = 6;             // tribut immédiat (drachmes) par point de puissance vaincue
 const TRIBUTE_MONTHLY_PER_POWER = 0.4;   // tribut mensuel versé par une cité conquise
 const REPRISAL_CHANCE = 0.5;             // probabilité de représailles après une défaite
@@ -362,40 +295,6 @@ const WORLD_CITY_NAMES = [
   'Pergame', 'Halicarnasse', 'Cnossos', 'Mégare', 'Élis', 'Tirynthe', 'Naxos', 'Samos',
   'Chios', 'Cumes', 'Tarente', 'Massalia', 'Olynthe', 'Abdère', 'Égine', 'Phocée', 'Cyrène',
 ];
-
-// Phase 5 — IA rivale : cités voisines avec personnalité, croissance et actions proactives.
-const RIVAL_AI_ENABLED = true;
-const RIVAL_ACTION_INTERVAL_DAYS = 6;
-const RIVAL_FIRST_ACTION_DAY = 6;
-const RIVAL_POWER_GROWTH_CAP = 130;
-const RIVAL_INVASION_CHANCE = 0.17;
-const RIVAL_DIPLOMAT_GIFT_CHANCE = 0.20;  // Sprint 4 — moins d'injection gratuite d'or
-const RIVAL_DIPLOMAT_GIFT_MIN = 12;
-const RIVAL_DIPLOMAT_GIFT_MAX = 28;
-const RIVAL_PERSONALITIES = ['aggressive', 'merchant', 'diplomat'];
-
-// Phase 6 — Marine : port, trirèmes, raids navals et bonus commerce.
-const NAVAL_ENABLED = true;
-const SHIP_POWER_EACH = 8;
-const SHIP_BUILD_COST_GOLD = 155;
-const SHIP_BUILD_COST_BRONZE = 3;
-const FLEET_UPKEEP_GOLD = 10;
-const HARBOR_EXPORT_BONUS = 2;
-const NAVAL_EXPORT_BONUS_PER_SHIP = 1;
-const NAVAL_TRADE_INCOME_BONUS = 0.04;
-const NAVAL_RAID_MIN_SHIPS = 2;
-const NAVAL_RAID_GOLD_WIN = 120;
-const NAVAL_RIVAL_RAID_CHANCE = 0.18;
-const NAVAL_RIVAL_RAID_MIN_DAY = 12;
-const SHIPS_PER_HARBOR = 4;
-const SHIPS_PER_SHIPYARD = 3;
-const TRIPREME_SPRITE_PATH = 'assets/ships/trireme.png';
-const SHIP_SPRITE_W = Math.round(TILE_W * 1.35);   // trirème ancrée sur case d'eau
-const NAVAL_MAX_VISIBLE_SHIPS = 10;                // plafond rendu (fleet.ships peut être plus grand)
-
-// Carte du monde (panneau latéral) — fond Méditerranée + repères colonies.
-const WORLD_MAP_BG = 'assets/world/worldMap.png';
-const WORLD_MAP_HOME = { x: 0.48, y: 0.50, labelKey: 'world.homeCity' };
 
 // Couleurs de repli — palette méditerranéenne (herbe sèche, eau turquoise, calcaire).
 const TERRAIN_COLORS = {
@@ -458,7 +357,6 @@ const TERRAIN_BLOCK_FACES = {
   stone:  { top: 'stone',      left: 'stone', right: 'stone' },
   sand:   { top: 'sand_top',   left: 'sand',  right: 'sand' },
   forest: { top: 'forest_top', left: 'dirt',  right: 'dirt' },
-  hill:   { top: 'grass_top',  left: 'dirt',  right: 'dirt' },
 };
 
 const TERRAIN_USE_BLOCKS = true;
@@ -474,13 +372,13 @@ const TERRAIN_CAP_DETAIL_DENSITY = 1.35;
 const TERRAIN_CAP_EDGE_FEATHER = true;
 const TERRAIN_CONTACT_SHADOW = true;
 // Texture de sommet selon la hauteur de pile (biomes listés dans TERRAIN_LEVEL_CAP_BIOMES)
-const TERRAIN_LEVEL_CAP_MAP = { 2: 'hill' };
+const TERRAIN_LEVEL_CAP_MAP = { 2: 'hill', 3: 'hill' };
 const TERRAIN_LEVEL_CAP_BIOMES = ['grass', 'hill', 'wheat'];
 const TERRAIN_CLIFF_DARKEN = 0.12;       // assombrissement parois falaise
 const TERRAIN_CLIFF_AO = 0.24;           // ombre interne bas de paroi (dans la face)
 const TERRAIN_CLIFF_SHADOW = false;      // pas d'ombres portées flottantes
 const TERRAIN_CUBE_WALL_H = 16;          // hauteur paroi latérale d'un cube (px)
-const TERRAIN_BLOCK_MAX_LEVEL = 2;       // 0=eau, 1=plaine, 2=relief (colline/montagne)
+const TERRAIN_BLOCK_MAX_LEVEL = 3;       // 0=eau, 1=plaine, 2=colline, 3=montagne
 const LEGO_BRICK_STEP = 32;              // distance entre sommets de briques empilées (= TILE_H)
 const TERRAIN_BLOCK_DRAW_W = 64;         // largeur d'une brique à l'écran
 const TERRAIN_BLOCK_CLEAN_WALLS = true;  // parois procédurales uniformes (Mykonos)
@@ -495,11 +393,10 @@ const TERRAIN_BLOCK_SPRITES = {
   marble: 'assets/tiles/blocks/marble.png',
   sand:   'assets/tiles/blocks/sand.png',
   forest: 'assets/tiles/blocks/forest.png',
-  hill:   'assets/tiles/blocks/hill.png',
 };
 // terrain jeu → clé bloc (sommet de pile) ; wheat/marble = teinte dérivée (cf. TERRAIN_BLOCK_TINTS)
 const TERRAIN_BLOCK_MAP = {
-  grass: 'grass', wheat: 'wheat', forest: 'forest', hill: 'hill',
+  grass: 'grass', wheat: 'wheat', forest: 'forest', hill: 'grass',
   sand: 'sand', water: null, rock: 'stone', marble: 'marble',
 };
 // Parois latérales selon biome / niveau de pile
@@ -525,13 +422,13 @@ const CLIFF_SPRITES = Object.fromEntries(CLIFF_SPRITE_IDS.map(id => [
 ]));
 
 const BASE_CAP = {
-  wheat:60, carrots:50, meat:45, marble:60, sculpture:30, olives:45, oil:45, grapes:45, wine:45, wool:45,
+  wheat:60, marble:60, sculpture:30, olives:45, oil:45, grapes:45, wine:45, wool:45,
   clothing:40, fish:50, coal:40, bronze:30, arms:25,
 };
 
 // Stocks de départ (complément au trésor) — couvrent ~1–2 jours d'une petite cité.
 const STARTING_RESOURCES = {
-  wheat:35, carrots:8, meat:4, marble:20, sculpture:2, olives:12, oil:10, grapes:12, wine:6, wool:6,
+  wheat:35, marble:20, sculpture:2, olives:12, oil:10, grapes:12, wine:6, wool:6,
   clothing:0, fish:6, coal:0, bronze:0, arms:0,
 };
 
@@ -543,19 +440,19 @@ const STARTING_RESOURCES = {
 // Progression : chaque ressource/service est introduit à un palier précis, et le
 // palais exige « un peu de tout ». Récap des nouveautés par niveau :
 //   decent    -> +eau
-//   villa     -> +nourriture, +culture (agora + lieu culturel)
-//   domaine   -> +huile, +beauté, +culture
-//   residence -> +vin, +religion, +culture
+//   villa     -> +nourriture
+//   domaine   -> +huile, +beauté
+//   residence -> +vin, +religion
 //   palais    -> +laine, +santé, +protection incendie (donc TOUT : route, eau,
 //                 nourriture, huile, vin, laine, religion, santé, beauté, feu)
 const HOUSE_LEVELS = [
   { key:'hut',       nameKey:'houseLevel.hut',       population:2,  requires:[], sprite:'assets/houses/hut.png' },
   { key:'house',     nameKey:'houseLevel.house',     population:5,  requires:['route'], sprite:'assets/houses/house.png' },
   { key:'decent',    nameKey:'houseLevel.decent',    population:9,  requires:['route','water'], sprite:'assets/houses/decent.png' },
-  { key:'villa',     nameKey:'houseLevel.villa',     population:15, requires:['route','water','food','culture'], sprite:'assets/houses/villa.png' },
-  { key:'domaine',   nameKey:'houseLevel.domaine',   population:24, requires:['route','water','food','oil','culture','beauty'], sprite:'assets/houses/domaine.png' },
-  { key:'residence', nameKey:'houseLevel.residence', population:34, requires:['route','water','food','oil','wine','fish','religion','culture','beauty'], sprite:'assets/houses/residence.png' },
-  { key:'palais',    nameKey:'houseLevel.palais',    population:48, requires:['route','water','food','oil','wine','fish','clothing','religion','health','fire','culture','beauty'], sprite:'assets/houses/palais.png' },
+  { key:'villa',     nameKey:'houseLevel.villa',     population:15, requires:['route','water','food'], sprite:'assets/houses/villa.png' },
+  { key:'domaine',   nameKey:'houseLevel.domaine',   population:24, requires:['route','water','food','oil','beauty'] },
+  { key:'residence', nameKey:'houseLevel.residence', population:34, requires:['route','water','food','oil','wine','fish','religion','beauty'], sprite:'assets/houses/residence.png' },
+  { key:'palais',    nameKey:'houseLevel.palais',    population:48, requires:['route','water','food','oil','wine','fish','clothing','religion','health','fire','beauty'], sprite:'assets/houses/palais.png' },
 ];
 
 /* ===================== EMBELLISSEMENT (CACHET) ===================== */
@@ -577,7 +474,6 @@ const NEED_ICONS = {
   religion: '🛕',
   health:   '🤢',
   fire:     '🔥',
-  culture:  '🎭',
   beauty:   '🌲',
 };
 
@@ -599,7 +495,7 @@ const NEED_ICONS = {
 // Marchés : 1 unité/bien/maison/jour. Croissance/émigration : 1 tirage/jour.
 // Impôts/entretien/production : chaque tick (~1 s). Commerce/armée : chaque mois.
 // Cité de départ type (~20 hab., 4 services + 1 ferme) : +8 à +15 dr./jour net.
-const STARTING_TREASURY = 3000;
+const STARTING_TREASURY = 2650;
 const TAX_PER_POP = 0.25;        // conservé pour compatibilité (non utilisé : voir TAX_BASE_PER_POP)
 const ROAD_COST = 4;             // coût de pose d'une case de route (pas un BUILDING_DEFS)
 const STAIR_COST = 8;            // escalier : relie deux niveaux de route voisins (±1)
@@ -613,8 +509,8 @@ const DEMOLISH_REFUND_RATE = 0.5; // fraction du coût de construction rembours�
 //   - collecte    : proportionnelle directe au taux (voir taxCollectionRate)
 //   - efficacité  : pénalise la production si le taux est haut (voir taxes.js)
 //   - croissance  : ralentit l'évolution des maisons si le taux est haut (voir houses.js)
-const TAX_BASE_PER_POP = 0.65;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
-const TAX_RATE_DEFAULT = 0.42;    // Sprint 4 — taux neutre early game (55 % était trop pénalisant)
+const TAX_BASE_PER_POP = 0.48;    // drachmes/habitant/tick desservi, AU TAUX MAXIMUM (1.0)
+const TAX_RATE_DEFAULT = 0.45;    // taux neutre au démarrage
 const TAX_EFFICIENCY_AT_ZERO = 1.12;
 const TAX_EFFICIENCY_AT_MAX  = 0.72;
 const TAX_GROWTH_CHANCE_AT_ZERO = 0.22;  // probabilité d'évolution PAR JOUR, taux 0
@@ -625,8 +521,7 @@ const TAX_GROWTH_CHANCE_AT_MAX  = 0.04;  // probabilité d'évolution PAR JOUR, 
 const GROWTH_FAVOR_INFLUENCE = 0.12;
 const EMIGRATION_THRESHOLD = 0.38;
 const EMIGRATION_STRENGTH = 0.22;
-const MIGRANT_MOVE_EVERY_TICKS = 1;   // intervalle de base entre deux cases (voir migrationAgents.js)
-const MIGRANT_SPEED_MULTIPLIER = 1.5; // +50 % vitesse des colons entrant / sortant
+const MIGRANT_MOVE_EVERY_TICKS = 1;   // vitesse des colons sur la route (voir migrationAgents.js)
 // Point d'entrée/sortie fixe au bord sud de la carte (colons qui arrivent et repartent).
 const MIGRANT_ENTRY_COL = Math.floor(GRID_COLS / 2);
 const MIGRANT_ENTRY_ROW = GRID_ROWS - 1;
@@ -637,7 +532,7 @@ const TROOPS_MOVE_EVERY_TICKS = 1;
 
 /* ===================== INVASIONS ===================== */
 const INVASION_MOVE_EVERY_TICKS = 2;
-const INVASION_SPAWN_CHANCE = 0.0035;
+const INVASION_SPAWN_CHANCE = 0.003;
 const INVASION_MIN_DAY = 10;
 
 /* ===================== GENERATION DE CARTE PROCEDURALE ===================== */
@@ -672,12 +567,12 @@ const MAP_FOREST_MOISTURE = 0.58;          // baissé : plus de forêt
 const MAP_FOREST_MIN_HEIGHT = 0.28;
 const MAP_FOREST_MAX_HEIGHT = 0.52;        // élargi vers le haut
 const MAP_FOREST_MAX_SLOPE = 0.052;
-const MAP_WHEAT_MOISTURE = 0.46;           // entre trop (0.40) et trop peu (0.52)
-const MAP_WHEAT_MIN_HEIGHT = 0.25;
-const MAP_WHEAT_MAX_HEIGHT = 0.32;
+const MAP_WHEAT_MOISTURE = 0.40;
+const MAP_WHEAT_MIN_HEIGHT = 0.24;
+const MAP_WHEAT_MAX_HEIGHT = 0.34;         // réduit : moins de blé
 const MAP_PLAIN_MARBLE_CHANCE = 0.014;
-const MAP_FOREST_SPREAD_CHANCE = 0.38;     // extension organique des bosquets
-const MAP_WHEAT_SPREAD_CHANCE = 0.18;      // champs compacts mais jouables
+const MAP_FOREST_SPREAD_CHANCE = 0.32;     // extension organique des bosquets
+const MAP_WHEAT_SPREAD_CHANCE = 0.26;      // extension des champs
 const MAP_GROVE_NOISE_THRESHOLD = 0.58;    // bosquets isolés sur prairie
 const MAP_RAIN_SHADOW = 0.26;
 const MAP_RAIN_SHADOW_STEPS = 20;
@@ -704,23 +599,15 @@ const MAP_LAND_BRIDGE_WIND = 0.38;         // sinuosité du chemin d'accès
 const MAP_MOUNTAIN_MIN_LAND = 0.30;        // évite les massifs sur les bords d'île
 const MAP_MOUNTAIN_MIN_HEIGHT = 0.30;      // montagnes réservées aux vraies hauteurs
 
-// Zone de départ : ressources minimales près du centroïde + retry de seed
-const MAP_START_ZONE_RADIUS = 18;
-const MAP_START_MIN_WHEAT = 4;
-const MAP_START_MIN_FOREST = 8;
-const MAP_START_MIN_MARBLE = 4;
-const MAP_GEN_MAX_ATTEMPTS = 8;
-const MAP_GEN_USE_WORKER = true;
-
 /* ===================== MAINTENANCE (INCENDIES / MALADIES) ===================== */
 // Voir maintenance.js. Premiers chiffres, pas encore équilibrés en conditions réelles
 // de jeu -- à ajuster une fois que tu auras une vraie ville qui tourne longtemps.
 // Une maison NON desservie (fire/health) risque un sinistre à chaque tick ; une maison
 // desservie garde un risque résiduel très faible, jamais totalement nul.
-const FIRE_CHANCE_UNCOVERED = 0.00045;   // ~100 maisons : ~1 sinistre / 22 ticks si non couvert
-const FIRE_CHANCE_COVERED = 0.00003;
-const DISEASE_CHANCE_UNCOVERED = 0.00045;
-const DISEASE_CHANCE_COVERED = 0.00003;
+const FIRE_CHANCE_UNCOVERED = 0.0006;
+const FIRE_CHANCE_COVERED = 0.00004;
+const DISEASE_CHANCE_UNCOVERED = 0.0006;
+const DISEASE_CHANCE_COVERED = 0.00004;
 
 /* ===================== PALETTES MAISONS PROCEDURALES ===================== */
 const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];
@@ -733,18 +620,18 @@ const CHARACTER_FRAME_SIZE = 96;
 const CHARACTER_FRAMES = 3;
 const CHARACTER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
 // Chaque pas sur la grille iso est une diagonale à l'écran (tileCenter : x∝col−row, y∝col+row).
-// Clé = diagonale iso. facing = rang LPC (left/right sur la planche walkers).
+// Clé = diagonale iso. facing = rang LPC ; mirror = retourner le sprite si le profil
+// est du mauvais côté pour cette diagonale (SW/left est la référence « parfaite »).
 const ISO_DIAGONAL_FACING = {
-  se: { facing: 'down',  mirror: false }, // col+1
-  sw: { facing: 'left',  mirror: false }, // row+1
-  nw: { facing: 'left',  mirror: false }, // col−1
-  ne: { facing: 'down',  mirror: false }, // row−1
+  se: { facing: 'left',  mirror: true  }, // col+1  → bas-droite ✓
+  sw: { facing: 'left',  mirror: false }, // row+1  → bas-gauche ✓
+  nw: { facing: 'left',  mirror: false }, // col−1  → haut-gauche ✓
+  ne: { facing: 'left',  mirror: true  }, // row−1  → haut-droite (miroir de NW)
 };
 // Décalage vertical des pieds sur la tuile iso (ancrage du sprite).
 const CHARACTER_ISO_FOOT_PAD = 10;
 const CHARACTER_DISPLAY_SIZE = 44;       // repli générique
-const WALKER_DISPLAY_SIZE = 34;        // citoyens / services — proportion Zeus (auto-scalé avec le zoom caméra)
-const SOLDIER_DISPLAY_SIZE = 38;       // soldats (invasions / campagnes)
+const WALKER_DISPLAY_SIZE = 30;        // citoyens / services (plus petits)
 const MIGRANT_DISPLAY_SIZE = 32;       // colons arrivants / partants (sac à dos)
 const MIGRANT_SPRITE_PATH = 'assets/characters/migrants/migrant.png';
 const HERO_DISPLAY_SIZE = 50;          // héros (un peu plus grands)
@@ -754,13 +641,6 @@ const CHARACTER_ANIM_FRAME_MS = 120;
 
 // Sprites LPC : python tools/generate_lpc_characters.py  (lpc_repo requis)
 // Atlas 3×4 @ 96 px — voir tools/lpc_compositor.py
-// Livraison « style Zeus » : une maison éligible n'est servie que si le walker passe
-// à côté ce jour-là (inventaire limité, recharge au bâtiment).
-const WALKER_PASS_DELIVERY = true;
-const WALKER_CARRY_BY_SERVICE = {
-  water: 12, market: 12, religion: 12, health: 12, tax: 20, fire: 22, culture: 12,
-};
-
 const SERVICE_WALKER_SPRITES = {
   water:    'assets/characters/walkers/water.png',
   market:   'assets/characters/walkers/market.png',
@@ -768,13 +648,6 @@ const SERVICE_WALKER_SPRITES = {
   health:   'assets/characters/walkers/health.png',
   tax:      'assets/characters/walkers/tax.png',
   fire:     'assets/characters/walkers/fire.png',
-  culture:  'assets/characters/walkers/culture.png',
-};
-
-// Soldats visuels (campagnes d'invasion / attaque) — atlas LPC 3×4
-const MILITARY_SOLDIER_SPRITES = {
-  friendly: 'assets/characters/soldiers/friendly.png',
-  enemy:    'assets/characters/soldiers/enemy.png',
 };
 
 // Dieux errants (temples monumentaux) — atlas LPC dans assets/characters/gods/
@@ -799,16 +672,13 @@ const GOD_SPRITES = {
 const WALKER_SPRITE_PATH = 'assets/characters/walkers/water.png';
 const WALKER_FRAME_SIZE = CHARACTER_FRAME_SIZE;
 const WALKER_FRAMES_PER_CYCLE = CHARACTER_FRAMES;
-const WALKER_DIRECTION_ROWS = { up: 0, left: 1, right: 2, down: 3 };
-// Planche walkers (288×384) : ligne 0 = dos · 1 = gauche · 2 = droite · 3 = face
+const WALKER_DIRECTION_ROWS = CHARACTER_DIRECTION_ROWS;
 const WALKER_ANIM_FRAME_MS = 200;        // marche des citoyens (plus lent que héros/dieux)
 
 /* ===================== MYTHOLOGIE ===================== */
 const FAVOR_MAX = 100;
 const FAVOR_DECAY_PER_TICK = 0.06;
 const FAVOR_OFFERING_COST = { sculpture: 5 };
-/** Alternative : libation (vignoble + pressoir). Sculpture utilisée en priorité. */
-const FAVOR_OFFERING_ALT = { wine: 6, oil: 4 };
 const FAVOR_OFFERING_GAIN = 15;
 const FAVOR_BLESSING_THRESHOLD = 80;       // au-dessus : bénédiction possible
 const FAVOR_CATASTROPHE_THRESHOLD = 20;    // en-dessous : catastrophe possible
@@ -837,12 +707,12 @@ const GOD_SAT_MONUMENT_LOSS = 18;        // démolir son temple
 
 // Exigences de chaque dieu : si non remplies, sa satisfaction baisse plus vite.
 const GOD_REQUIREMENTS = {
-  demeter:  { type:'building', key:'granary', min:1, labelKey:'god.req.demeter' },
+  demeter:  { type:'resource', key:'wheat', min:30, labelKey:'god.req.demeter' },
   zeus:     { type:'building', key:'temple', min:1, labelKey:'god.req.zeus' },
   athena:   { type:'building', key:'clinic', min:1, labelKey:'god.req.athena' },
   dionysos: { type:'building', key:'winery', min:1, labelKey:'god.req.dionysos' },
-  poseidon: { type:'building', key:'warehouse', min:1, labelKey:'god.req.poseidon' },
-  apollo:   { type:'resource', key:'sculpture', min:8, labelKey:'god.req.apollo' },
+  poseidon: { type:'building', key:'fountain', min:1, labelKey:'god.req.poseidon' },
+  apollo:   { type:'building', key:'clinic', min:1, labelKey:'god.req.apollo' },
 };
 
 // Type de colère / bénédiction par dieu
@@ -881,9 +751,7 @@ const OBJECTIVES = [
   { key:'population',    nameKey:'objective.population',    metric:'population',    target:50 },
   { key:'wheatProduced',  nameKey:'objective.wheatProduced',  metric:'wheatProduced',  target:120 },
   { key:'villa',          nameKey:'objective.villa',          metric:'villa',          target:1 },
-  { key:'domaine',        nameKey:'objective.domaine',        metric:'domaine',        target:1 },
   { key:'favor',          nameKey:'objective.favor',          metric:'favor',          target:80 },
-  { key:'tradePosts',     nameKey:'campaign.objective.tradePosts', metric:'tradePosts', target:2 },
 ];
 
 /* ===================== DEFAITE ===================== */
@@ -901,24 +769,6 @@ const FESTIVAL_COST = { wine: 8, sculpture: 4 };
 const FESTIVAL_FAVOR_GAIN = 18;
 const FESTIVAL_DURATION_TICKS = 50;
 const FESTIVAL_GROWTH_BONUS = 0.10;
-
-/** Spectacles / compétitions dans les lieux culturels (venues.js). */
-const VENUE_EVENT_COST = { wine: 4, sculpture: 2 };
-const VENUE_EVENT_DURATION_TICKS = 45;
-const VENUE_EVENT_GROWTH_BONUS = 0.08;
-const VENUE_EVENT_MIN_SERVED = 2;
-const VENUE_EVENT_CHANCE = 0.32;
-
-/** Coûts et bonus selon la saison attique (voir calendar.js). */
-const FESTIVAL_BY_SEASON = {
-  summer: { cost: { wine: 10, sculpture: 3 }, favorGain: 20, durationTicks: 50, growthBonus: 0.10, patronGod: 'zeus' },
-  autumn: { cost: { wine: 6, wheat: 25 }, favorGain: 16, durationTicks: 45, growthBonus: 0.08, patronGod: 'demeter' },
-  winter: { cost: { sculpture: 8, wool: 12 }, favorGain: 22, durationTicks: 55, growthBonus: 0.09, patronGod: 'apollo' },
-  spring: { cost: { wine: 8, grapes: 20 }, favorGain: 18, durationTicks: 50, growthBonus: 0.12, patronGod: 'dionysos' },
-};
-
-/** Bonus export/import par entrepôt (complète les comptoirs). */
-const WAREHOUSE_TRADE_QTY_BONUS = 4;
 
 /* ===================== CALENDRIER (mois attiques) ===================== */
 // Dérivé uniquement de DEBUG.tickCount (voir calendar.js) -- aucun état séparé à
@@ -944,20 +794,6 @@ const MONTHS = [
 ];
 
 const SEASON_ICONS = { summer:'☀️', autumn:'🍂', winter:'❄️', spring:'🌸' };
-
-/** Cultures saisonnières : 2 récoltes/an (début de mois attique), pas de production au tick. */
-const SEASONAL_CROP_HARVEST = {
-  wheat: {
-    buildingTypes: ['farm'],
-    monthIndices: [2, 9], // Boédromion (fin été) · Munychion (printemps)
-    yieldBase: 36,
-  },
-  carrots: {
-    buildingTypes: ['carrotFarm'],
-    monthIndices: [3, 10], // Pyanépsion (automne) · Thargélion (printemps)
-    yieldBase: 28,
-  },
-};
 
 /* ===================== DIPLOMATIE ===================== */
 // Cités-États voisines avec lesquelles Olympos entretient une relation (0-100).
@@ -1028,30 +864,6 @@ const DIPLO_EVENTS = [
       { key: 'refuse', type: 'danger', effects: { treasury: -320, relation: -8, resources: { wheat: -15 } }, result: 'raidHappened', resultType: 'bad' },
     ],
   },
-  {
-    key: 'grainAid', minRel: 40, maxRel: 100, weight: 2,
-    vars: { qty: 25, res: 'wheat', gold: 180 },
-    choices: [
-      { key: 'accept', type: 'good', requires: { resources: { wheat: 25 } }, effects: { resources: { wheat: -25 }, treasury: 180, relation: 10, favor: 3 }, result: 'grainAidAccepted', resultType: 'good' },
-      { key: 'decline', type: 'neutral', effects: { relation: -4 }, result: 'grainAidDeclined', resultType: 'bad' },
-    ],
-  },
-  {
-    key: 'culturalExchange', minRel: 50, maxRel: 100, weight: 2,
-    vars: { qty: 5, res: 'sculpture' },
-    choices: [
-      { key: 'accept', type: 'good', requires: { resources: { sculpture: 5 } }, effects: { resources: { sculpture: -5 }, favor: 8, relation: 14 }, result: 'culturalAccepted', resultType: 'good' },
-      { key: 'decline', type: 'neutral', effects: { relation: -2 }, result: 'culturalDeclined', resultType: 'bad' },
-    ],
-  },
-  {
-    key: 'merchantFleet', minRel: 30, maxRel: 90, weight: 2,
-    vars: { gold: 350, qty: 10, res: 'fish' },
-    choices: [
-      { key: 'accept', type: 'good', requires: { resources: { fish: 10 } }, effects: { resources: { fish: -10 }, treasury: 350, relation: 8 }, result: 'fleetAccepted', resultType: 'good' },
-      { key: 'decline', type: 'neutral', effects: { relation: -3 }, result: 'fleetDeclined', resultType: 'bad' },
-    ],
-  },
 ];
 
 /* ===================== MONSTRES & HEROS ===================== */
@@ -1105,16 +917,13 @@ const ARTIFACTS = {
   lyre:        { nameKey:'artifact.lyre',        icon:'🎵', effect:'favor',    value:5 },
   goldenFleece:{ nameKey:'artifact.goldenFleece',icon:'🏅', effect:'trade',    value:0.2 },
   lionPelt:    { nameKey:'artifact.lionPelt',    icon:'🦁', effect:'growth',   value:0.04 },
-  spearAchilles:{ nameKey:'artifact.spearAchilles', icon:'🗡️', effect:'military', value:8 },
-  ambrosiaVase:{ nameKey:'artifact.ambrosiaVase', icon:'🏺', effect:'favor',    value:4 },
 };
 
 const ADVENTURE_DEFINITIONS = [
   {
     id:'nemean_lion', nameKey:'adventure.nemeanLion.name', descKey:'adventure.nemeanLion.desc',
     icon:'🦁', type:'combat', difficulty:2, heroKey:'heracles', durationTicks:40,
-    cost:{ treasury:100 }, rewards:{ favor:6, resources:{ wool:25 }, artifact:'lionPelt' },
-    oneTime:true,
+    cost:{ treasury:100 }, rewards:{ favor:6, resources:{ wool:25 } },
   },
   {
     id:'gorgon_hunt', nameKey:'adventure.gorgonHunt.name', descKey:'adventure.gorgonHunt.desc',
@@ -1165,45 +974,6 @@ const ADVENTURE_DEFINITIONS = [
     icon:'🏅', type:'combat', difficulty:3, heroKey:'jason', durationTicks:65,
     cost:{ treasury:300, resources:{ wool:15 } }, rewards:{ treasury:400, artifact:'goldenFleece', favor:10 },
     oneTime:true,
-  },
-  {
-    id:'hydra_marshes', nameKey:'adventure.hydra.name', descKey:'adventure.hydra.desc',
-    icon:'🐉', type:'combat', difficulty:3, heroKey:'heracles', durationTicks:52,
-    cost:{ treasury:180, resources:{ bronze:8 } }, rewards:{ favor:10, resources:{ arms:18, sculpture:10 } },
-    oneTime:true,
-  },
-  {
-    id:'chimera_peak', nameKey:'adventure.chimera.name', descKey:'adventure.chimera.desc',
-    icon:'🔥', type:'combat', difficulty:3, heroKey:'bellerophon', durationTicks:48,
-    cost:{ treasury:165, resources:{ wool:10 } }, rewards:{ favor:8, treasury:220, resources:{ arms:12 } },
-  },
-  {
-    id:'athena_trial', nameKey:'adventure.athenaTrial.name', descKey:'adventure.athenaTrial.desc',
-    icon:'🦉', type:'riddle', difficulty:2, heroKey:'ulysses', durationTicks:38,
-    cost:{ treasury:90, resources:{ sculpture:3 } }, rewards:{ favor:12, resources:{ marble:25 } },
-    riddleKey:'adventure.athenaTrial.riddle',
-    riddleChoices:[
-      { key:'olive', labelKey:'adventure.athenaTrial.choice.olive', correct:true },
-      { key:'sword', labelKey:'adventure.athenaTrial.choice.sword', correct:false },
-      { key:'gold', labelKey:'adventure.athenaTrial.choice.gold', correct:false },
-    ],
-  },
-  {
-    id:'calydonian_boar', nameKey:'adventure.calydonianBoar.name', descKey:'adventure.calydonianBoar.desc',
-    icon:'🐗', type:'combat', difficulty:2, heroKey:'achilles', durationTicks:44,
-    cost:{ treasury:120, resources:{ bronze:6 } }, rewards:{ favor:7, artifact:'spearAchilles' },
-    oneTime:true,
-  },
-  {
-    id:'cerberus_gate', nameKey:'adventure.cerberusGate.name', descKey:'adventure.cerberusGate.desc',
-    icon:'🐺', type:'combat', difficulty:3, heroKey:'orpheus', durationTicks:50,
-    cost:{ treasury:140, resources:{ sculpture:6 } }, rewards:{ favor:14, resources:{ sculpture:20 }, artifact:'ambrosiaVase' },
-    oneTime:true,
-  },
-  {
-    id:'dragon_hoard', nameKey:'adventure.dragonHoard.name', descKey:'adventure.dragonHoard.desc',
-    icon:'🐲', type:'combat', difficulty:3, heroKey:'jason', durationTicks:58,
-    cost:{ treasury:220, resources:{ arms:10 } }, rewards:{ treasury:350, favor:9, resources:{ bronze:25 } },
   },
 ];
 

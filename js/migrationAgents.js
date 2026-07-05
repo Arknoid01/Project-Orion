@@ -4,7 +4,7 @@
 // Montée de niveau : appliquée à l'arrivée. Régression : appliquée au départ.
 // Destruction : le bâtiment disparaît quand le colon a quitté la carte.
 
-let migrants = []; // { type, reason, col, row, prevCol, prevRow, path, pathIndex, houseCol, houseRow, moveCooldown, destroyOnComplete? }
+let migrants = []; // { type, reason, col, row, prevCol, prevRow, path, pathIndex, houseCol, houseRow, stepCredit, destroyOnComplete? }
 
 function resetMigrants(){ migrants = []; }
 
@@ -72,7 +72,50 @@ function applyHouseEmigration(col, row){
 }
 
 function pushMigrant(agent){
+  agent.stepCredit = 0;
   migrants.push(agent);
+}
+
+function getMigrantMoveInterval(){
+  const every = typeof MIGRANT_MOVE_EVERY_TICKS !== 'undefined' ? MIGRANT_MOVE_EVERY_TICKS : 1;
+  return every;
+}
+
+function getMigrantSpeedPerTick(){
+  const mult = typeof MIGRANT_SPEED_MULTIPLIER !== 'undefined' ? MIGRANT_SPEED_MULTIPLIER : 1;
+  return getMigrantMoveInterval() > 0 ? mult / getMigrantMoveInterval() : mult;
+}
+
+function getMigrantStepDurationMs(){
+  const tickMs = typeof TICK_DURATION_MS !== 'undefined' ? TICK_DURATION_MS : 1000;
+  const mult = typeof MIGRANT_SPEED_MULTIPLIER !== 'undefined' ? MIGRANT_SPEED_MULTIPLIER : 1;
+  return tickMs / mult;
+}
+
+function isMigrantMoving(agent, now){
+  if (agent.col === agent.prevCol && agent.row === agent.prevRow) return false;
+  const ts = typeof lastTickTimestamp !== 'undefined' ? lastTickTimestamp : 0;
+  return (now - ts) < getMigrantStepDurationMs();
+}
+
+function advanceMigrantStep(m){
+  if (m.pathIndex >= m.path.length){
+    if (m.type === 'in'){
+      if (m.reason === 'placement') applyHouseSettlement(m.houseCol, m.houseRow);
+      else applyHouseGrowth(m.houseCol, m.houseRow);
+    } else if (m.destroyOnComplete){
+      destroyHouseAt(m.houseCol, m.houseRow);
+    }
+    return false;
+  }
+  m.prevCol = m.col;
+  m.prevRow = m.row;
+  const next = m.path[m.pathIndex];
+  m.col = next.col;
+  m.row = next.row;
+  m.pathIndex++;
+  if (typeof updateAgentFacing === 'function') updateAgentFacing(m);
+  return true;
 }
 
 function queueMigrantIn(houseCol, houseRow, reason){
@@ -85,16 +128,20 @@ function queueMigrantIn(houseCol, houseRow, reason){
   const path = findPath(entry, goal);
   if (path.length === 0 && (entry.col !== goal.col || entry.row !== goal.row)) return false;
 
-  pushMigrant({
+  const agent = {
     type: 'in',
     reason: reason || 'growth',
     col: entry.col, row: entry.row,
     prevCol: entry.col, prevRow: entry.row,
     path, pathIndex: 0,
     houseCol, houseRow,
-    moveCooldown: MIGRANT_MOVE_EVERY_TICKS,
+    stepCredit: 0,
     facing: 'down', mirrorX: false,
-  });
+  };
+  if (path.length && typeof applyIsoFacingFromDelta === 'function'){
+    applyIsoFacingFromDelta(agent, path[0].col - entry.col, path[0].row - entry.row);
+  }
+  pushMigrant(agent);
 
   const msgKey = reason === 'placement' ? 'migration.newHouse' : 'migration.arrival';
   showNotification(t(msgKey), 'good');
@@ -114,17 +161,21 @@ function queueMigrantOut(houseCol, houseRow, opts){
 
   if (opts.applyRegress) applyHouseEmigration(houseCol, houseRow);
 
-  pushMigrant({
+  const agent = {
     type: 'out',
     reason: opts.reason || (opts.destroyOnComplete ? 'destroy' : 'regress'),
     col: start.col, row: start.row,
     prevCol: start.col, prevRow: start.row,
     path, pathIndex: 0,
     houseCol, houseRow,
-    moveCooldown: MIGRANT_MOVE_EVERY_TICKS,
+    stepCredit: 0,
     destroyOnComplete: !!opts.destroyOnComplete,
     facing: 'down', mirrorX: false,
-  });
+  };
+  if (path.length && typeof applyIsoFacingFromDelta === 'function'){
+    applyIsoFacingFromDelta(agent, path[0].col - start.col, path[0].row - start.row);
+  }
+  pushMigrant(agent);
 
   if (opts.notify !== false) showNotification(t('migration.departure'), 'bad');
   return true;
@@ -160,32 +211,37 @@ function queueHouseDeparture(houseCol, houseRow, notify){
 }
 
 function tickMigrants(){
+  const interval = getMigrantMoveInterval();
+  const speedPerTick = getMigrantSpeedPerTick();
   for (let i = migrants.length - 1; i >= 0; i--){
     const m = migrants[i];
-    m.prevCol = m.col; m.prevRow = m.row;
-    m.moveCooldown--;
-    if (m.moveCooldown > 0) continue;
-    m.moveCooldown = MIGRANT_MOVE_EVERY_TICKS;
+    m.stepCredit = (m.stepCredit || 0) + speedPerTick;
 
-    if (m.pathIndex >= m.path.length){
-      if (m.type === 'in'){
-        if (m.reason === 'placement') applyHouseSettlement(m.houseCol, m.houseRow);
-        else applyHouseGrowth(m.houseCol, m.houseRow);
-      } else if (m.destroyOnComplete){
-        destroyHouseAt(m.houseCol, m.houseRow);
+    while (m.stepCredit >= interval){
+      m.stepCredit -= interval;
+      if (m.pathIndex >= m.path.length){
+        if (m.type === 'in'){
+          if (m.reason === 'placement') applyHouseSettlement(m.houseCol, m.houseRow);
+          else applyHouseGrowth(m.houseCol, m.houseRow);
+        } else if (m.destroyOnComplete){
+          destroyHouseAt(m.houseCol, m.houseRow);
+        }
+        migrants.splice(i, 1);
+        break;
       }
-      migrants.splice(i, 1);
-      continue;
+      advanceMigrantStep(m);
     }
-
-    const next = m.path[m.pathIndex];
-    m.col = next.col;
-    m.row = next.row;
-    m.pathIndex++;
-    if (typeof updateAgentFacing === 'function') updateAgentFacing(m);
   }
 }
 
 function getMigrantsScreenPos(agent, now){
-  return getCreatureScreenPos(agent, now);
+  const fromPos = tileDiamondCenter(agent.prevCol, agent.prevRow);
+  const toPos = tileDiamondCenter(agent.col, agent.row);
+  const elapsed = now - (typeof lastTickTimestamp !== 'undefined' ? lastTickTimestamp : 0);
+  const stepMs = getMigrantStepDurationMs();
+  const k = Math.min(1, Math.max(0, elapsed / stepMs));
+  return {
+    x: fromPos.x + (toPos.x - fromPos.x) * k,
+    y: fromPos.y + (toPos.y - fromPos.y) * k,
+  };
 }

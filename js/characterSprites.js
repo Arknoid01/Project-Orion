@@ -135,16 +135,18 @@ function getAgentIsoFacing(agent){
         if (iso) return iso;
       }
     }
-  } else if (agent.path && agent.pathIndex != null && agent.pathIndex < agent.path.length){
+  }
+  if (agent.col !== undefined && agent.prevCol !== undefined
+      && (agent.col !== agent.prevCol || agent.row !== agent.prevRow)){
+    const iso = isoFacingFromGridDelta(agent.col - agent.prevCol, agent.row - agent.prevRow);
+    if (iso) return iso;
+  }
+  if (agent.path && agent.pathIndex != null && agent.pathIndex < agent.path.length){
     const next = agent.path[agent.pathIndex];
     if (next && agent.col != null && agent.row != null){
       const iso = isoFacingFromGridDelta(next.col - agent.col, next.row - agent.row);
       if (iso) return iso;
     }
-  }
-  if (agent.col !== undefined && agent.prevCol !== undefined){
-    const iso = isoFacingFromGridDelta(agent.col - agent.prevCol, agent.row - agent.prevRow);
-    if (iso) return iso;
   }
   return {
     diagonal: agent.isoDiagonal,
@@ -161,7 +163,8 @@ function drawCharacterSprite(id, x, y, facing, now, displaySize, mirrorX, animat
   const frame = animate === false
     ? 0
     : Math.floor((now || performance.now()) / frameMs) % CHARACTER_FRAMES;
-  const dirRows = (id && id.startsWith('walker_') && typeof WALKER_DIRECTION_ROWS !== 'undefined')
+  const dirRows = (id && (id.startsWith('walker_') || id === 'migrant')
+      && typeof WALKER_DIRECTION_ROWS !== 'undefined')
     ? WALKER_DIRECTION_ROWS
     : CHARACTER_DIRECTION_ROWS;
   const row = dirRows[facing] ?? dirRows.down;
