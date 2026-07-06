@@ -130,7 +130,6 @@ function tick(){
     }
   });
   _safe('creatures', () => tickCreatures());
-  _safe('migrants', () => { if (typeof tickMigrants === 'function') tickMigrants(); });
   _safe('observerOverlay', () => { if (typeof tickObserverCoverageExpiry === 'function') tickObserverCoverageExpiry(); });
   _safe('militaryAgents', () => { if (typeof tickMilitaryAgents === 'function') tickMilitaryAgents(); });
   _safe('godAgents', () => { if (typeof tickGodAgents === 'function') tickGodAgents(); });

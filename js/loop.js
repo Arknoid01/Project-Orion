@@ -25,9 +25,15 @@ function startRenderLoop(){
     // Pause totale si l'onglet est masqué (Android background).
     if (typeof document !== 'undefined' && document.hidden) return;
 
+    // Migrants : pas basés sur le tick simulation (1 Hz) — avancent en temps réel.
+    if (typeof tickMigrants === 'function') tickMigrants(now);
+
     // Animation réelle (walkers, créatures…) — pas le simple survol / mode construction.
-    const hasAnimating = (typeof walkers !== 'undefined' && walkers.some(w => w.path && w.path.length > 1))
-      || (typeof migrants !== 'undefined' && migrants.length > 0)
+    const hasAnimating = (typeof walkers !== 'undefined' && walkers.some(w =>
+        typeof isWalkerMoving === 'function' && isWalkerMoving(w, now)))
+      || (typeof migrants !== 'undefined' && migrants.some(m =>
+        (m.path && m.pathIndex < m.path.length)
+        || (typeof isMigrantMoving === 'function' && isMigrantMoving(m, now))))
       || (typeof godAgents !== 'undefined' && godAgents.length > 0)
       || (typeof monster !== 'undefined' && monster)
       || (typeof hero !== 'undefined' && hero)

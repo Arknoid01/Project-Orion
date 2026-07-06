@@ -109,17 +109,11 @@ function getPatrolWalkerFacing(walker, now){
   const dcol = interp.toTile.col - interp.fromTile.col;
   const drow = interp.toTile.row - interp.fromTile.row;
   if (!dcol && !drow) return null;
-  const isoAuto = isoFacingFromGridDelta(dcol, drow);
-  if (typeof getWalkerDebugFacingOverride === 'function' && isoAuto){
-    const forced = getWalkerDebugFacingOverride(isoAuto.diagonal);
-    if (forced) return forced;
-  }
-  const iso = isoAuto;
-  if (iso){
-    walker.facing = iso.facing;
-    walker.mirrorX = iso.mirrorX;
-    walker.isoDiagonal = iso.diagonal;
-  }
+  const iso = isoFacingFromGridDelta(dcol, drow);
+  if (!iso) return null;
+  walker.facing = iso.facing;
+  walker.mirrorX = iso.mirrorX;
+  walker.isoDiagonal = iso.diagonal;
   return iso;
 }
 
@@ -135,6 +129,11 @@ function getAgentIsoFacing(agent){
         if (iso) return iso;
       }
     }
+    return {
+      diagonal: agent.isoDiagonal,
+      facing: agent.facing || 'down',
+      mirrorX: !!agent.mirrorX,
+    };
   }
   if (agent.col !== undefined && agent.prevCol !== undefined
       && (agent.col !== agent.prevCol || agent.row !== agent.prevRow)){

@@ -1,7 +1,11 @@
 /* ===================== BESOINS DES MAISONS ===================== */
 function hasAdjacentRoad(col, row){
   const neighbors = [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]];
-  return neighbors.some(([c, r]) => inBounds(c, r) && grid[r][c].hasRoad);
+  return neighbors.some(([c, r]) => {
+    if (!inBounds(c, r)) return false;
+    const cell = grid[r][c];
+    return (typeof cellIsRoad === 'function') ? cellIsRoad(cell) : !!cell.hasRoad;
+  });
 }
 
 // Chaque besoin est câblé à son système :

@@ -77,6 +77,7 @@ function _uiOverlayStateKey(){
   if (typeof demolishMode !== 'undefined') parts.push(demolishMode ? 'd' : '');
   if (typeof blockMode !== 'undefined') parts.push(blockMode ? 'b' : '');
   if (typeof stairsMode !== 'undefined') parts.push(stairsMode ? 's' : '');
+  if (typeof stairPlacementFacing !== 'undefined') parts.push(stairPlacementFacing || '');
   if (typeof zonePlacementStart !== 'undefined' && zonePlacementStart){
     parts.push('z', zonePlacementStart.col, zonePlacementStart.row);
   }
@@ -182,7 +183,6 @@ window.initPixiOverlay = async function(){
     window._overlayBeautyContainer   = new PIXI.Container();
     window._overlayRoadContainer     = new PIXI.Container();
     window._overlayBuildingContainer = new PIXI.Container();
-    window._buildingDebugPreviewContainer = new PIXI.Container();
     window._overlayWalkerContainer   = new PIXI.Container();
     window._overlayHouseIconContainer = new PIXI.Container();
     window._overlayAgentContainer    = new PIXI.Container();
@@ -193,7 +193,6 @@ window.initPixiOverlay = async function(){
     app.stage.addChild(window._overlayBeautyContainer);
     app.stage.addChild(window._overlayRoadContainer);
     app.stage.addChild(window._overlayBuildingContainer);
-    app.stage.addChild(window._buildingDebugPreviewContainer);
     app.stage.addChild(window._overlayWalkerContainer);
     app.stage.addChild(window._overlayHouseIconContainer);
     app.stage.addChild(window._overlayAgentContainer);
@@ -414,6 +413,15 @@ function _pixiMonumentScreenCenter(anchorCol, anchorRow, size){
 /* =========================================================
    CHARGEMENT TEXTURES
    ========================================================= */
+async function _pixiLoadBuildingTexture(type, path){
+  if (!path) return;
+  try {
+    window._buildingTextures[type] = await PIXI.Assets.load(path);
+  } catch(e){
+    console.warn('[Pixi] texture bâtiment échouée :', path, e);
+  }
+}
+
 window._pixiLoadTextures = async function(){
   // Terrain
   const TERRAIN_PATHS = {
@@ -436,8 +444,7 @@ window._pixiLoadTextures = async function(){
       const def = BUILDING_DEFS[type];
       const path = (def && def.sprite)
         || (typeof resolveBuildingSpritePath === 'function' ? resolveBuildingSpritePath(type) : null);
-      if (!path) return;
-      try { window._buildingTextures[type] = await PIXI.Assets.load(path); } catch{}
+      await _pixiLoadBuildingTexture(type, path);
     }));
   }
 
@@ -478,6 +485,13 @@ window._pixiLoadTextures = async function(){
 
   if (typeof ROAD_SPRITE_PATH === 'string'){
     try { window._roadTexture = await PIXI.Assets.load(ROAD_SPRITE_PATH); } catch{}
+  }
+
+  if (Array.isArray(STAIR_SPRITE_PATHS)){
+    window._stairTextures = [];
+    await Promise.all(STAIR_SPRITE_PATHS.map(async (path, idx) => {
+      try { window._stairTextures[idx] = await PIXI.Assets.load(path); } catch{}
+    }));
   }
 
   // Sprites personnages (monstres, héros, migrants, dieux)
@@ -653,7 +667,7 @@ window._buildBuildings = function(visible, overlay){
     const isHouse = type === 'maison' || (def && def.isHouse);
     const houseKey = isHouse ? _pixiHouseTexKey(cell.houseLevel) : null;
     const texKey = isHouse ? ('house_' + houseKey) : type;
-    const tex = window._buildingTextures[texKey]
+    let tex = window._buildingTextures[texKey]
       || (isHouse ? window._buildingTextures['house_' + _pixiHouseTexKey(cell.houseLevel)] : null)
       || window._buildingTextures[type];
 
@@ -749,7 +763,6 @@ window._repositionOverlayBuildings = function(){
     }
     _pixiApplyTileScreenPlacement(e.spr, placement);
   });
-  if (typeof updateBuildingSpriteDebugPreview === 'function') updateBuildingSpriteDebugPreview();
 };
 
 /* =========================================================
@@ -762,10 +775,6 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
   const skip = (typeof getWalkerFrameSkip === 'function')
     ? getWalkerFrameSkip()
     : ((typeof PERF !== 'undefined' && PERF.walkerFrameSkip) ? PERF.walkerFrameSkip : 0);
-  if (skip > 0){
-    window._walkerPoolFrameSkip = (window._walkerPoolFrameSkip + 1) % (skip + 1);
-    if (window._walkerPoolFrameSkip !== 0) return;
-  }
 
   const spritePool = window._walkerSpritePool;
   const gfxPool    = window._walkerGfxPool;
@@ -776,7 +785,9 @@ window._buildWalkers = function(now, camX, camY, vwW, vhW, overlay){
     ? getWalkerRenderMax()
     : ((typeof PERF !== 'undefined' && PERF.walkerRenderMax) ? PERF.walkerRenderMax : 999);
   const frameMs = typeof WALKER_ANIM_FRAME_MS !== 'undefined' ? WALKER_ANIM_FRAME_MS : 200;
-  const frameIdxBase = Math.floor(now / frameMs);
+  const frameIdxBase = skip > 0
+    ? Math.floor(now / frameMs / (skip + 1))
+    : Math.floor(now / frameMs);
   const size = typeof WALKER_DISPLAY_SIZE !== 'undefined' ? WALKER_DISPLAY_SIZE : 30;
   const baseScale = overlay ? _pixiThreeScale(size) / 96 : size / 96;
   const pad = overlay ? 80 : 80;
@@ -899,6 +910,14 @@ function _pixiDecorSpecsForCell(col, row, cell){
       ? mediterraneanTreeImageForCell(col, row) : null;
     let sizeMul = typeof MEDITERRANEAN_TREE_SIZE === 'number' ? MEDITERRANEAN_TREE_SIZE : 0.79;
     if (!decor){
+      decor = typeof mediterraneanHillRockAtCell === 'function' ? mediterraneanHillRockAtCell(col, row) : null;
+      if (decor){
+        sprite = typeof mediterraneanHillRockImageForCell === 'function'
+          ? mediterraneanHillRockImageForCell(col, row) : null;
+        sizeMul = typeof MEDITERRANEAN_HILL_ROCK_SIZE === 'number' ? MEDITERRANEAN_HILL_ROCK_SIZE : 0.54;
+      }
+    }
+    if (!decor){
       decor = typeof mediterraneanPropAtCell === 'function' ? mediterraneanPropAtCell(col, row) : null;
       if (decor){
         sprite = typeof mediterraneanPropImageForCell === 'function'
@@ -911,9 +930,17 @@ function _pixiDecorSpecsForCell(col, row, cell){
       if (typeof spriteDrawWidthForTile === 'function'){
         targetW = spriteDrawWidthForTile(sprite, 1) * decor.scale * sizeMul;
       }
-      const opts = typeof mediterraneanDecorDrawOpts === 'function'
-        ? mediterraneanDecorDrawOpts()
-        : { lift: -5, anchorCenter: true };
+      const opts = decor.kind === 'hillRock'
+        ? (typeof mediterraneanHillRockDrawOptsFor === 'function'
+          ? mediterraneanHillRockDrawOptsFor(decor)
+          : (typeof mediterraneanDecorDrawOpts === 'function'
+            ? mediterraneanDecorDrawOpts()
+            : { lift: -5, anchorCenter: true }))
+        : (typeof mediterraneanDecorDrawOptsFor === 'function'
+          ? mediterraneanDecorDrawOptsFor(decor)
+          : (typeof mediterraneanDecorDrawOpts === 'function'
+            ? mediterraneanDecorDrawOpts()
+            : { lift: -5, anchorCenter: true }));
       out.push({ img: sprite, targetW, opts });
     }
   }
@@ -978,6 +1005,27 @@ function _pixiDecorSpecsForCell(col, row, cell){
   return out;
 }
 
+function _pixiApplyDecorVisual(d, pl){
+  const rot = (d.rotateDeg || 0) * Math.PI / 180;
+  const sx = pl.scale * (d.flipH ? -1 : 1);
+  d.gfx.rotation = rot;
+  d.gfx.scale.set(sx, pl.scale);
+  if (d.brightness != null || d.saturation != null){
+    if (!d._cmFilter && typeof PIXI !== 'undefined' && PIXI.ColorMatrixFilter){
+      d._cmFilter = new PIXI.ColorMatrixFilter();
+      d.gfx.filters = [d._cmFilter];
+    }
+    if (d._cmFilter){
+      d._cmFilter.reset();
+      if (d.brightness != null) d._cmFilter.brightness(d.brightness, true);
+      if (d.saturation != null) d._cmFilter.saturate(d.saturation, true);
+    }
+  } else if (d._cmFilter){
+    d.gfx.filters = null;
+    d._cmFilter = null;
+  }
+}
+
 function _pixiAddDecorSprite(parent, col, row, img, targetW, opts){
   const tex = _pixiTextureFromImage(img);
   if (!tex) return null;
@@ -988,7 +1036,22 @@ function _pixiAddDecorSprite(parent, col, row, img, targetW, opts){
   const spr = new PIXI.Sprite(tex);
   spr.anchor.set(footNx, footNy);
   parent.addChild(spr);
-  const entry = { gfx: spr, col, row, targetW, imgW: img.naturalWidth, footNx, footNy, lift };
+  const entry = {
+    gfx: spr,
+    col,
+    row,
+    targetW,
+    imgW: img.naturalWidth,
+    footNx,
+    footNy,
+    lift,
+    anchorCenter: !!(opts && opts.anchorCenter),
+    cyIsFoot: !!(opts && opts.cyIsFoot),
+    rotateDeg: opts && opts.rotateDeg != null ? opts.rotateDeg : 0,
+    flipH: !!(opts && opts.flipH),
+    brightness: opts && opts.brightness != null ? opts.brightness : null,
+    saturation: opts && opts.saturation != null ? opts.saturation : null,
+  };
   window._decorSprites.push(entry);
   return entry;
 }
@@ -1110,7 +1173,7 @@ window._repositionOverlayDecors = function(){
     });
     if (!pl) return;
     d.gfx.anchor.set(pl.footNx, pl.footNy);
-    d.gfx.scale.set(pl.scale);
+    _pixiApplyDecorVisual(d, pl);
     d.gfx.x = pl.x;
     d.gfx.y = pl.y;
     d.gfx.visible = pl.x > -120 && pl.x < vw + 120 && pl.y > -160 && pl.y < vh + 120;
@@ -1244,6 +1307,45 @@ window.clearObserverCoverage = function(){
 /* =========================================================
    ROUTES / ESCALIERS / BORNES (overlay Three)
    ========================================================= */
+function _pixiStairVariant(col, row){
+  if (typeof stairSpriteVariant === 'function') return stairSpriteVariant(col, row);
+  const dir = typeof stairEffectiveDir === 'function'
+    ? stairEffectiveDir(col, row)
+    : (typeof stairVisualDir === 'function' ? stairVisualDir(col, row) : 's');
+  const map = (typeof STAIR_VARIANT_BY_DIR === 'object' && STAIR_VARIANT_BY_DIR) || {};
+  return map[dir] || { idx: 0, flipX: false };
+}
+
+function _pixiStairTexture(col, row){
+  const variant = _pixiStairVariant(col, row);
+  const tex = window._stairTextures && window._stairTextures[variant.idx];
+  return tex ? { tex, flipX: !!variant.flipX } : null;
+}
+
+function _pixiCreateStairSprite(col, row){
+  const picked = _pixiStairTexture(col, row);
+  if (!picked || !picked.tex) return null;
+  const sprite = new PIXI.Sprite(picked.tex);
+  _pixiPositionStairSprite(sprite, col, row);
+  return sprite;
+}
+
+function _pixiPositionStairSprite(sprite, col, row){
+  if (!sprite) return;
+  const layout = (typeof stairRenderLayout === 'function')
+    ? stairRenderLayout(col, row, 0, 0)
+    : null;
+  if (!layout){
+    return;
+  }
+  sprite.anchor.set(0.5, 0);
+  sprite.x = layout.headX;
+  sprite.y = layout.headY;
+  const scale = layout.drawW / sprite.texture.width;
+  sprite.scale.x = (layout.flipX ? -1 : 1) * scale;
+  sprite.scale.y = scale * (layout.drawH / layout.drawW) * (sprite.texture.width / sprite.texture.height);
+}
+
 function _pixiFillTileQuadGfx(gfx, col, row, fill, stroke, fillAlpha, strokeAlpha){
   if (!gfx || typeof getTileScreenQuad !== 'function') return;
   const q = getTileScreenQuad(col, row);
@@ -1265,7 +1367,7 @@ window._buildRoadsOverlay = function(){
     const cell = grid[row] && grid[row][col];
     if (!cell) return;
 
-    if (cell.hasRoad){
+    if (cell.hasRoad && !cell.roadStairs){
       if (window._roadTexture){
         const mesh = _pixiCreateTileQuadTextureMesh(col, row, window._roadTexture, 1);
         if (mesh){
@@ -1281,10 +1383,19 @@ window._buildRoadsOverlay = function(){
     }
 
     if (cell.roadStairs){
-      const g = new PIXI.Graphics();
-      container.addChild(g);
-      _pixiFillTileQuadGfx(g, col, row, 0xc9a83c, 0x6a5020, 0.45, 0.7);
-      window._overlayRoadEntries.push({ kind: 'stairs', gfx: g, col, row });
+      const picked = _pixiStairTexture(col, row);
+      if (picked && picked.tex){
+        const sprite = _pixiCreateStairSprite(col, row);
+        if (sprite){
+          container.addChild(sprite);
+          window._overlayRoadEntries.push({ kind: 'stairs_sprite', sprite, col, row });
+        }
+      } else {
+        const g = new PIXI.Graphics();
+        container.addChild(g);
+        _pixiFillTileQuadGfx(g, col, row, 0xc9a83c, 0x6a5020, 0.45, 0.7);
+        window._overlayRoadEntries.push({ kind: 'stairs', gfx: g, col, row });
+      }
     }
     if (cell.hasRoad && cell.patrolBlock){
       const g = new PIXI.Graphics();
@@ -1304,6 +1415,8 @@ window._repositionOverlayRoads = function(){
       _pixiFillTileQuadGfx(e.gfx, e.col, e.row, 0x6a5030, 0x3a2810, 0.55, 0.35);
     } else if (e.kind === 'stairs' && e.gfx){
       _pixiFillTileQuadGfx(e.gfx, e.col, e.row, 0xc9a83c, 0x6a5020, 0.45, 0.7);
+    } else if (e.kind === 'stairs_sprite' && e.sprite){
+      _pixiPositionStairSprite(e.sprite, e.col, e.row);
     } else if (e.kind === 'block' && e.gfx && typeof gridToWorld3Anchor === 'function'){
       const w = gridToWorld3Anchor(e.col, e.row);
       const s = worldToScreen(w.x, w.y, w.z);
@@ -1379,9 +1492,14 @@ window._buildAgentsOverlay = function(now){
   }
   if (Array.isArray(migrants)){
     migrants.forEach(function(m){
-      const s = typeof getMigrantsScreenPos === 'function'
-        ? getMigrantsScreenPos(m, now)
-        : getGridAgentScreenPos(m.prevCol, m.prevRow, m.col, m.row, now);
+      const s = (typeof getMigrantWorld3ScreenPos === 'function'
+        ? getMigrantWorld3ScreenPos(m, now)
+        : null)
+        || (typeof getGridAgentScreenPos === 'function'
+          ? getGridAgentScreenPos(m.prevCol, m.prevRow, m.col, m.row, now)
+          : (typeof getMigrantsScreenPos === 'function'
+            ? getMigrantsScreenPos(m, now)
+            : { x: 0, y: 0 }));
       const moving = typeof isMigrantMoving === 'function' && isMigrantMoving(m, now);
       if (!_pixiDrawCharacterSprite(container, 'migrant', s, m, now, moving, charPool)){
         _pixiAgentToken(container, s, m.type === 'in' ? '🧳' : '🚶', m.type === 'in' ? 0x50a05a : 0xb4783c, gfxPool, textPool);
@@ -1634,12 +1752,17 @@ window.renderPixiOverlay = function(now){
   if (typeof window.tickObserverCoverageExpiry === 'function') window.tickObserverCoverageExpiry();
 
   const camMoved = _overlayCameraMoved();
-  const hasAnimating = (typeof migrants !== 'undefined' && migrants.length > 0)
+  const hasAnimating = (typeof migrants !== 'undefined' && migrants.some(function(m){
+      return (m.path && m.pathIndex < m.path.length)
+        || (typeof isMigrantMoving === 'function' && isMigrantMoving(m, now));
+    }))
+    || (typeof walkers !== 'undefined' && walkers.some(function(w){
+      return typeof isWalkerMoving === 'function' && isWalkerMoving(w, now);
+    }))
     || (typeof godAgents !== 'undefined' && godAgents.length > 0)
     || (typeof monster !== 'undefined' && monster)
     || (typeof hero !== 'undefined' && hero)
-    || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0)
-    || (typeof walkers !== 'undefined' && walkers.some(function(w){ return w.path && w.path.length > 1; }));
+    || (typeof getMilitarySoldiers === 'function' && getMilitarySoldiers().length > 0);
   const hasUi = (typeof hoverTile !== 'undefined' && hoverTile)
     && ((typeof selectedBuilding !== 'undefined' && selectedBuilding)
       || (typeof roadMode !== 'undefined' && roadMode)

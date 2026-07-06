@@ -37,7 +37,7 @@ function tileKey(col, row){ return `${col},${row}`; }
 function roadNeighbors(col, row){
   const here = inBounds(col, row) ? grid[row][col] : null;
   if (!here) return [];
-  const onRoad = !!here.hasRoad;
+  const onRoad = (typeof cellIsRoad === 'function') ? cellIsRoad(here) : !!here.hasRoad;
   const candidates = [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]];
   return candidates
     .filter(([c, r]) => {
@@ -46,11 +46,11 @@ function roadNeighbors(col, row){
       if (cell.patrolBlock || here.patrolBlock) return false;
       if (typeof roadTileConnects === 'function'){
         if (!roadTileConnects(col, row, c, r)) return false;
-      } else if (!cell.hasRoad){
+      } else if (!(typeof cellIsRoad === 'function' ? cellIsRoad(cell) : cell.hasRoad)){
         return false;
       }
-      if (onRoad) return !!cell.hasRoad;
-      return !!cell.hasRoad;
+      if (onRoad) return (typeof cellIsRoad === 'function') ? cellIsRoad(cell) : !!cell.hasRoad;
+      return (typeof cellIsRoad === 'function') ? cellIsRoad(cell) : !!cell.hasRoad;
     })
     .map(([c, r]) => ({ col: c, row: r }));
 }
@@ -514,6 +514,8 @@ function advanceWalkers(){
   if (walkerPassDeliveryEnabled() && typeof markHouseIconsDirty === 'function'){
     markHouseIconsDirty();
   }
+  if (typeof markRenderDirty === 'function') markRenderDirty();
+  if (typeof markOverlayDirty === 'function') markOverlayDirty();
 }
 function isHouseServedBy(serviceType, col, row){
   const walker = findServingWalker(serviceType, col, row);
@@ -611,11 +613,11 @@ function getWalkerInterp(walker, now){
   fromIdx = Math.min(Math.max(0, fromIdx), walker.path.length - 1);
   let toIdx = pathIndex;
   if (fromIdx === toIdx){
-    const nextIdx = toIdx + (walker.direction || 1);
-    if (nextIdx >= 0 && nextIdx < walker.path.length){
-      fromIdx = toIdx;
-      toIdx = nextIdx;
-    }
+    const tile = walker.path[toIdx];
+    return {
+      fromTile: tile, toTile: tile, fromIdx, toIdx, t: 1,
+      col: tile.col, row: tile.row,
+    };
   }
   const fromTile = walker.path[fromIdx];
   const toTile = walker.path[toIdx];
@@ -643,6 +645,27 @@ function getWalkerInterp(walker, now){
     row: fromTile.row + (toTile.row - fromTile.row) * t,
   };
 }
+function getWalkerStepDurationMs(){
+  return typeof TICK_DURATION_MS !== 'undefined' ? TICK_DURATION_MS : 1000;
+}
+
+function getWalkerMoveProgress(walker, now){
+  now = now || performance.now();
+  return getWalkerInterp(walker, now).t;
+}
+
+function isWalkerMoving(walker, now){
+  if (!walker?.path || walker.path.length <= 1) return false;
+  const pathIndex = Math.min(
+    Math.max(0, Number.isFinite(walker.pathIndex) ? walker.pathIndex : 0),
+    walker.path.length - 1,
+  );
+  const prev = Number.isFinite(walker.prevPathIndex) ? walker.prevPathIndex : pathIndex;
+  if (prev === pathIndex) return false;
+  now = now || performance.now();
+  return getWalkerMoveProgress(walker, now) < 1;
+}
+
 function getWalkerScreenPos(walker, now){
   const interp = getWalkerInterp(walker, now);
   if (!interp.fromTile || !interp.toTile){
@@ -658,6 +681,10 @@ function getWalkerScreenPos(walker, now){
     y: fromPos.y + (toPos.y - fromPos.y) * interp.t,
   };
 }
+window.getWalkerInterp = getWalkerInterp;
+window.getWalkerScreenPos = getWalkerScreenPos;
+window.getWalkerMoveProgress = getWalkerMoveProgress;
+window.isWalkerMoving = isWalkerMoving;
 window.isHouseEligibleForService = isHouseEligibleForService;
 window.houseRequiresNeed = houseRequiresNeed;
 window.getWalkerPassStats = getWalkerPassStats;

@@ -69,7 +69,7 @@ def process_one(src: Path, dst: Path, target_w: int, *, from_blend: bool = False
 
 
 def _manifest_outputs():
-    """Liste (nom_sans_ext, largeur, from_blend) depuis le manifeste."""
+    """Liste (nom_sans_ext, largeur, from_blend, trunk, leaf, trunk_frac) depuis le manifeste."""
     if not MANIFEST.is_file():
         return []
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -77,6 +77,17 @@ def _manifest_outputs():
     for asset in data.get("assets", []):
         kind = asset.get("kind", "tree")
         width = TREE_W if kind == "tree" else BUSH_W
+        if asset.get("entries"):
+            for sub in asset["entries"]:
+                name = sub.get("output", "")
+                if name.endswith(".png"):
+                    name = name[:-4]
+                if name:
+                    out.append((
+                        name, width, True,
+                        sub.get("trunk"), sub.get("leaf"), sub.get("trunk_frac", 0.30),
+                    ))
+            continue
         variants = asset.get("variants")
         if variants:
             for var in variants:
@@ -178,7 +189,48 @@ def _process_manifest_variants() -> int:
     return ok
 
 
+def _process_manifest_entries() -> int:
+    if not MANIFEST.is_file():
+        return 0
+    data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    ok = 0
+    OUT.mkdir(parents=True, exist_ok=True)
+    for asset in data.get("assets", []):
+        entries = asset.get("entries")
+        if not entries:
+            continue
+        width = TREE_W if asset.get("kind", "tree") == "tree" else BUSH_W
+        for sub in entries:
+            out_name = sub.get("output", "")
+            if out_name.endswith(".png"):
+                out_name = out_name[:-4]
+            if not out_name:
+                continue
+            src = RAW / f"{out_name}.png"
+            if not src.exists():
+                print(f"  SKIP {out_name} — raw introuvable")
+                continue
+            im = process_blend_sprite(Image.open(src))
+            trunk = sub.get("trunk")
+            leaf = sub.get("leaf")
+            if trunk or leaf:
+                im = tint_tree_sprite(
+                    im, trunk, leaf,
+                    trunk_bottom_frac=sub.get("trunk_frac", 0.30),
+                )
+            im = _resize_to_width(im, width)
+            im.save(OUT / f"{out_name}.png", optimize=True)
+            print(f"  {src.name} -> {out_name}.png ({im.size[0]}x{im.size[1]})")
+            ok += 1
+    return ok
+
+
 def main():
+    ok = _process_manifest_entries()
+    if ok:
+        print(f"Post-traitement OK ({ok} sprites entrees)")
+        return
+
     ok = _process_manifest_variants()
     if ok:
         print(f"Post-traitement OK ({ok} sprites teintes)")

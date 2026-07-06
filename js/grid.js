@@ -36,6 +36,7 @@ function makeEmptyCell(terrain, elevation){
     building: null,
     hasRoad: false,
     roadStairs: false,
+    stairFacing: null,
     houseLevel: 0,
     population: 0,
     patrolBlock: false,
@@ -47,6 +48,17 @@ function makeEmptyCell(terrain, elevation){
   if (typeof syncCellLevelElevation === 'function') syncCellLevelElevation(cell);
   return cell;
 }
+
+/** Escaliers = routes (hasRoad peut manquer sur anciennes sauvegardes). */
+function cellIsRoad(cell){
+  return !!(cell && (cell.hasRoad || cell.roadStairs));
+}
+
+function syncCellRoadFlags(cell){
+  if (cell && cell.roadStairs) cell.hasRoad = true;
+}
+window.cellIsRoad = cellIsRoad;
+window.syncCellRoadFlags = syncCellRoadFlags;
 
 /* ===================== ORDRE DE DESSIN (cache) ===================== */
 let mapDrawOrder = null;

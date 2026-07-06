@@ -148,9 +148,11 @@ function wheatCropDrawOpts(){
 /* ===================== DÉCOR MÉDITERRANÉEN (planche nature triée) ===================== */
 const MEDITERRANEAN_DECOR_ENABLED = true;
 const MEDITERRANEAN_TREE_DENSITY = 1;
-const MEDITERRANEAN_PROP_DENSITY = 1;
+const MEDITERRANEAN_PROP_DENSITY = 1.38;
+const MEDITERRANEAN_HILL_ROCK_DENSITY = 1.55;
 const MEDITERRANEAN_TREE_SIZE = 0.79;
 const MEDITERRANEAN_PROP_SIZE = 0.47;
+const MEDITERRANEAN_HILL_ROCK_SIZE = 0.64;
 
 /* ===================== FILTRE COULEUR (rendu) ===================== */
 const VIEWPORT_GRADE_PRESET = 'warmSoft';
@@ -215,7 +217,7 @@ const BUILDING_DEFS = {
   oliveGrove:{ name:'building.oliveGrove',icon:'🫒', color:'#7a8b3a', validTerrain:'grass',  produces:'olives', rate:1.35, sprite:'assets/buildings/oliveGrove.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:45, upkeep:0.3, workers:4 },
   vineyard:  { name:'building.vineyard',  icon:'🍇', color:'#6b3a6b', validTerrain:'grass',  produces:'grapes', rate:1.35, sprite:'assets/buildings/vineyard.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:45, upkeep:0.3, workers:4 },
   sheepFarm: { name:'building.sheepFarm', icon:'🐑', color:'#cbc6b8', validTerrain:'grass',  produces:'wool',   rate:1.0, sprite:'assets/buildings/sheepFarm.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.3, workers:4 },
-  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:0, isSeasonalCrop:true, sprite:'assets/buildings/fishery.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3, workers:4 },
+  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:0, isSeasonalCrop:true, sprite:'assets/buildings/harbor.png?v=fishery', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3, workers:4 },
   carrotFarm:{ name:'building.carrotFarm',icon:'🥕', color:'#e07830', validTerrain:'wheat',  produces:'carrots', rate:0, isSeasonalCrop:true, sprite:'assets/buildings/carrotFarm.png', spriteOffsetX:-4, spriteOffsetY:-10, cost:48, upkeep:0.3, workers:4 },
   huntingPavilion:{ name:'building.huntingPavilion', icon:'🏹', color:'#7a5a3a', validTerrain:'forest', produces:'meat', rate:0, isSeasonalCrop:true, sprite:'assets/buildings/huntingPavilion.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:58, upkeep:0.35, workers:4 },
   charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:['forest','marble'], produces:'coal', rate:0.9, sprite:'assets/buildings/charcoalPit.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:65, upkeep:0.3, workers:5 },
@@ -422,6 +424,29 @@ const TERRAIN_SPRITES = {
 };
 
 const ROAD_SPRITE_PATH = 'assets/tiles/road.png?v=7';
+
+// Escaliers de route (planche 6×2, 128×128) — tools/slice_stair_sheet.py
+const STAIR_SPRITE_VERSION = 'v=1';
+const STAIR_SPRITE_PATHS = Array.from({ length: 12 }, (_, i) =>
+  `assets/tiles/stairs/stair_${String(i).padStart(2, '0')}.png?${STAIR_SPRITE_VERSION}`);
+const STAIR_DRAW_W = 112;
+const STAIR_FOOT_EXTEND_WORLD = 0.12;
+const STAIR_FOOT_PAD_PX = 10;
+// Direction → sprite planche (N/S = 0 miroir, E/W = 3 miroir)
+const STAIR_VARIANT_BY_DIR = {
+  n: { idx: 0, flipX: false },
+  e: { idx: 3, flipX: false },
+  s: { idx: 0, flipX: true },
+  w: { idx: 3, flipX: true },
+};
+// Réglages fin par face (idx/flipX par direction ; scale/offset communs calibrés)
+const STAIR_TUNE_DEFAULT = {
+  n: { idx: 0, flipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
+  e: { idx: 3, flipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
+  s: { idx: 0, flipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
+  w: { idx: 3, flipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
+};
+const STAIR_TUNE_IDX_CYCLE = [0, 3, 6, 9];
 
 // Variantes depuis tiles_pretes.zip (losanges iso du pack nature)
 const TERRAIN_TILE_VARIANTS = {
@@ -733,12 +758,12 @@ const CHARACTER_FRAME_SIZE = 96;
 const CHARACTER_FRAMES = 3;
 const CHARACTER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
 // Chaque pas sur la grille iso est une diagonale à l'écran (tileCenter : x∝col−row, y∝col+row).
-// Clé = diagonale iso. facing = rang LPC (left/right sur la planche walkers).
+// Planche walkers : 0=dos · 1=gauche · 2=droite · 3=face (WALKER_DIRECTION_ROWS).
 const ISO_DIAGONAL_FACING = {
-  se: { facing: 'right', mirror: false }, // col+1
-  sw: { facing: 'left',  mirror: false }, // row+1
-  nw: { facing: 'left',  mirror: false }, // col−1
-  ne: { facing: 'right', mirror: false }, // row−1
+  se: { facing: 'down' }, // col+1
+  sw: { facing: 'down', mirror: true }, // row+1
+  nw: { facing: 'left' }, // col−1
+  ne: { facing: 'down' }, // row−1
 };
 // Décalage vertical des pieds sur la tuile iso (ancrage du sprite).
 const CHARACTER_ISO_FOOT_PAD = 10;

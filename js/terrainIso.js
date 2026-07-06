@@ -485,7 +485,9 @@ function drawLegoStack(targetCtx, col, row, cx, cy, cell, topMode){
     const walls = isBottom;
     if (isTop && topMode === 'road'){
       drawLegoBrick(targetCtx, blockFillSpriteForCell(cell, level, walls), cx, brickCy, { walls });
-      if (typeof drawTerrainSpriteImage === 'function'){
+      if (cell.roadStairs && typeof drawStairSprite === 'function'){
+        drawStairSprite(targetCtx, cx, cy, col, row);
+      } else if (typeof drawTerrainSpriteImage === 'function'){
         drawTerrainSpriteImage(targetCtx, ROAD_SPRITE, cx, cy);
       }
     } else if (isTop){

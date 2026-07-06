@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "assets" / "generated_nature"
 JS_OUT = ROOT / "js" / "generatedNatureSprites.js"
 MANIFEST = ROOT / "tools" / "nature_blend_manifest.json"
-CACHE = "v=4"
+CACHE = "v=9"
 
 PROCEDURAL_TREES = ["tree_olive", "tree_cypress", "tree_pine", "tree_umbrella", "tree_fig"]
 PROCEDURAL_BUSHES = ["bush_round", "bush_flower", "bush_hedge"]
@@ -24,6 +24,14 @@ def _manifest_sprite_lists():
     for asset in data.get("assets", []):
         kind = asset.get("kind", "tree")
         bucket = bushes if kind == "bush" else trees
+        if asset.get("entries"):
+            for sub in asset["entries"]:
+                n = sub.get("output", "")
+                if n.endswith(".png"):
+                    n = n[:-4]
+                if n and (OUT_DIR / f"{n}.png").exists():
+                    bucket.append(f"  'assets/generated_nature/{n}.png?{CACHE}',")
+            continue
         names = []
         if asset.get("variants"):
             for var in asset["variants"]:
@@ -67,8 +75,16 @@ def main():
     if not tree_lines and not bush_lines:
         tree_lines, bush_lines = _procedural_entries()
 
-    if not tree_lines:
-        print("Aucun sprite dans assets/generated_nature/ — rien a ecrire.")
+    if not tree_lines and not bush_lines:
+        js = [
+            "// Sprites 3D Blender desactives — repartir sur des textures iso 2D.",
+            "const GENERATED_NATURE_TREE_SPRITES = [];",
+            "const GENERATED_NATURE_PROP_SPRITES = [];",
+            "const GENERATED_NATURE_USE = false;",
+            "",
+        ]
+        JS_OUT.write_text("\n".join(js), encoding="utf-8")
+        print(f"Ecrit {JS_OUT} (desactive, 0 sprites)")
         return
 
     js = [

@@ -8,9 +8,12 @@ let lastVenueEventDay = -1;
 
 function hasRoadOnOrAdjacent(col, row){
   if (!inBounds(col, row)) return false;
-  if (grid[row][col].hasRoad) return true;
+  const here = grid[row][col];
+  if ((typeof cellIsRoad === 'function') ? cellIsRoad(here) : here.hasRoad) return true;
   for (const [c, r] of [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]]){
-    if (inBounds(c, r) && grid[r][c].hasRoad) return true;
+    if (!inBounds(c, r)) continue;
+    const cell = grid[r][c];
+    if ((typeof cellIsRoad === 'function') ? cellIsRoad(cell) : cell.hasRoad) return true;
   }
   return false;
 }

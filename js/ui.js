@@ -343,7 +343,8 @@ function canPlaceRoad(col, row){
 
 function canToggleBlock(col, row){
   if (!inBounds(col, row)) return false;
-  return grid[row][col].hasRoad === true;
+  const cell = grid[row][col];
+  return (typeof cellIsRoad === 'function') ? cellIsRoad(cell) : cell.hasRoad === true;
 }
 
 /* ===================== SELECTION (boutons + callGameAction de la nouvelle UI) ===================== */
@@ -418,6 +419,7 @@ function selectStairsMode(){
   blockMode = false;
   clearZonePlacementStart();
   stairsMode = !stairsMode;
+  if (!stairsMode && typeof hideStairsBuildActions === 'function') hideStairsBuildActions();
   refreshButtonStates();
   render();
   closeDrawerIfMobile();
@@ -426,10 +428,17 @@ function selectStairsMode(){
 }
 
 function updateStairsBuildInfo(){
-  if (!stairsMode) return;
+  if (!stairsMode){
+    hideStairsBuildActions();
+    return;
+  }
   const cost = typeof STAIR_COST === 'number' ? STAIR_COST : 8;
   const hint = t('stairs.hint');
   const costLine = t('build.cost') + ' : 🪙 ' + cost + ' dr. / ' + t('stairs.perTile');
+  const facing = (typeof stairPlacementFacing !== 'undefined') ? stairPlacementFacing : 's';
+  const facingLine = t('stairs.facingBtn', {
+    dir: (typeof stairFacingLabel === 'function') ? stairFacingLabel(facing) : facing,
+  });
   ['catalogBuildInfoText', 'buildInfoText'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = hint;
@@ -438,6 +447,41 @@ function updateStairsBuildInfo(){
     const el = document.getElementById(id);
     if (el) el.textContent = costLine;
   });
+  ['catalogBuildInfoActions', 'buildInfoActions'].forEach(id => {
+    let wrap = document.getElementById(id);
+    if (!wrap){
+      const host = id === 'catalogBuildInfoActions'
+        ? document.getElementById('catalogBuildInfo')
+        : document.getElementById('buildInfo');
+      if (!host) return;
+      wrap = document.createElement('div');
+      wrap.id = id;
+      wrap.className = 'build-info-actions';
+      host.appendChild(wrap);
+    }
+    wrap.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'stair-facing-btn';
+    btn.textContent = facingLine;
+    btn.title = t('stairs.facingHint');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof cycleStairFacing === 'function') cycleStairFacing();
+    });
+    wrap.appendChild(btn);
+    wrap.style.display = '';
+  });
+}
+
+function hideStairsBuildActions(){
+  ['catalogBuildInfoActions', 'buildInfoActions'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el){
+      el.innerHTML = '';
+      el.style.display = 'none';
+    }
+  });
 }
 
 function selectRoadMode(){
@@ -445,6 +489,7 @@ function selectRoadMode(){
   demolishMode = false;
   blockMode = false;
   stairsMode = false;
+  if (typeof hideStairsBuildActions === 'function') hideStairsBuildActions();
   clearZonePlacementStart();
   roadMode = !roadMode;
   refreshButtonStates();
@@ -531,6 +576,7 @@ function cancelSelection(){
   blockMode = false;
   demolishMode = false;
   stairsMode = false;
+  if (typeof hideStairsBuildActions === 'function') hideStairsBuildActions();
   clearZonePlacementStart();
   refreshButtonStates();
   render();
@@ -1112,11 +1158,12 @@ function demolishAtTile(col, row){
       if (typeof syncThreeBuildingPads === 'function') syncThreeBuildingPads([{ col, row }]);
       if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
     }
-  } else if (cell.hasRoad){
+  } else if ((typeof cellIsRoad === 'function' ? cellIsRoad(cell) : cell.hasRoad)){
     debugInfo(cell.roadStairs ? 'Escalier supprimé' : 'Route supprimée', { col, row });
     notifyDemolishRefund(cell.roadStairs ? 'stairs' : 'road');
     cell.hasRoad = false;
     cell.roadStairs = false;
+    cell.stairFacing = null;
     cell.patrolBlock = false;
     if (typeof patchThreeDecors === 'function') patchThreeDecors([{ col, row }]);
     if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
@@ -1137,11 +1184,6 @@ _c.addEventListener('click', (e) => {
   const { col, row } = pick;
   if (!inBounds(col, row)) return;
 
-  if (typeof handleBuildingSpriteDebugClick === 'function' && handleBuildingSpriteDebugClick(col, row)){
-    render();
-    return;
-  }
-
   const cell = grid[row][col];
 
   if (demolishMode){
@@ -1156,7 +1198,16 @@ _c.addEventListener('click', (e) => {
       showNotification(t('action.blockNeedsRoad'), 'bad');
     }
   } else if (stairsMode){
-    if (typeof canPlaceStairs === 'function' && canPlaceStairs(col, row)){
+    if (cell.roadStairs){
+      const dir = (typeof rotatePlacedStair === 'function')
+        ? rotatePlacedStair(col, row)
+        : null;
+      if (dir){
+        const label = (typeof stairFacingLabel === 'function') ? stairFacingLabel(dir) : dir;
+        showNotification(t('stairs.rotated', { dir: label }), 'good');
+        recomputeAllWalkers();
+      }
+    } else if (typeof canPlaceStairs === 'function' && canPlaceStairs(col, row)){
       const cost = typeof STAIR_COST === 'number' ? STAIR_COST : 8;
       if (!spend(cost)){
         showNotification(t('economy.cantAfford'), 'bad');
@@ -1166,6 +1217,11 @@ _c.addEventListener('click', (e) => {
         showNotification(t('stairs.placed', { cost }), 'good');
         recomputeAllWalkers();
       }
+    } else {
+      const reason = typeof stairPlacementBlockReason === 'function'
+        ? stairPlacementBlockReason(col, row)
+        : 'stairs.cantPlace';
+      showNotification(t(reason || 'stairs.cantPlace'), 'bad');
     }
   } else if (supportsZonePlacement()){
     handleZonePlacementClick(col, row);

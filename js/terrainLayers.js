@@ -434,6 +434,10 @@ function drawTextureCap(targetCtx, col, row, cell){
 function drawRoadTextureCap(targetCtx, col, row, cell){
   const level = typeof cellLevel === 'function' ? cellLevel(col, row) : (cell.level || 1);
   const { x, y } = tileTopAtLevel(col, row, Math.max(1, level));
+  if (cell.roadStairs && typeof drawStairSprite === 'function' && drawStairSprite(targetCtx, x, y, col, row)){
+    drawCapDepthRim(targetCtx, x, y, level);
+    return;
+  }
   if (typeof drawIsoCapTexture === 'function'){
     drawIsoCapTexture(targetCtx, ROAD_SPRITE, x, y);
   } else if (typeof drawTerrainSpriteImage === 'function'){

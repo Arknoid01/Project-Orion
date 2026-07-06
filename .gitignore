@@ -1,10 +1,25 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
 
 # Logs / temporaires de génération
 gen_log.txt
 
-# OS
+# Sauvegardes locales éditeur
+*.bak
+*.local.bak
+
+# Node (scripts dev optionnels)
+node_modules/
+package-lock.json
+
+# OS / éditeur
 .DS_Store
 Thumbs.db
+.vscode/
+.cursor/
+
+# Env / secrets
+.env
+.env.*

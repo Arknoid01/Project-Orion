@@ -1,0 +1,218 @@
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "revision": 0,
+  "last_node_id": 24,
+  "last_link_id": 10,
+  "nodes": [
+    {
+      "id": 20,
+      "type": "UnetLoaderGGUF",
+      "pos": [20, 40],
+      "size": [320, 82],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "MODEL", "type": "MODEL", "slot_index": 0, "links": [1] }
+      ],
+      "properties": { "Node name for S&R": "UnetLoaderGGUF" },
+      "widgets_values": ["flux1-dev-Q4_K_S.gguf"]
+    },
+    {
+      "id": 21,
+      "type": "DualCLIPLoader",
+      "pos": [20, 170],
+      "size": [320, 130],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "CLIP", "type": "CLIP", "slot_index": 0, "links": [2] }
+      ],
+      "properties": { "Node name for S&R": "DualCLIPLoader" },
+      "widgets_values": ["t5xxl_fp8_e4m3fn.safetensors", "clip_l.safetensors", "flux"]
+    },
+    {
+      "id": 22,
+      "type": "VAELoader",
+      "pos": [20, 340],
+      "size": [320, 82],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "VAE", "type": "VAE", "slot_index": 0, "links": [9] }
+      ],
+      "properties": { "Node name for S&R": "VAELoader" },
+      "widgets_values": ["ae.safetensors"]
+    },
+    {
+      "id": 23,
+      "type": "LoraLoaderModelOnly",
+      "pos": [380, 40],
+      "size": [320, 82],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 1 }
+      ],
+      "outputs": [
+        { "name": "MODEL", "type": "MODEL", "slot_index": 0, "links": [3] }
+      ],
+      "properties": { "Node name for S&R": "LoraLoaderModelOnly" },
+      "widgets_values": ["1751268368.safetensors", 0.8]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [380, 170],
+      "size": [420, 170],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        { "name": "clip", "type": "CLIP", "link": 2 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "slot_index": 0, "links": [4] }
+      ],
+      "properties": { "Node name for S&R": "CLIPTextEncode" },
+      "widgets_values": [
+        "isometric building, stylized realistic, mediterranean architecture, from above, single ancient greek farmhouse, no base, no terrain, weathered limestone walls, reddish terracotta clay roof tiles, isometric game asset, isolated on plain white background, single isolated object floating on pure white background, no base, no platform, no ground, no plaza, no courtyard, no pedestal, no statues, no debris, no plants, no bushes, no trees, no surrounding scenery, nothing else in frame"
+      ]
+    },
+    {
+      "id": 24,
+      "type": "FluxGuidance",
+      "pos": [380, 380],
+      "size": [320, 58],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        { "name": "conditioning", "type": "CONDITIONING", "link": 4 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "slot_index": 0, "links": [5, 6] }
+      ],
+      "properties": { "Node name for S&R": "FluxGuidance" },
+      "widgets_values": [3.5]
+    },
+    {
+      "id": 13,
+      "type": "EmptySD3LatentImage",
+      "pos": [380, 480],
+      "size": [320, 106],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [7] }
+      ],
+      "properties": { "Node name for S&R": "EmptySD3LatentImage" },
+      "widgets_values": [512, 512, 1]
+    },
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [860, 170],
+      "size": [320, 474],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 3 },
+        { "name": "positive", "type": "CONDITIONING", "link": 5 },
+        { "name": "negative", "type": "CONDITIONING", "link": 6 },
+        { "name": "latent_image", "type": "LATENT", "link": 7 }
+      ],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [8] }
+      ],
+      "properties": { "Node name for S&R": "KSampler" },
+      "widgets_values": [42424242, "fixed", 30, 1.0, "euler", "simple", 1.0]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [1220, 170],
+      "size": [210, 46],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        { "name": "samples", "type": "LATENT", "link": 8 },
+        { "name": "vae", "type": "VAE", "link": 9 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "slot_index": 0, "links": [10] }
+      ],
+      "properties": { "Node name for S&R": "VAEDecode" },
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [1220, 280],
+      "size": [320, 270],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        { "name": "images", "type": "IMAGE", "link": 10 }
+      ],
+      "outputs": [],
+      "properties": { "Node name for S&R": "SaveImage" },
+      "widgets_values": ["olympos_asset"]
+    }
+  ],
+  "links": [
+    [1, 20, 0, 23, 0, "MODEL"],
+    [2, 21, 0, 6, 0, "CLIP"],
+    [3, 23, 0, 3, 0, "MODEL"],
+    [4, 6, 0, 24, 0, "CONDITIONING"],
+    [5, 24, 0, 3, 1, "CONDITIONING"],
+    [6, 24, 0, 3, 2, "CONDITIONING"],
+    [7, 13, 0, 3, 3, "LATENT"],
+    [8, 3, 0, 8, 0, "LATENT"],
+    [9, 22, 0, 8, 1, "VAE"],
+    [10, 8, 0, 9, 0, "IMAGE"]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Olympos Flux — modèles (GGUF + CLIP + VAE)",
+      "bounding": [-10, 0, 360, 450],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "Prompt + latent 512×512",
+      "bounding": [350, 130, 470, 480],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "Sample + save",
+      "bounding": [830, 120, 760, 460],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "info": {
+      "name": "Olympos building Flux txt2img",
+      "description": "Import dans ComfyUI via Load ou glisser-déposer. Prérequis: custom node ComfyUI-GGUF + modèles Flux (voir comfy_batch_generate.py).",
+      "project": "Project-Orion"
+    }
+  },
+  "version": 0.4
+}

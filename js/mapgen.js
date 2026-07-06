@@ -1450,6 +1450,7 @@ async function _generateProceduralMapOnce(seed){
         building: null,
         hasRoad: false,
         roadStairs: false,
+        stairFacing: null,
         houseLevel: 0,
         population: 0,
         patrolBlock: false,

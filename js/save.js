@@ -75,6 +75,7 @@ function serializeGridCompact(sourceGrid){
       if (cell.building) o.b = cell.building;
       if (cell.hasRoad) o.r = 1;
       if (cell.roadStairs) o.s = 1;
+      if (cell.stairFacing) o.d = cell.stairFacing;
       if (cell.houseLevel) o.h = cell.houseLevel;
       if (cell.population) o.p = cell.population;
       if (cell.patrolBlock) o.x = 1;
@@ -102,6 +103,7 @@ function expandGridCompact(compact){
         building: null,
         hasRoad: false,
         roadStairs: false,
+        stairFacing: null,
         houseLevel: 0,
         population: 0,
         patrolBlock: false,
@@ -114,8 +116,13 @@ function expandGridCompact(compact){
       const o = overlays[row + ',' + col];
       if (o){
         if (o.b) cell.building = o.b;
-        if (o.r) cell.hasRoad = true;
-        if (o.s) cell.roadStairs = true;
+        if (o.s){
+          cell.roadStairs = true;
+          cell.hasRoad = true;
+        } else if (o.r){
+          cell.hasRoad = true;
+        }
+        if (o.d && typeof o.d === 'string') cell.stairFacing = o.d;
         if (o.h) cell.houseLevel = o.h;
         if (o.p) cell.population = o.p;
         if (o.x) cell.patrolBlock = true;
@@ -382,8 +389,9 @@ function sanitizeGrid(loadedGrid){
       loadedGrid[row][col] = {
         terrain: cell.terrain || 'grass',
         building: cell.building || null,
-        hasRoad: !!cell.hasRoad,
+        hasRoad: !!cell.hasRoad || !!cell.roadStairs,
         roadStairs: !!cell.roadStairs,
+        stairFacing: cell.stairFacing || null,
         houseLevel: cell.houseLevel || 0,
         population: cell.population || 0,
         patrolBlock: !!cell.patrolBlock,
@@ -394,6 +402,7 @@ function sanitizeGrid(loadedGrid){
         monumentPart: cell.monumentPart || null,
         godPatron: cell.godPatron || null,
       };
+      if (typeof syncCellRoadFlags === 'function') syncCellRoadFlags(loadedGrid[row][col]);
       if (typeof syncCellLevelElevation === 'function'){
         syncCellLevelElevation(loadedGrid[row][col]);
       }

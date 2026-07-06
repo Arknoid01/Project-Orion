@@ -3,10 +3,13 @@
 
 const MEDITERRANEAN_TREE_IMAGES = [];
 const MEDITERRANEAN_PROP_IMAGES = [];
+const MEDITERRANEAN_HILL_ROCK_IMAGES = [];
 let mediterraneanTreeSpritesExpected = 0;
 let mediterraneanTreeSpritesLoaded = 0;
 let mediterraneanPropSpritesExpected = 0;
 let mediterraneanPropSpritesLoaded = 0;
+let mediterraneanHillRockSpritesExpected = 0;
+let mediterraneanHillRockSpritesLoaded = 0;
 
 const MEDITERRANEAN_NOISE = {
   zone: 0x536f48,
@@ -41,12 +44,21 @@ function mediterraneanPropSpritePaths(){
   return [];
 }
 
+function mediterraneanHillRockSpritePaths(){
+  if (typeof MEDITERRANEAN_HILL_ROCK_SPRITES === 'object' && Array.isArray(MEDITERRANEAN_HILL_ROCK_SPRITES)){
+    return MEDITERRANEAN_HILL_ROCK_SPRITES;
+  }
+  return [];
+}
+
 function areMediterraneanDecorSpritesReady(){
   const treesOk = mediterraneanTreeSpritesExpected === 0
     || mediterraneanTreeSpritesLoaded >= mediterraneanTreeSpritesExpected;
   const propsOk = mediterraneanPropSpritesExpected === 0
     || mediterraneanPropSpritesLoaded >= mediterraneanPropSpritesExpected;
-  return treesOk && propsOk;
+  const rocksOk = mediterraneanHillRockSpritesExpected === 0
+    || mediterraneanHillRockSpritesLoaded >= mediterraneanHillRockSpritesExpected;
+  return treesOk && propsOk && rocksOk;
 }
 
 function mediterraneanDecorLoadSprites(paths, bucket, onLoad){
@@ -72,10 +84,13 @@ function mediterraneanDecorLoadSprites(paths, bucket, onLoad){
 if (mediterraneanDecorEnabled()){
   const treePaths = mediterraneanTreeSpritePaths();
   const propPaths = mediterraneanPropSpritePaths();
+  const hillRockPaths = mediterraneanHillRockSpritePaths();
   mediterraneanTreeSpritesExpected = treePaths.length;
   mediterraneanPropSpritesExpected = propPaths.length;
+  mediterraneanHillRockSpritesExpected = hillRockPaths.length;
   mediterraneanDecorLoadSprites(treePaths, MEDITERRANEAN_TREE_IMAGES, () => { mediterraneanTreeSpritesLoaded++; });
   mediterraneanDecorLoadSprites(propPaths, MEDITERRANEAN_PROP_IMAGES, () => { mediterraneanPropSpritesLoaded++; });
+  mediterraneanDecorLoadSprites(hillRockPaths, MEDITERRANEAN_HILL_ROCK_IMAGES, () => { mediterraneanHillRockSpritesLoaded++; });
 }
 
 function mediterraneanCellAt(col, row){
@@ -180,59 +195,53 @@ function mediterraneanClusterBoost(col, row){
 
 function mediterraneanTreeSpawnChance(col, row){
   const terrain = mediterraneanTerrainAt(col, row);
-  if (!terrain) return 0;
+  if (terrain !== 'forest') return 0;
 
   const zone = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.zone, 0.07, 3);
   const edge = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.edge, 0.11, 2);
-  const spill = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.spill, 0.09, 3);
   const clusterBoost = mediterraneanClusterBoost(col, row);
+  const interior = mediterraneanForestInteriorScore(col, row);
+  let chance;
 
-  if (terrain === 'forest'){
-    const interior = mediterraneanForestInteriorScore(col, row);
-    let chance;
-
-    if (interior >= 0.92){
-      chance = 0.93;
-      if (zone < 0.2) chance *= 0.28;
-    } else if (interior >= 0.72){
-      chance = 0.82;
-      if (zone < 0.24) chance *= 0.35;
-    } else if (interior >= 0.45){
-      chance = 0.48 + edge * 0.34;
-      if (edge < 0.28) chance *= 0.18;
-    } else {
-      chance = 0.14 + edge * 0.42;
-      if (edge < 0.42) chance *= 0.12;
-    }
-
-    let out = Math.min(0.98, chance + clusterBoost);
-    if (typeof GENERATED_NATURE_USE !== 'undefined' && GENERATED_NATURE_USE){
-      out = Math.min(0.55, out * 0.48 + clusterBoost * 0.45);
-    }
-    return out;
+  if (interior >= 0.92){
+    chance = 0.93;
+    if (zone < 0.2) chance *= 0.28;
+  } else if (interior >= 0.72){
+    chance = 0.82;
+    if (zone < 0.24) chance *= 0.35;
+  } else if (interior >= 0.45){
+    chance = 0.48 + edge * 0.34;
+    if (edge < 0.28) chance *= 0.18;
+  } else {
+    chance = 0.14 + edge * 0.42;
+    if (edge < 0.42) chance *= 0.12;
   }
 
-  if (terrain === 'grass' || terrain === 'hill'){
-    const dist = mediterraneanDistanceToForest(col, row, 3);
-    if (dist === 1){
-      if (spill < 0.46) return 0;
-      return Math.min(0.34, 0.08 + spill * 0.18 + clusterBoost);
-    }
-    if (dist === 2){
-      if (spill < 0.72) return 0;
-      return Math.min(0.16, 0.03 + spill * 0.08 + clusterBoost * 0.45);
-    }
-    if (dist === 3 && spill > 0.84 && zone > 0.58){
-      return Math.min(0.08, 0.02 + clusterBoost * 0.25);
-    }
+  let out = Math.min(0.98, chance + clusterBoost);
+  if (typeof GENERATED_NATURE_USE !== 'undefined' && GENERATED_NATURE_USE){
+    out = Math.min(0.55, out * 0.48 + clusterBoost * 0.45);
   }
+  return out;
+}
 
-  return 0;
+function mediterraneanPalmSpawnChance(col, row){
+  const terrain = mediterraneanTerrainAt(col, row);
+  if (terrain !== 'sand') return 0;
+
+  const cluster = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.cluster, 0.16, 2);
+  const zone = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.zone, 0.09, 2);
+  const nearWater = mediterraneanNearWater(col, row);
+
+  let chance = 0.06 + cluster * 0.20;
+  if (nearWater) chance += 0.16 + cluster * 0.14;
+  if (zone < 0.22) chance *= 0.32;
+
+  return Math.min(0.48, chance);
 }
 
 function mediterraneanPropSpawnChance(col, row){
   const terrain = mediterraneanTerrainAt(col, row);
-  if (terrain !== 'grass' && terrain !== 'hill') return 0;
+  if (terrain !== 'grass') return 0;
 
   // Trois familles naturelles :
   // 70% zones quasi vides, 20% petits groupes, 10% poches très denses.
@@ -266,17 +275,52 @@ function mediterraneanPropSpawnChance(col, row){
   return Math.min(0.72, chance);
 }
 
-function mediterraneanPickTreeVariant(rng){
-  const count = MEDITERRANEAN_TREE_IMAGES.length;
-  if (count <= 0) return 0;
-  const weights = typeof MEDITERRANEAN_TREE_VARIANT_WEIGHTS === 'object'
-    && Array.isArray(MEDITERRANEAN_TREE_VARIANT_WEIGHTS)
-    && MEDITERRANEAN_TREE_VARIANT_WEIGHTS.length >= count
-    ? MEDITERRANEAN_TREE_VARIANT_WEIGHTS
-    : null;
-  if (!weights){
-    return Math.floor(rng() * count);
+function mediterraneanHillRockSpawnChance(col, row){
+  const terrain = mediterraneanTerrainAt(col, row);
+  if (terrain !== 'hill') return 0;
+
+  const family = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.zone, 0.034, 3);
+  const cluster = mediterraneanDecorNoise(col, row, MEDITERRANEAN_NOISE.cluster, 0.17, 2);
+  const nearCliff = mediterraneanNearCliff(col, row);
+  const nearWater = mediterraneanNearWater(col, row);
+
+  let chance;
+  if (family < 0.62){
+    chance = 0.022 + cluster * 0.06;
+  } else if (family < 0.88){
+    chance = 0.12 + (cluster - 0.32) * 0.40;
+    if (cluster < 0.32) return 0;
+  } else {
+    chance = 0.28 + cluster * 0.30;
   }
+
+  if (nearCliff) chance += 0.12 + cluster * 0.10;
+  if (nearWater && cluster > 0.40) chance += 0.06;
+  if (cluster > 0.82) chance += 0.08;
+
+  return Math.min(0.72, chance);
+}
+
+function mediterraneanHillRockVariantSizeMul(variant){
+  if (typeof MEDITERRANEAN_HILL_ROCK_VARIANT_SIZE_MUL === 'object'
+    && Array.isArray(MEDITERRANEAN_HILL_ROCK_VARIANT_SIZE_MUL)
+    && variant >= 0
+    && variant < MEDITERRANEAN_HILL_ROCK_VARIANT_SIZE_MUL.length){
+    const mul = MEDITERRANEAN_HILL_ROCK_VARIANT_SIZE_MUL[variant];
+    if (typeof mul === 'number' && mul > 0) return mul;
+  }
+  return 1;
+}
+
+function mediterraneanPickHillRockVariant(rng){
+  const count = MEDITERRANEAN_HILL_ROCK_IMAGES.length;
+  if (count <= 0) return 0;
+  const weights = typeof MEDITERRANEAN_HILL_ROCK_VARIANT_WEIGHTS === 'object'
+    && Array.isArray(MEDITERRANEAN_HILL_ROCK_VARIANT_WEIGHTS)
+    && MEDITERRANEAN_HILL_ROCK_VARIANT_WEIGHTS.length >= count
+    ? MEDITERRANEAN_HILL_ROCK_VARIANT_WEIGHTS
+    : null;
+  if (!weights) return Math.floor(rng() * count);
   let total = 0;
   for (let i = 0; i < count; i++) total += weights[i] || 1;
   let pick = rng() * total;
@@ -287,8 +331,108 @@ function mediterraneanPickTreeVariant(rng){
   return count - 1;
 }
 
+function mediterraneanTreeVisualVariation(rng){
+  return {
+    scale: 0.90 + rng() * 0.25,
+    rotateDeg: (rng() * 2 - 1) * 3,
+    flipH: rng() < 0.5,
+    brightness: 0.95 + rng() * 0.10,
+    saturation: 0.95 + rng() * 0.10,
+  };
+}
+
+function mediterraneanTreeVariantSizeMul(variant){
+  if (typeof MEDITERRANEAN_TREE_VARIANT_SIZE_MUL === 'object'
+    && Array.isArray(MEDITERRANEAN_TREE_VARIANT_SIZE_MUL)
+    && variant >= 0
+    && variant < MEDITERRANEAN_TREE_VARIANT_SIZE_MUL.length){
+    const mul = MEDITERRANEAN_TREE_VARIANT_SIZE_MUL[variant];
+    if (typeof mul === 'number' && mul > 0) return mul;
+  }
+  return 1;
+}
+
+function mediterraneanDecorDrawOptsFor(decor){
+  const base = mediterraneanDecorDrawOpts();
+  if (!decor || decor.kind !== 'tree') return base;
+  base.rotateDeg = decor.rotateDeg;
+  base.flipH = decor.flipH;
+  base.brightness = decor.brightness;
+  base.saturation = decor.saturation;
+  return base;
+}
+
+function mediterraneanHillRockDrawOptsFor(decor){
+  const base = mediterraneanDecorDrawOpts();
+  if (decor && decor.flipH) base.flipH = true;
+  return base;
+}
+
+function mediterraneanTreeVariantPool(terrain){
+  const count = MEDITERRANEAN_TREE_IMAGES.length;
+  if (count <= 0) return [];
+  if (terrain === 'sand'){
+    const palms = typeof MEDITERRANEAN_TREE_PALM_INDICES === 'object'
+      && Array.isArray(MEDITERRANEAN_TREE_PALM_INDICES)
+      ? MEDITERRANEAN_TREE_PALM_INDICES
+      : [8, 9];
+    return palms.filter(i => i >= 0 && i < count);
+  }
+  if (terrain === 'forest'){
+    const forest = typeof MEDITERRANEAN_TREE_FOREST_INDICES === 'object'
+      && Array.isArray(MEDITERRANEAN_TREE_FOREST_INDICES)
+      ? MEDITERRANEAN_TREE_FOREST_INDICES
+      : null;
+    if (forest && forest.length){
+      return forest.filter(i => i >= 0 && i < count);
+    }
+    const palmSet = typeof MEDITERRANEAN_TREE_PALM_INDICES === 'object'
+      && Array.isArray(MEDITERRANEAN_TREE_PALM_INDICES)
+      ? MEDITERRANEAN_TREE_PALM_INDICES
+      : [8, 9];
+    const out = [];
+    for (let i = 0; i < count; i++){
+      if (!palmSet.includes(i)) out.push(i);
+    }
+    return out;
+  }
+  return [];
+}
+
+function mediterraneanPickTreeVariant(rng, allowedIndices){
+  const count = MEDITERRANEAN_TREE_IMAGES.length;
+  if (count <= 0) return 0;
+  const pool = Array.isArray(allowedIndices) && allowedIndices.length
+    ? allowedIndices.filter(i => i >= 0 && i < count)
+    : Array.from({ length: count }, (_, i) => i);
+  if (!pool.length) return 0;
+  const weights = typeof MEDITERRANEAN_TREE_VARIANT_WEIGHTS === 'object'
+    && Array.isArray(MEDITERRANEAN_TREE_VARIANT_WEIGHTS)
+    && MEDITERRANEAN_TREE_VARIANT_WEIGHTS.length >= count
+    ? MEDITERRANEAN_TREE_VARIANT_WEIGHTS
+    : null;
+  if (!weights){
+    return pool[Math.floor(rng() * pool.length)];
+  }
+  let total = 0;
+  for (let p = 0; p < pool.length; p++) total += weights[pool[p]] || 1;
+  let pick = rng() * total;
+  for (let p = 0; p < pool.length; p++){
+    pick -= weights[pool[p]] || 1;
+    if (pick <= 0) return pool[p];
+  }
+  return pool[pool.length - 1];
+}
+
 function mediterraneanTreeAtCell(col, row){
-  const chance = mediterraneanTreeSpawnChance(col, row);
+  const terrain = mediterraneanTerrainAt(col, row);
+  let chance = 0;
+  if (terrain === 'forest') chance = mediterraneanTreeSpawnChance(col, row);
+  else if (terrain === 'sand') chance = mediterraneanPalmSpawnChance(col, row);
+  else return null;
+
+  const variantPool = mediterraneanTreeVariantPool(terrain);
+  if (!variantPool.length) return null;
   if (chance <= 0) return null;
 
   const globalMul = typeof MEDITERRANEAN_TREE_DENSITY === 'number' ? MEDITERRANEAN_TREE_DENSITY : 1;
@@ -297,15 +441,22 @@ function mediterraneanTreeAtCell(col, row){
 
   const count = MEDITERRANEAN_TREE_IMAGES.length;
   if (count <= 0) return null;
-  const variant = mediterraneanPickTreeVariant(rng);
+  const variant = mediterraneanPickTreeVariant(rng, variantPool);
+  const visual = mediterraneanTreeVisualVariation(rng);
   return {
-    scale: 0.88 + rng() * 0.18,
+    scale: visual.scale * mediterraneanTreeVariantSizeMul(variant),
+    rotateDeg: visual.rotateDeg,
+    flipH: visual.flipH,
+    brightness: visual.brightness,
+    saturation: visual.saturation,
     variant,
     kind: 'tree',
   };
 }
 
 function mediterraneanPropAtCell(col, row){
+  const terrain = mediterraneanTerrainAt(col, row);
+  if (terrain !== 'grass') return null;
   if (mediterraneanTreeAtCell(col, row)) return null;
 
   const chance = mediterraneanPropSpawnChance(col, row);
@@ -324,6 +475,32 @@ function mediterraneanPropAtCell(col, row){
     scale: 0.82 + rng() * 0.2,
     variant,
     kind: 'prop',
+  };
+}
+
+function mediterraneanHillRockAtCell(col, row){
+  const terrain = mediterraneanTerrainAt(col, row);
+  if (terrain !== 'hill') return null;
+  if (mediterraneanTreeAtCell(col, row)) return null;
+
+  const chance = mediterraneanHillRockSpawnChance(col, row);
+  if (chance <= 0) return null;
+
+  const globalMul = typeof MEDITERRANEAN_HILL_ROCK_DENSITY === 'number'
+    ? MEDITERRANEAN_HILL_ROCK_DENSITY
+    : 1;
+  const rng = mulberry32(hashSeed(col, row) ^ 0x3c8d1e5a);
+  if (rng() > Math.min(0.95, chance * globalMul)) return null;
+
+  const count = MEDITERRANEAN_HILL_ROCK_IMAGES.length;
+  if (count <= 0) return null;
+  const variant = mediterraneanPickHillRockVariant(rng);
+  const baseScale = 0.88 + rng() * 0.22;
+  return {
+    scale: baseScale * mediterraneanHillRockVariantSizeMul(variant),
+    variant,
+    flipH: rng() < 0.5,
+    kind: 'hillRock',
   };
 }
 
@@ -351,6 +528,18 @@ function mediterraneanPropImageForCell(col, row){
   return null;
 }
 
+function mediterraneanHillRockImageForCell(col, row){
+  const decor = mediterraneanHillRockAtCell(col, row);
+  if (!decor) return null;
+  const img = MEDITERRANEAN_HILL_ROCK_IMAGES[decor.variant];
+  if (img && img.complete && img.naturalWidth > 0) return img;
+  for (let i = 0; i < MEDITERRANEAN_HILL_ROCK_IMAGES.length; i++){
+    const fallback = MEDITERRANEAN_HILL_ROCK_IMAGES[i];
+    if (fallback && fallback.complete && fallback.naturalWidth > 0) return fallback;
+  }
+  return null;
+}
+
 function mediterraneanDecorCellBlocked(cell){
   return !cell || cell.building || cell.monumentPart || cell.hasRoad;
 }
@@ -359,7 +548,10 @@ function cellShowsMediterraneanDecor(cell, col, row){
   if (!mediterraneanDecorEnabled()) return false;
   if (mediterraneanDecorCellBlocked(cell)) return false;
   if (mediterraneanTreeAtCell(col, row) !== null) return true;
-  if (cell.terrain === 'grass' || cell.terrain === 'hill'){
+  if (cell.terrain === 'hill'){
+    return mediterraneanHillRockAtCell(col, row) !== null;
+  }
+  if (cell.terrain === 'grass'){
     return mediterraneanPropAtCell(col, row) !== null;
   }
   return false;
@@ -380,6 +572,14 @@ function drawMediterraneanDecorOnCell(cx, cy, col, row, cell){
   let sizeMul = typeof MEDITERRANEAN_TREE_SIZE === 'number' ? MEDITERRANEAN_TREE_SIZE : 0.79;
 
   if (!decor){
+    decor = mediterraneanHillRockAtCell(col, row);
+    if (decor){
+      sprite = mediterraneanHillRockImageForCell(col, row);
+      sizeMul = typeof MEDITERRANEAN_HILL_ROCK_SIZE === 'number' ? MEDITERRANEAN_HILL_ROCK_SIZE : 0.54;
+    }
+  }
+
+  if (!decor){
     decor = mediterraneanPropAtCell(col, row);
     if (!decor) return;
     sprite = mediterraneanPropImageForCell(col, row);
@@ -393,7 +593,9 @@ function drawMediterraneanDecorOnCell(cx, cy, col, row, cell){
     targetW = spriteDrawWidthForTile(sprite, 1) * decor.scale * sizeMul;
   }
 
-  const drawOpts = mediterraneanDecorDrawOpts();
+  const drawOpts = decor.kind === 'hillRock'
+    ? mediterraneanHillRockDrawOptsFor(decor)
+    : mediterraneanDecorDrawOptsFor(decor);
 
   if (typeof drawSpriteOnTile === 'function'){
     drawSpriteOnTile(cx, cy, sprite, targetW, drawOpts);

@@ -38,8 +38,8 @@ const PERF_LEVEL = getPerfLevel();
 // et GRASS_DECOR_CHANCE pour réduire le nombre de drawImage() par frame en mobile.
 const PERF_PRESETS = {
   faible: { dprCap: 1.5,  cacheScale: 2, smoothing: 'high', decorDensity: 1.0, walkerFrameSkip: 0, walkerRenderMax: 64, overlayFpsCap: 60, decorBeautySkip: 0 },
-  normal: { dprCap: 1,    cacheScale: 1, smoothing: 'high', decorDensity: 0.85, walkerFrameSkip: 1, walkerRenderMax: 48, overlayFpsCap: 45, decorBeautySkip: 1 },
-  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorDensity: 0.3, walkerFrameSkip: 2, walkerRenderMax: 28, overlayFpsCap: 30, decorBeautySkip: 2 },
+  normal: { dprCap: 1,    cacheScale: 1, smoothing: 'high', decorDensity: 0.85, walkerFrameSkip: 0, walkerRenderMax: 48, overlayFpsCap: 60, decorBeautySkip: 1 },
+  forte:  { dprCap: 0.85, cacheScale: 1, smoothing: 'low',  decorDensity: 0.3, walkerFrameSkip: 1, walkerRenderMax: 28, overlayFpsCap: 45, decorBeautySkip: 2 },
 };
 
 const PERF = PERF_PRESETS[PERF_LEVEL] || PERF_PRESETS.normal;
@@ -50,8 +50,7 @@ function getWalkerCount(){
 }
 
 function getWalkerFrameSkip(){
-  const n = getWalkerCount();
-  if (n <= 16) return 0;
+  // Ne ralentit que la cadence de l'anim de marche (frames du spritesheet), jamais la position.
   return PERF.walkerFrameSkip || 0;
 }
 

@@ -119,6 +119,10 @@ Object.entries(BUILDING_DEFS).forEach(([key, def]) => {
   img.onload = () => {
     measureSpriteFoot(img);
     debugInfo(`Sprite chargé : ${path}`);
+    if (typeof window._pixiEnsureBuildingTexture === 'function'){
+      window._pixiEnsureBuildingTexture(key);
+      if (typeof invalidatePixiBuildings === 'function') invalidatePixiBuildings();
+    }
     render();
   };
   img.onerror = () => debugWarn(`Sprite introuvable : ${path} (vérifie qu'il est dans assets/buildings/)`);
@@ -717,6 +721,34 @@ function snapSpriteDrawRect(x, y, w, h){
   };
 }
 
+function _natureSpriteCanvasFilter(opts){
+  if (!opts || (opts.brightness == null && opts.saturation == null)) return '';
+  const b = opts.brightness != null ? opts.brightness : 1;
+  const s = opts.saturation != null ? opts.saturation : 1;
+  return `brightness(${b}) saturate(${s})`;
+}
+
+function _drawNatureSpriteOnCtx(outCtx, sprite, dx, dy, dw, dh, footNx, footNy, opts){
+  opts = opts || {};
+  const pivotX = dx + dw * footNx;
+  const pivotY = dy + dh * footNy;
+  const rot = (opts.rotateDeg || 0) * Math.PI / 180;
+  const flip = opts.flipH ? -1 : 1;
+  const filterStr = _natureSpriteCanvasFilter(opts);
+  const hasTransform = rot !== 0 || flip !== 1 || filterStr;
+  if (!hasTransform){
+    outCtx.drawImage(sprite, dx, dy, dw, dh);
+    return;
+  }
+  outCtx.save();
+  if (filterStr) outCtx.filter = filterStr;
+  outCtx.translate(pivotX, pivotY);
+  if (rot) outCtx.rotate(rot);
+  if (flip !== 1) outCtx.scale(flip, 1);
+  outCtx.drawImage(sprite, -dw * footNx, -dh * footNy, dw, dh);
+  outCtx.restore();
+}
+
 function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
   opts = opts || {};
   const outCtx = opts.targetCtx || _spriteDrawContextOverride || ctx;
@@ -761,7 +793,7 @@ function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
       dw = snapped.w;
       dh = snapped.h;
     }
-    outCtx.drawImage(sprite, dx, dy, dw, dh);
+    _drawNatureSpriteOnCtx(outCtx, sprite, dx, dy, dw, dh, footNx, footNy, opts);
     outCtx.imageSmoothingEnabled = prevSmooth;
     outCtx.imageSmoothingQuality = prevQuality;
     return;
@@ -786,14 +818,24 @@ function drawSpriteOnTile(cx, cy, sprite, targetW, opts){
     sctx.imageSmoothingEnabled = true;
     sctx.imageSmoothingQuality = quality;
     sctx.drawImage(sprite, 0, 0, sw, sh);
-    outCtx.drawImage(sc, 0, 0, sw, sh, dx, dy, dw, dh);
+    _drawNatureSpriteOnCtx(outCtx, sc, dx, dy, dw, dh, footNx, footNy, opts);
   } else {
-    outCtx.drawImage(sprite, dx, dy, dw, dh);
+    _drawNatureSpriteOnCtx(outCtx, sprite, dx, dy, dw, dh, footNx, footNy, opts);
   }
 
   outCtx.imageSmoothingEnabled = prevSmooth;
   outCtx.imageSmoothingQuality = prevQuality;
 }
+
+function getBuildingSpritePlacement(typeKey, def){
+  def = def || (typeof BUILDING_DEFS !== 'undefined' ? BUILDING_DEFS[typeKey] : null) || {};
+  return {
+    offsetX: def.spriteOffsetX || 0,
+    offsetY: def.spriteOffsetY || 0,
+    spriteScale: def.spriteScale != null ? def.spriteScale : null,
+  };
+}
+window.getBuildingSpritePlacement = getBuildingSpritePlacement;
 
 function buildingDrawWidth(def, sprite, typeKey){
   const footprintScale = typeof BUILDING_FOOTPRINT_SCALE === 'number' ? BUILDING_FOOTPRINT_SCALE : 1;
@@ -1516,6 +1558,17 @@ function render(now){
       if (!inBounds(t.col, t.row)) return;
       const { x, y } = tileCenter(t.col, t.row);
       drawTileShape(x, y, color, 'rgba(0,0,0,0.4)');
+      if (typeof stairsMode !== 'undefined' && stairsMode
+          && typeof canPlaceStairs === 'function' && canPlaceStairs(t.col, t.row)
+          && typeof drawStairSprite === 'function'){
+        const cell = grid[t.row][t.col];
+        if (!cell || !cell.roadStairs){
+          ctx.save();
+          ctx.globalAlpha = 0.72;
+          drawStairSprite(ctx, x, y, t.col, t.row);
+          ctx.restore();
+        }
+      }
     });
     }
   }
