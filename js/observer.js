@@ -325,15 +325,36 @@ function buildBuildingObserverData(type, col, row){
   const costLabel = (def.isMonument && patron && typeof godTempleCostLabel === 'function')
     ? godTempleCostLabel(patron)
     : (def.isMonument ? '—' : `${def.cost} dr.`);
-  const identRows = [[t('inspector.terrain'), t('terrainName.' + def.validTerrain)], [t('inspector.cost'), costLabel]];
+  const terrainLabel = Array.isArray(def.validTerrain)
+    ? def.validTerrain.map(v => t('terrainName.' + v)).join(' / ')
+    : t('terrainName.' + def.validTerrain);
+  const identRows = [[t('inspector.terrain'), terrainLabel], [t('inspector.cost'), costLabel]];
   if (def.upkeep) identRows.push([t('inspector.upkeep'), `${def.upkeep}${t('inspector.perTick')}`]);
   tiles.push({ icon: def.icon, title: t(def.name), status: '', rows: identRows });
 
   if (def.produces && !def.consumes){
-    const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
-    const rows = [[resLabel(def.produces), `+${fmtRate(eff)}${t('inspector.perTick')}`]];
-    if (def.workers) rows.push([t('inspector.laborRate'), `${Math.round(employment.ratio * 100)}%`]);
-    tiles.push({ icon: '📦', title: t('inspector.produces'), status: fmtRate(eff), rows });
+    if (def.isSeasonalCrop){
+      const labels = (typeof getSeasonalHarvestMonthLabels === 'function')
+        ? getSeasonalHarvestMonthLabels(def.produces) : [];
+      const cfg = (typeof getSeasonalCropConfig === 'function') ? getSeasonalCropConfig(def.produces) : null;
+      const factor = productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
+      const yieldEst = cfg ? Math.round(cfg.yieldBase * factor) : 0;
+      const state = (typeof getCalendarState === 'function') ? getCalendarState() : null;
+      const inHarvest = state && typeof isSeasonalHarvestMonth === 'function'
+        && isSeasonalHarvestMonth(def.produces, state.monthIndex);
+      const rows = [
+        [t('inspector.harvestMonths'), labels.length ? labels.join(', ') : '—'],
+        [t('inspector.harvestYield'), `~${yieldEst} ${resLabel(def.produces)}`],
+        [t('observer.season'), inHarvest ? `✅ ${t('inspector.harvestNow')}` : `⏳ ${t('inspector.harvestWait')}`],
+      ];
+      if (def.workers) rows.push([t('inspector.laborRate'), `${Math.round(employment.ratio * 100)}%`]);
+      tiles.push({ icon: '📅', title: t('inspector.seasonalCrop'), status: inHarvest ? '✅' : '⏳', rows });
+    } else {
+      const eff = def.rate * productionMultiplier * employment.ratio * taxEfficiencyMultiplier();
+      const rows = [[resLabel(def.produces), `+${fmtRate(eff)}${t('inspector.perTick')}`]];
+      if (def.workers) rows.push([t('inspector.laborRate'), `${Math.round(employment.ratio * 100)}%`]);
+      tiles.push({ icon: '📦', title: t('inspector.produces'), status: fmtRate(eff), rows });
+    }
   }
 
   if (def.consumes){
