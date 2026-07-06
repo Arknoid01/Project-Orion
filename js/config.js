@@ -215,9 +215,9 @@ const BUILDING_DEFS = {
   oliveGrove:{ name:'building.oliveGrove',icon:'🫒', color:'#7a8b3a', validTerrain:'grass',  produces:'olives', rate:1.35, sprite:'assets/buildings/oliveGrove.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:45, upkeep:0.3, workers:4 },
   vineyard:  { name:'building.vineyard',  icon:'🍇', color:'#6b3a6b', validTerrain:'grass',  produces:'grapes', rate:1.35, sprite:'assets/buildings/vineyard.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:45, upkeep:0.3, workers:4 },
   sheepFarm: { name:'building.sheepFarm', icon:'🐑', color:'#cbc6b8', validTerrain:'grass',  produces:'wool',   rate:1.0, sprite:'assets/buildings/sheepFarm.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:40, upkeep:0.3, workers:4 },
-  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:1.2, sprite:'assets/buildings/fishery.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3, workers:4 },
+  fishery:   { name:'building.fishery',   icon:'🐟', color:'#4a8fad', validTerrain:'water',  produces:'fish',   rate:0, isSeasonalCrop:true, sprite:'assets/buildings/fishery.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:50, upkeep:0.3, workers:4 },
   carrotFarm:{ name:'building.carrotFarm',icon:'🥕', color:'#e07830', validTerrain:'wheat',  produces:'carrots', rate:0, isSeasonalCrop:true, sprite:'assets/buildings/carrotFarm.png', spriteOffsetX:-4, spriteOffsetY:-10, cost:48, upkeep:0.3, workers:4 },
-  huntingPavilion:{ name:'building.huntingPavilion', icon:'🏹', color:'#7a5a3a', validTerrain:'forest', produces:'meat', rate:1.15, sprite:'assets/buildings/huntingPavilion.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:58, upkeep:0.35, workers:4 },
+  huntingPavilion:{ name:'building.huntingPavilion', icon:'🏹', color:'#7a5a3a', validTerrain:'forest', produces:'meat', rate:0, isSeasonalCrop:true, sprite:'assets/buildings/huntingPavilion.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:58, upkeep:0.35, workers:4 },
   charcoalPit:{ name:'building.charcoalPit',icon:'🪵', color:'#4a4035', validTerrain:['forest','marble'], produces:'coal', rate:0.9, sprite:'assets/buildings/charcoalPit.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:65, upkeep:0.3, workers:5 },
   // ---- Industrie : ateliers de transformation (consomment une matière) ----
   workshop:  { name:'building.workshop',  icon:'⚒️', color:'#b5651d', validTerrain:'grass',  consumes:{marble:1}, produces:'sculpture', rate:1.05, sprite:'assets/buildings/workshop.png', spriteOffsetX:-4, spriteOffsetY:-7, cost:70, upkeep:0.6, workers:7 },
@@ -949,13 +949,23 @@ const SEASON_ICONS = { summer:'☀️', autumn:'🍂', winter:'❄️', spring:'
 const SEASONAL_CROP_HARVEST = {
   wheat: {
     buildingTypes: ['farm'],
-    monthIndices: [2, 9], // Boédromion (fin été) · Munychion (printemps)
+    monthIndices: [2, 9], // Boédromion (fin été) · Mounichion (printemps)
     yieldBase: 36,
   },
   carrots: {
     buildingTypes: ['carrotFarm'],
     monthIndices: [3, 10], // Pyanépsion (automne) · Thargélion (printemps)
     yieldBase: 28,
+  },
+  fish: {
+    buildingTypes: ['fishery'],
+    monthIndices: [1, 9], // Métageitnion (été) · Mounichion (printemps) — haute saison pêche
+    yieldBase: 32,
+  },
+  meat: {
+    buildingTypes: ['huntingPavilion'],
+    monthIndices: [5, 8], // Poséidéon (automne) · Élaphébolion (hiver) — saison de chasse
+    yieldBase: 26,
   },
 };
 

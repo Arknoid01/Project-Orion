@@ -54,6 +54,7 @@ function evaluateHouses(){
   checkEmigrationWarning();
   renderTaxPanel();
   const evolutionDay = isHouseEvolutionDay();
+  let levelChanged = false;
 
   forEachBuilding((type, col, row) => {
     if (type !== 'maison') return;
@@ -70,6 +71,7 @@ function evaluateHouses(){
         cell.population = HOUSE_LEVELS[cell.houseLevel].population;
         debugWarn(`Maison dégradée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
         markHouseVisualDirty();
+        levelChanged = true;
       }
       return;
     }
@@ -85,6 +87,7 @@ function evaluateHouses(){
         cell.population = HOUSE_LEVELS[cell.houseLevel].population;
         debugInfo(`Maison évoluée : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
         markHouseVisualDirty();
+        levelChanged = true;
       }
     } else if (cell.houseLevel > 0 && Math.random() < emigrationChance()){
       if (typeof queueEmigration === 'function' && queueEmigration(col, row)){
@@ -94,10 +97,13 @@ function evaluateHouses(){
         cell.population = HOUSE_LEVELS[cell.houseLevel].population;
         debugWarn(`Émigration : ${t(HOUSE_LEVELS[cell.houseLevel].nameKey)}`, { col, row });
         markHouseVisualDirty();
+        levelChanged = true;
       }
     }
   });
-  if (typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
+  // Ne rafraîchir les icônes que si un niveau a vraiment changé — évite le
+  // clignotement quotidien lors du reset du marché en début de journée.
+  if (levelChanged && typeof markHouseIconsDirty === 'function') markHouseIconsDirty();
 }
 
 /** Rafraîchit le sprite overlay quand le niveau d'une maison change. */
