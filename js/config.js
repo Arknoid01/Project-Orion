@@ -735,10 +735,10 @@ const CHARACTER_DIRECTION_ROWS = { up: 0, left: 1, down: 2, right: 3 };
 // Chaque pas sur la grille iso est une diagonale à l'écran (tileCenter : x∝col−row, y∝col+row).
 // Clé = diagonale iso. facing = rang LPC (left/right sur la planche walkers).
 const ISO_DIAGONAL_FACING = {
-  se: { facing: 'left', mirror: true  }, // col+1  → vers caméra droite
-  sw: { facing: 'down', mirror: false }, // row+1  → vers caméra (face)
-  nw: { facing: 'left', mirror: false }, // col−1  → s'éloigne à gauche
-  ne: { facing: 'down', mirror: true  }, // row−1  → s'éloigne à droite
+  se: { facing: 'right', mirror: false }, // col+1
+  sw: { facing: 'left',  mirror: false }, // row+1
+  nw: { facing: 'left',  mirror: false }, // col−1
+  ne: { facing: 'right', mirror: false }, // row−1
 };
 // Décalage vertical des pieds sur la tuile iso (ancrage du sprite).
 const CHARACTER_ISO_FOOT_PAD = 10;
