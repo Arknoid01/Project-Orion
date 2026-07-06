@@ -222,12 +222,10 @@ function getBuildingStatusIcons(col, row, type){
   if (!def || def.isHouse || def.isDecoration) return [];
   const icons = [];
   if (typeof isTileFireServed !== 'function') return icons;
+  // Couvert par une tour → aucun risque, aucune icône.
   if (isTileFireServed(col, row)) return icons;
-  if (walkerPassIconsEnabled() && typeof isTileFireEligible === 'function' && isTileFireEligible(col, row)){
-    icons.push({ text: NEED_ICONS.fire, status: 'pending' });
-  } else {
-    icons.push({ text: NEED_ICONS.fire, status: 'missing' });
-  }
+  // Aucune tour de guet à portée → icône manquant (pas d'état "en attente").
+  icons.push({ text: NEED_ICONS.fire, status: 'missing' });
   return icons;
 }
 window.getHouseStatusIcons = getHouseStatusIcons;

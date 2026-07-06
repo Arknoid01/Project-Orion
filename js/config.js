@@ -718,9 +718,9 @@ const MAP_GEN_USE_WORKER = true;
 // Une maison NON desservie (fire/health) risque un sinistre à chaque tick ; une maison
 // desservie garde un risque résiduel très faible, jamais totalement nul.
 const FIRE_CHANCE_UNCOVERED = 0.00045;   // ~100 maisons : ~1 sinistre / 22 ticks si non couvert
-const FIRE_CHANCE_COVERED = 0.00003;
+const FIRE_CHANCE_COVERED = 0;           // couvert → risque nul
 const DISEASE_CHANCE_UNCOVERED = 0.00045;
-const DISEASE_CHANCE_COVERED = 0.00003;
+const DISEASE_CHANCE_COVERED = 0;        // couvert → risque nul
 
 /* ===================== PALETTES MAISONS PROCEDURALES ===================== */
 const HOUSE_WALL_COLORS  = ['#d8c9a3', '#c9b68f', '#bfa77d', '#e3d6b8'];

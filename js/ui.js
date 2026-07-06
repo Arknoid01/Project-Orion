@@ -273,6 +273,7 @@ function handleZonePlacementClick(col, row){
   if (!zonePlacementStart){
     zonePlacementStart = { col, row };
     updateZonePlacementUI();
+    if (typeof showNotification === 'function') showNotification(t('build.zoneSecondClick'), 'info');
     return;
   }
   const result = confirmZonePlacement(zonePlacementStart.col, zonePlacementStart.row, col, row);
@@ -1149,7 +1150,10 @@ _c.addEventListener('click', (e) => {
     if (canToggleBlock(col, row)){
       cell.patrolBlock = !cell.patrolBlock;
       debugInfo(cell.patrolBlock ? 'Borne de blocage posée' : 'Borne de blocage retirée', { col, row });
+      if (typeof invalidatePixiRoads === 'function') invalidatePixiRoads();
       recomputeAllWalkers();
+    } else {
+      showNotification(t('action.blockNeedsRoad'), 'bad');
     }
   } else if (stairsMode){
     if (typeof canPlaceStairs === 'function' && canPlaceStairs(col, row)){
