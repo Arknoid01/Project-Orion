@@ -400,12 +400,6 @@ html,body{
   height:0;
   flex:0 0 100%;
  }
- #manageBtn{
-  top:calc(var(--safeTop) + 8px);
-  height:36px;
-  padding:0 11px;
-  font-size:13px;
- }
 }
 /* Ancien écran de blocage portrait, conservé désactivé au cas où on voudrait le
    réactiver pour une raison précise (ex: très petit écran <320px). */
@@ -1783,30 +1777,12 @@ h2{
   cursor:pointer;
 }
 
-/* Bouton "Gestion" : flottant, sous le bouton catalogue (coin haut-droit) */
+/* Bouton "Gestion" : dans la barre HUD (menu · trésor · pop · gestion) */
 #manageBtn{
-  position:absolute;
-  top:calc(var(--safeTop) + var(--hudOffset));
-  right:calc(var(--safeRight) + 8px);
-  z-index:22;
-  pointer-events:auto;
-  display:flex;
-  align-items:center;
-  gap:7px;
-  height:40px;
-  padding:0 14px;
-  border-radius:999px;
-  border:1px solid rgba(243,204,116,.85);
-  background:
-    linear-gradient(135deg,rgba(244,232,204,.08),transparent 35%),
-    linear-gradient(#123653,#071a2a);
-  color:var(--marble);
-  font-family:inherit;
-  font-weight:800;
-  font-size:14px;
-  letter-spacing:.3px;
   cursor:pointer;
-  box-shadow:0 4px 16px #0009, inset 0 1px rgba(255,255,255,.12);
+  font-weight:800;
+  letter-spacing:.3px;
+  font-family:inherit;
 }
 #manageBtn:active{ filter:brightness(1.15); }
 
@@ -2279,17 +2255,16 @@ h2{
 }
 .langSelect option{ color:#1c1410; background:#f4e8cc; }
 
-/* Mobile paysage : HUD compact sans débordement ; bouton Gestion remonté d'un cran */
+/* Mobile paysage : HUD compact sans débordement */
 @media (max-height:480px) and (orientation:landscape){
   :root{
     --hudOffset:52px;
-    --manageLandscapeLift:10px;
   }
   .hud{
     height:38px;
     gap:4px;
     left:calc(var(--safeLeft) + 6px);
-    right:calc(var(--safeRight) + 96px);
+    right:calc(var(--safeRight) + 6px);
     overflow-x:auto;
     overflow-y:hidden;
     flex-wrap:nowrap;
@@ -2314,13 +2289,6 @@ h2{
     max-width:108px;
     overflow:hidden;
     text-overflow:ellipsis;
-  }
-  #manageBtn{
-    top:calc(var(--safeTop) + var(--hudOffset) - var(--manageLandscapeLift));
-    height:32px;
-    padding:0 9px;
-    font-size:11px;
-    right:calc(var(--safeRight) + 6px);
   }
   #observerPanel,
   #buildPanel,
@@ -2454,6 +2422,7 @@ h2{
    <button class="iconBtn" id="hudMenuBtn" onclick="togglePanel('gameMenuPanel')" title="Menu">☰</button>
    <div class="hud-pill">🪙 <b id="hudTreasury">0</b></div>
    <div class="hud-pill">👥 <b id="hudPopulation">0</b></div>
+   <button type="button" id="manageBtn" class="hud-pill" onclick="openManagePanel()" title="Gestion"><span id="manageBtnLabel">📊 Gestion</span></button>
    <div id="selectedBuildPill" class="hud-pill" onclick="cancelSelection()" title="Annuler — revenir au mode observation">🔨 <b id="selectedBuildName">Aucun</b> <span class="pillClose">✕</span></div>
    <div class="hud-spacer"></div>
    <div class="hud-pill" id="hudCampaignBadge" style="display:none" title="">🗺️ <b id="hudCampaignName">Campagne</b></div>
@@ -2463,8 +2432,6 @@ h2{
    <div class="hud-pill" id="hudCalendar">📅 …</div>
    <button class="iconBtn" id="hudCatalogBtn" onclick="togglePanel('quickBuild')" title="Catalogue">🔨</button>
  </div>
-
- <button id="manageBtn" onclick="openManagePanel()" title="Gestion"><span id="manageBtnLabel">📊 Gestion</span></button>
 
  <div class="floatingTools">
    <button class="iconBtn" id="mapModeBtn" type="button" onclick="toggleMapClickMode()" title="Mode observateur — clic ouvre l'inspecteur" aria-pressed="false">👁️</button>
@@ -2714,6 +2681,7 @@ h2{
 <script src="js/migrationAgents.js?v=11"></script>
 <script src="js/loop.js?v=11"></script>
 <script src="js/pause.js"></script>
+<script src="js/audio.js?v=1"></script>
 <script src="js/characterSprites.js?v=7"></script>
 <script src="js/forestTrees.js?v=19"></script>
 <script src="js/grassDecor.js?v=15"></script>
