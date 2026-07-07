@@ -249,6 +249,13 @@ function needStatusDetail(need, col, row){
       if (!hasAdjacentRoad(col, row)) return [t('needHint.noRoute'), 'bad'];
       return [t('needHint.outOfRange.market'), 'bad'];
     }
+    if (need === 'food' && typeof marketNeedBlocked === 'function' && marketNeedBlocked('food', col, row)){
+      return [t('needHint.noGranary.food'), 'bad'];
+    }
+    if (need === 'food'){
+      const hasFood = (resources.wheat || 0) >= 1 || (resources.carrots || 0) >= 1 || (resources.meat || 0) >= 1;
+      if (!hasFood) return [t('needHint.noStock.food'), 'bad'];
+    }
     return [t('needHint.noStock.' + need), 'bad'];
   }
   return ['✖', 'bad'];

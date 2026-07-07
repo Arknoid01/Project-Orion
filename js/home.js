@@ -157,8 +157,8 @@ function renderSaveSlotList(mode){
     if (isEmpty){
       body = `<span class="saveSlotEmpty">${t('save.slotEmptyLabel')}</span>`;
     } else {
-      const pop = summary.population != null ? summary.population : '—';
-      const gold = summary.treasury != null ? summary.treasury : '—';
+      const pop = summary.population != null ? Math.floor(summary.population) : '—';
+      const gold = summary.treasury != null ? Math.floor(summary.treasury) : '—';
       const scenario = typeof formatSaveScenarioLabel === 'function'
         ? formatSaveScenarioLabel(summary.scenarioId)
         : summary.scenarioId;

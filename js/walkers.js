@@ -348,11 +348,15 @@ function deliverWalkerBatchTick(w){
   }
 }
 function isGranaryRoadLinked(serviceCol, serviceRow, maxSteps){
+  const reachKeys = new Set(
+    computeServiceReach(serviceCol, serviceRow, maxSteps).map(t => tileKey(t.col, t.row)));
   let linked = false;
-  const reach = computeServiceReach(serviceCol, serviceRow, maxSteps);
   forEachBuilding((type, col, row) => {
     if (type !== 'granary') return;
-    if (reach.some(t => t.col === col && t.row === row)) linked = true;
+    if (reachKeys.has(tileKey(col, row))) linked = true;
+    for (const [c, r] of [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1]]){
+      if (reachKeys.has(tileKey(c, r))) linked = true;
+    }
   });
   return linked;
 }
