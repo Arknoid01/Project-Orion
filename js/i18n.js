@@ -1912,6 +1912,7 @@ const STRINGS = {
     'diplomacy.tradeActive': 'trade route',
     'diplomacy.panelHint': 'Relations with neighboring city-states (0–100).',
     'hud.navyTitle': 'Fleet — open navy panel',
+    'hud.menu': 'Menu',
     'hud.catalog': 'Catalog',
     'hud.management': 'Management',
     'hud.cancelSelection': 'Cancel — return to observation mode',
