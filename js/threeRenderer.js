@@ -749,16 +749,9 @@ function _getThreeView(){
   if (el){
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0){
-      // On arrondit les dimensions à l'entier le plus proche pour éviter que des
-      // valeurs fractionnaires (ex. 799.75 sur écrans à DPI fractionnaire / zoom OS)
-      // fassent osciller worldToScreen d'un frame à l'autre, ce qui trembler tous
-      // les sprites overlay même sans déplacement de caméra.
-      return {
-        width:  Math.round(r.width),
-        height: Math.round(r.height),
-        left:   r.left,
-        top:    r.top,
-      };
+      // Garder les dimensions CSS exactes : Three et Pixi doivent projeter dans
+      // le même repère, même si le navigateur expose des tailles fractionnaires.
+      return { width: r.width, height: r.height, left: r.left, top: r.top };
     }
   }
   return { width: window.innerWidth, height: window.innerHeight, left: 0, top: 0 };
