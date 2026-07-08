@@ -347,55 +347,51 @@ function _pixiApplyTileScreenPlacement(display, placement){
   if (!placement) return;
   display.anchor.set(placement.footNx, placement.footNy);
   display.scale.set(placement.scale);
-  // Positions brutes via worldToScreen — la stabilité vient du snap caméra Three
-  // (_snapThreeTargetToScreenPixels), pas d'un arrondi par sprite.
   display.x = placement.x;
   display.y = placement.y;
 }
 
+function _pixiOverlayBuildingPlacement(e){
+  if (e.isMonument && typeof monumentPlacementOnTileQuad === 'function'
+      && typeof monumentAnchorAt === 'function'){
+    const anchor = monumentAnchorAt(e.col, e.row);
+    const img = e.img;
+    const drawW = typeof buildingDrawWidthForDef === 'function'
+      ? buildingDrawWidthForDef(e.def || {}, img, e.type)
+      : null;
+    return monumentPlacementOnTileQuad(
+      anchor.col, anchor.row, e.def.footprint || 2, img, drawW, { building: true },
+    );
+  }
+  if (typeof buildingPlacementOnTileQuad !== 'function') return null;
+  const isHouse = e.type === 'maison' || (e.def && e.def.isHouse);
+  const houseLevel = isHouse
+    ? (grid[e.row] && grid[e.row][e.col] ? grid[e.row][e.col].houseLevel : e.houseLevel)
+    : undefined;
+  const img = isHouse
+    ? _pixiResolveBuildingImage(e.texKey, e.type, houseLevel)
+    : e.img;
+  const drawW = typeof buildingDrawWidthForDef === 'function'
+    ? buildingDrawWidthForDef(e.def || {}, img, e.type)
+    : null;
+  const place = typeof getBuildingSpritePlacement === 'function'
+    ? getBuildingSpritePlacement(e.type, e.def || {})
+    : { offsetX: (e.def && e.def.spriteOffsetX) || 0, offsetY: 0 };
+  return buildingPlacementOnTileQuad(e.col, e.row, img, drawW, {
+    building: true,
+    offsetX: place.offsetX,
+    lift: place.offsetY,
+  });
+}
+
 function _pixiMonumentScreenPlacement(anchorCol, anchorRow, size, img, def){
-  let sx = 0, sy = 0, tileScreenW = 0, n = 0;
-  for (let r = anchorRow; r < anchorRow + size; r++){
-    for (let c = anchorCol; c < anchorCol + size; c++){
-      if (typeof inBounds === 'function' && !inBounds(c, r)) continue;
-      const d = typeof getTileScreenDiamond === 'function'
-        ? getTileScreenDiamond(c, r)
-        : null;
-      if (!d) continue;
-      sx += d.south.x;
-      sy += d.south.y;
-      tileScreenW += Math.hypot(d.east.x - d.west.x, d.east.y - d.west.y);
-      n++;
-    }
+  if (typeof monumentPlacementOnTileQuad === 'function'){
+    const drawW = typeof buildingDrawWidthForDef === 'function'
+      ? buildingDrawWidthForDef(def || { isMonument: true, footprint: size }, img)
+      : null;
+    return monumentPlacementOnTileQuad(anchorCol, anchorRow, size, img, drawW, { building: true });
   }
-  if (!n) return null;
-  const pxScale = (tileScreenW / n) / (typeof TILE_W !== 'undefined' ? TILE_W : 128);
-  const logicalW = typeof buildingDrawWidthForDef === 'function'
-    ? buildingDrawWidthForDef(def || { isMonument: true, footprint: size }, img)
-    : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : 124) * size * 0.95;
-  const srcW = (img && (img.naturalWidth || img.width)) || 62;
-  const m = (img && typeof measureSpriteFoot === 'function') ? measureSpriteFoot(img) : null;
-  let x = sx / n;
-  let y = sy / n;
-  const northPx = typeof BUILDING_GRID_NORTH_PX === 'number' ? BUILDING_GRID_NORTH_PX : 0;
-  if (northPx && typeof getTileScreenDiamond === 'function'){
-    const d = getTileScreenDiamond(anchorCol, anchorRow);
-    const cx = (d.east.x + d.west.x) * 0.5;
-    const ax = d.north.x - cx;
-    const ay = d.north.y - d.south.y;
-    const len = Math.hypot(ax, ay);
-    if (len > 1e-6){
-      x += ax * northPx / len;
-      y += ay * northPx / len;
-    }
-  }
-  return {
-    x,
-    y,
-    scale: (logicalW * pxScale) / srcW,
-    footNx: m ? m.footNx : 0.5,
-    footNy: m ? m.footNy : 1,
-  };
+  return null;
 }
 
 function _pixiMonumentScreenCenter(anchorCol, anchorRow, size){
@@ -738,31 +734,7 @@ window._repositionOverlayBuildings = function(){
       else { _pixiAtGrid(e.col, e.row, g, 0); }
       return;
     }
-    let placement = null;
-    if (e.isMonument && typeof monumentAnchorAt === 'function'){
-      const anchor = monumentAnchorAt(e.col, e.row);
-      placement = _pixiMonumentScreenPlacement(anchor.col, anchor.row, e.def.footprint || 2, e.img, e.def);
-    } else if (typeof spritePlacementOnTileScreen === 'function'){
-      const isHouse = e.type === 'maison' || (e.def && e.def.isHouse);
-      const houseLevel = isHouse
-        ? (grid[e.row] && grid[e.row][e.col] ? grid[e.row][e.col].houseLevel : e.houseLevel)
-        : undefined;
-      const img = isHouse
-        ? _pixiResolveBuildingImage(e.texKey, e.type, houseLevel)
-        : e.img;
-      const drawW = typeof buildingDrawWidthForDef === 'function'
-        ? buildingDrawWidthForDef(e.def || {}, img, e.type)
-        : null;
-      const place = typeof getBuildingSpritePlacement === 'function'
-        ? getBuildingSpritePlacement(e.type, e.def || {})
-        : { offsetX: (e.def && e.def.spriteOffsetX) || 0, offsetY: 0 };
-      placement = spritePlacementOnTileScreen(e.col, e.row, img, drawW, {
-        building: true,
-        offsetX: place.offsetX,
-        lift: place.offsetY,
-      });
-    }
-    _pixiApplyTileScreenPlacement(e.spr, placement);
+    _pixiApplyTileScreenPlacement(e.spr, _pixiOverlayBuildingPlacement(e));
   });
 };
 

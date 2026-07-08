@@ -354,17 +354,16 @@ function _screenEdgeMid(a, b){
   return { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
 }
 
-/** Losange écran : milieux des 4 arêtes (pas les coins — évite le décalage bas/latéral). */
+/** Losange écran : milieux d'arêtes avec ordre fixe q[0..3] (identique aux routes). */
 function _diamondFromScreenQuad(q){
-  const byY = q.slice().sort(function(a, b){ return a.y - b.y; });
-  const byX = q.slice().sort(function(a, b){ return a.x - b.x; });
   return {
-    north: _screenEdgeMid(byY[0], byY[1]),
-    south: _screenEdgeMid(byY[2], byY[3]),
-    west:  _screenEdgeMid(byX[0], byX[1]),
-    east:  _screenEdgeMid(byX[2], byX[3]),
+    north: _screenEdgeMid(q[0], q[1]),
+    south: _screenEdgeMid(q[2], q[3]),
+    west:  _screenEdgeMid(q[0], q[3]),
+    east:  _screenEdgeMid(q[1], q[2]),
   };
 }
+window.diamondFromTileScreenQuad = _diamondFromScreenQuad;
 
 /** Sommets iso projetés (milieux d'arêtes — alignés sur tileEntityFoot 2D). */
 window.getTileScreenDiamond = function(col, row, ySink){
@@ -372,8 +371,8 @@ window.getTileScreenDiamond = function(col, row, ySink){
 };
 
 /** Pied sud du losange projeté (= tileEntityFoot en espace écran). */
-window.getTileScreenFoot = function(col, row){
-  return window.getTileScreenDiamond(col, row).south;
+window.getTileScreenFoot = function(col, row, ySink){
+  return window.getTileScreenDiamond(col, row, ySink).south;
 };
 
 /** Largeur écran du losange + pied sud (pour caler sprites sur la tuile). */
@@ -1176,7 +1175,7 @@ function _initThreeControls(){
 
   let mDown=false,mLast=null;
   el.addEventListener('mousedown',e=>{mDown=true;mLast={x:e.clientX,y:e.clientY};});
-  window.addEventListener('mouseup',()=>mDown=false);
+  window.addEventListener('mouseup',()=>{ mDown=false; });
   window.addEventListener('mousemove',e=>{
     if(!mDown||!mLast)return;
     pan(e.clientX-mLast.x,e.clientY-mLast.y);

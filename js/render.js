@@ -857,6 +857,143 @@ window.measureSpriteFoot = measureSpriteFoot;
 window.spriteDrawWidthForTile = spriteDrawWidthForTile;
 window.buildingDrawWidthForDef = buildingDrawWidth;
 
+function _quadEdgeMid(a, b){
+  return { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
+}
+
+/** Ordre fixe q[0]=NW, q[1]=NE, q[2]=SE, q[3]=SW — pas de tri (stable au pan). */
+function _diamondFromTileScreenQuad(q){
+  if (typeof window.diamondFromTileScreenQuad === 'function'){
+    return window.diamondFromTileScreenQuad(q);
+  }
+  return {
+    north: _quadEdgeMid(q[0], q[1]),
+    south: _quadEdgeMid(q[2], q[3]),
+    west:  _quadEdgeMid(q[0], q[3]),
+    east:  _quadEdgeMid(q[1], q[2]),
+  };
+}
+
+function _screenScaleFromTileQuad(d){
+  const screenW = Math.hypot(d.east.x - d.west.x, d.east.y - d.west.y);
+  const tileW = typeof TILE_W !== 'undefined' ? TILE_W : 128;
+  return screenW / tileW;
+}
+
+/**
+ * Calage bâtiment overlay : quad écran Three → ancre → échelle écran (comme avant).
+ * Ordre fixe des coins (stable au pan) ; taille = largeur quad / TILE_W.
+ */
+window.buildingPlacementOnTileQuad = function(col, row, sprite, targetLogicalW, opts){
+  opts = opts || {};
+  if (typeof getTileScreenQuad !== 'function') return null;
+
+  const ySink = opts.ySink != null ? opts.ySink : 0;
+  const q = getTileScreenQuad(col, row, ySink);
+  const d = _diamondFromTileScreenQuad(q);
+  const screenScale = _screenScaleFromTileQuad(d);
+  const screenH = d.south.y - d.north.y;
+
+  const m = sprite ? measureSpriteFoot(sprite) : null;
+  const footNx = m ? m.footNx : 0.5;
+  const footNy = m ? m.footNy : 1;
+  const centerX = (d.east.x + d.west.x) * 0.5;
+
+  let footY;
+  if (opts.cyIsFoot) footY = d.north.y;
+  else if (opts.anchorCenter) footY = d.north.y + screenH * 0.5;
+  else footY = d.south.y;
+
+  const logicalW = targetLogicalW != null
+    ? targetLogicalW
+    : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : 124);
+  const targetScreenW = logicalW * screenScale;
+  const srcW = (sprite && (sprite.naturalWidth || sprite.width)) || 62;
+  const footLift = typeof BUILDING_FOOT_LIFT === 'number' ? BUILDING_FOOT_LIFT : 0;
+  const lift = opts.lift != null ? opts.lift * screenScale : footLift;
+
+  let x = centerX;
+  let y = footY + lift;
+  const northPx = opts.building && typeof BUILDING_GRID_NORTH_PX === 'number'
+    ? BUILDING_GRID_NORTH_PX
+    : 0;
+  if (northPx){
+    const ax = d.north.x - centerX;
+    const ay = d.north.y - footY;
+    const len = Math.hypot(ax, ay);
+    if (len > 1e-6){
+      x += ax * northPx / len;
+      y += ay * northPx / len;
+    }
+  }
+  if (opts.offsetX != null) x += opts.offsetX * screenScale;
+
+  return {
+    x,
+    y,
+    scale: targetScreenW / srcW,
+    footNx,
+    footNy,
+    targetW: targetScreenW,
+    screenScale,
+    quad: q,
+  };
+};
+
+/** Monument multi-tuiles : moyenne des quads écran (même logique que buildingPlacementOnTileQuad). */
+window.monumentPlacementOnTileQuad = function(anchorCol, anchorRow, size, sprite, targetLogicalW, opts){
+  opts = opts || {};
+  if (typeof getTileScreenQuad !== 'function') return null;
+  const ySink = opts.ySink != null ? opts.ySink : 0;
+  let sx = 0, sy = 0, screenW = 0, n = 0;
+  for (let r = anchorRow; r < anchorRow + size; r++){
+    for (let c = anchorCol; c < anchorCol + size; c++){
+      if (typeof inBounds === 'function' && !inBounds(c, r)) continue;
+      const q = getTileScreenQuad(c, r, ySink);
+      const d = _diamondFromTileScreenQuad(q);
+      sx += d.south.x;
+      sy += d.south.y;
+      screenW += Math.hypot(d.east.x - d.west.x, d.east.y - d.west.y);
+      n++;
+    }
+  }
+  if (!n) return null;
+
+  const tileW = typeof TILE_W !== 'undefined' ? TILE_W : 128;
+  const screenScale = (screenW / n) / tileW;
+  const logicalW = targetLogicalW != null
+    ? targetLogicalW
+    : (typeof BUILDING_SPRITE_W !== 'undefined' ? BUILDING_SPRITE_W : 124) * size * 0.95;
+  const srcW = (sprite && (sprite.naturalWidth || sprite.width)) || 62;
+  const m = sprite ? measureSpriteFoot(sprite) : null;
+
+  let x = sx / n;
+  let y = sy / n;
+  const northPx = typeof BUILDING_GRID_NORTH_PX === 'number' ? BUILDING_GRID_NORTH_PX : 0;
+  if (northPx){
+    const q0 = getTileScreenQuad(anchorCol, anchorRow, ySink);
+    const d0 = _diamondFromTileScreenQuad(q0);
+    const cx = (d0.east.x + d0.west.x) * 0.5;
+    const ax = d0.north.x - cx;
+    const ay = d0.north.y - d0.south.y;
+    const len = Math.hypot(ax, ay);
+    if (len > 1e-6){
+      x += ax * northPx / len;
+      y += ay * northPx / len;
+    }
+  }
+
+  return {
+    x,
+    y,
+    scale: (logicalW * screenScale) / srcW,
+    footNx: m ? m.footNx : 0.5,
+    footNy: m ? m.footNy : 1,
+    targetW: logicalW * screenScale,
+    screenScale,
+  };
+};
+
 /** Calage écran Three+Pixi = même règles que drawSpriteOnTile (north → foot sud). */
 window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, opts){
   opts = opts || {};
@@ -865,13 +1002,15 @@ window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, 
   let ySink = 0;
   if (opts.building && typeof BUILDING_WORLD_DEPTH_PX === 'number' && BUILDING_WORLD_DEPTH_PX > 0
       && typeof window.screenPxToWorldY === 'function'){
-    ySink = window.screenPxToWorldY(BUILDING_WORLD_DEPTH_PX, col, row);
+    ySink = opts.frozenYSink != null
+      ? opts.frozenYSink
+      : window.screenPxToWorldY(BUILDING_WORLD_DEPTH_PX, col, row);
   }
 
   const d = getTileScreenDiamond(col, row, ySink);
   const screenTileW = Math.hypot(d.east.x - d.west.x, d.east.y - d.west.y);
   const tileW = typeof TILE_W !== 'undefined' ? TILE_W : 128;
-  const pxScale = screenTileW / tileW;
+  const pxScale = opts.frozenPxScale != null ? opts.frozenPxScale : (screenTileW / tileW);
   const tileH = d.south.y - d.north.y;
 
   const m = sprite ? measureSpriteFoot(sprite) : null;
@@ -914,6 +1053,7 @@ window.spritePlacementOnTileScreen = function(col, row, sprite, targetLogicalW, 
     footNy,
     targetW,
     pxScale,
+    ySink,
   };
 };
 
