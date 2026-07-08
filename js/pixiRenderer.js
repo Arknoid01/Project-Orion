@@ -54,12 +54,24 @@ function _pixiOverlayDpr(){
     : Math.min(window.devicePixelRatio || 1, 1.5);
 }
 
+/** Arrondi au pixel physique (après projection Three) — évite le scintillement sub-pixel. */
+function _pixiSnapOverlayCoord(v){
+  const dpr = _pixiOverlayDpr();
+  return Math.round(v * dpr) / dpr;
+}
+
+/** Stabilise l'échelle pour éviter le tremblement des bords de sprite. */
+function _pixiSnapOverlayScale(s){
+  const dpr = _pixiOverlayDpr();
+  return Math.round(s * dpr * 128) / (dpr * 128);
+}
+
 function _overlayCameraKey(){
   const t = window._threeTarget;
   const z = window._threeZoom || 0;
   if (!t) return '0|0|' + z + '|' + window.innerWidth + '|' + window.innerHeight;
-  return t.x.toFixed(5) + '|' + t.z.toFixed(5) + '|' + z.toFixed(5)
-    + '|' + window.innerWidth + '|' + window.innerHeight;
+  // Pas de toFixed : toute variation caméra doit recaler l'overlay dans la même frame.
+  return t.x + '|' + t.z + '|' + z + '|' + window.innerWidth + '|' + window.innerHeight;
 }
 
 function _overlayCameraMoved(){
@@ -183,6 +195,9 @@ window.initPixiOverlay = async function(){
     window._overlayBeautyContainer   = new PIXI.Container();
     window._overlayRoadContainer     = new PIXI.Container();
     window._overlayBuildingContainer = new PIXI.Container();
+    window._overlayBuildingContainer.roundPixels = true;
+    window._overlayDecorContainer.roundPixels = true;
+    window._overlayRoadContainer.roundPixels = true;
     window._overlayWalkerContainer   = new PIXI.Container();
     window._overlayHouseIconContainer = new PIXI.Container();
     window._overlayAgentContainer    = new PIXI.Container();
@@ -346,12 +361,12 @@ function _pixiResolveBuildingImage(texKey, type, houseLevel){
 function _pixiApplyTileScreenPlacement(display, placement){
   if (!placement) return;
   display.anchor.set(placement.footNx, placement.footNy);
-  display.scale.set(placement.scale);
-  // Ne pas arrondir ici : le terrain Three.js glisse en coordonnées flottantes.
-  // Si Pixi "snap" au pixel, les bâtiments semblent se détacher puis se recoller
-  // aux tuiles pendant un pan caméra.
-  display.x = placement.x;
-  display.y = placement.y;
+  display.scale.set(_pixiSnapOverlayScale(placement.scale));
+  // Snap au pixel physique APRÈS projection Three (pas avant) : même repère CSS
+  // que le terrain, sans le gros décalage du premier correctif (view arrondie).
+  display.x = _pixiSnapOverlayCoord(placement.x);
+  display.y = _pixiSnapOverlayCoord(placement.y);
+  if ('roundPixels' in display) display.roundPixels = true;
 }
 
 function _pixiMonumentScreenPlacement(anchorCol, anchorRow, size, img, def){
@@ -735,8 +750,10 @@ window._repositionOverlayBuildings = function(){
         : _pixiThreeScale((typeof TILE_W !== 'undefined' ? TILE_W : 128) * 0.35);
       g.roundRect(-sz, -sz * 1.2, sz * 2, sz * 1.2, 4);
       g.fill({ color: parseInt(String(e.def.color || '#8b6914').replace('#', ''), 16) || 0x8b6914 });
-      if (span){ g.x = span.foot.x; g.y = span.foot.y; }
-      else { _pixiAtGrid(e.col, e.row, g, 0); }
+      if (span){
+        g.x = _pixiSnapOverlayCoord(span.foot.x);
+        g.y = _pixiSnapOverlayCoord(span.foot.y);
+      } else { _pixiAtGrid(e.col, e.row, g, 0); }
       return;
     }
     let placement = null;
@@ -1176,8 +1193,9 @@ window._repositionOverlayDecors = function(){
     if (!pl) return;
     d.gfx.anchor.set(pl.footNx, pl.footNy);
     _pixiApplyDecorVisual(d, pl);
-    d.gfx.x = pl.x;
-    d.gfx.y = pl.y;
+    d.gfx.x = _pixiSnapOverlayCoord(pl.x);
+    d.gfx.y = _pixiSnapOverlayCoord(pl.y);
+    if ('roundPixels' in d.gfx) d.gfx.roundPixels = true;
     d.gfx.visible = pl.x > -120 && pl.x < vw + 120 && pl.y > -160 && pl.y < vh + 120;
   });
 
@@ -1341,11 +1359,12 @@ function _pixiPositionStairSprite(sprite, col, row){
     return;
   }
   sprite.anchor.set(0.5, 0);
-  sprite.x = layout.headX;
-  sprite.y = layout.headY;
-  const scale = layout.drawW / sprite.texture.width;
+  sprite.x = _pixiSnapOverlayCoord(layout.headX);
+  sprite.y = _pixiSnapOverlayCoord(layout.headY);
+  const scale = _pixiSnapOverlayScale(layout.drawW / sprite.texture.width);
   sprite.scale.x = (layout.flipX ? -1 : 1) * scale;
-  sprite.scale.y = scale * (layout.drawH / layout.drawW) * (sprite.texture.width / sprite.texture.height);
+  sprite.scale.y = _pixiSnapOverlayScale(scale * (layout.drawH / layout.drawW) * (sprite.texture.width / sprite.texture.height));
+  if ('roundPixels' in sprite) sprite.roundPixels = true;
 }
 
 function _pixiFillTileQuadGfx(gfx, col, row, fill, stroke, fillAlpha, strokeAlpha){
