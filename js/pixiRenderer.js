@@ -347,9 +347,13 @@ function _pixiApplyTileScreenPlacement(display, placement){
   if (!placement) return;
   display.anchor.set(placement.footNx, placement.footNy);
   display.scale.set(placement.scale);
-  // Arrondi pixel : évite le scintillement des sprites overlay pendant le pan caméra.
-  display.x = Math.round(placement.x);
-  display.y = Math.round(placement.y);
+  // Arrondi au pixel physique (pas CSS) : évite le tremblement sur les écrans HiDPI.
+  // Sur un écran 2x, Math.round(CSS) = saut de 2px physiques ; en arrondissant à 1/dpr
+  // on reste au pixel physique et les bâtiments dont la projection tombe près d'un .5
+  // ne vacillent plus quand la caméra se déplace.
+  const dpr = _pixiOverlayDpr();
+  display.x = Math.round(placement.x * dpr) / dpr;
+  display.y = Math.round(placement.y * dpr) / dpr;
 }
 
 function _pixiMonumentScreenPlacement(anchorCol, anchorRow, size, img, def){
@@ -1174,8 +1178,9 @@ window._repositionOverlayDecors = function(){
     if (!pl) return;
     d.gfx.anchor.set(pl.footNx, pl.footNy);
     _pixiApplyDecorVisual(d, pl);
-    d.gfx.x = pl.x;
-    d.gfx.y = pl.y;
+    const _dpr = _pixiOverlayDpr();
+    d.gfx.x = Math.round(pl.x * _dpr) / _dpr;
+    d.gfx.y = Math.round(pl.y * _dpr) / _dpr;
     d.gfx.visible = pl.x > -120 && pl.x < vw + 120 && pl.y > -160 && pl.y < vh + 120;
   });
 
@@ -1339,8 +1344,9 @@ function _pixiPositionStairSprite(sprite, col, row){
     return;
   }
   sprite.anchor.set(0.5, 0);
-  sprite.x = layout.headX;
-  sprite.y = layout.headY;
+  const _sDpr = _pixiOverlayDpr();
+  sprite.x = Math.round(layout.headX * _sDpr) / _sDpr;
+  sprite.y = Math.round(layout.headY * _sDpr) / _sDpr;
   const scale = layout.drawW / sprite.texture.width;
   sprite.scale.x = (layout.flipX ? -1 : 1) * scale;
   sprite.scale.y = scale * (layout.drawH / layout.drawW) * (sprite.texture.width / sprite.texture.height);

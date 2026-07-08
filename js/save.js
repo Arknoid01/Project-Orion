@@ -469,8 +469,14 @@ function applySavePayload(payload){
   else if (typeof initGodAgentsFromMonuments === 'function') initGodAgentsFromMonuments();
   monster = payload.monster || null;
   hero = payload.hero || null;
-  if (Array.isArray(payload.migrants)) migrants = payload.migrants;
-  else if (typeof resetMigrants === 'function') resetMigrants();
+  if (Array.isArray(payload.migrants)){
+    migrants = payload.migrants;
+    // moveStartTime est un timestamp performance.now() de l'ancienne session.
+    // Au rechargement, performance.now() repart de ~0, donc la différence serait
+    // négative et les migrants ne progresseraient jamais. On remet à null pour
+    // qu'ils redémarrent immédiatement à la première frame de jeu.
+    migrants.forEach(function(m){ m.moveStartTime = null; });
+  } else if (typeof resetMigrants === 'function') resetMigrants();
   if (typeof restoreMilitaryCampaign === 'function'){
     restoreMilitaryCampaign(payload.militaryCampaign || null);
   } else if (typeof resetMilitaryAgents === 'function'){
