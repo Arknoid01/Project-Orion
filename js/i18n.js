@@ -2111,7 +2111,6 @@ function applyGameUITranslations(){
     perfTitle: 'perf.title',
     perfHint: 'perf.hint',
     genLoadingTitle: 'gen.title',
-    menuDebugBtn: 'menu.debug',
     perfLowTitle: 'perf.level.faible',
     perfLowDesc: 'perf.desc.faible',
     perfNormalTitle: 'perf.level.normal',

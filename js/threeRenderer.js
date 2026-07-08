@@ -773,22 +773,66 @@ function _resizeThreeView(){
   if (typeof markOverlayCameraDirty === 'function') markOverlayCameraDirty();
 }
 
-function _updateThreeCam(){
-  if(!window._threeCam) return;
+/** Applique la caméra ortho iso depuis window._threeTarget (sans snap). */
+function _applyThreeCamFromTarget(){
+  if (!window._threeCam) return;
   const z = window._threeZoom;
   const view = _getThreeView();
   const a = view.width / view.height;
   const cam = window._threeCam;
-  cam.left=-z*a/2; cam.right=z*a/2; cam.top=z/2; cam.bottom=-z/2;
+  cam.left = -z * a / 2;
+  cam.right = z * a / 2;
+  cam.top = z / 2;
+  cam.bottom = -z / 2;
   cam.updateProjectionMatrix();
-  const d=60, t=window._threeTarget||new _THREE.Vector3();
+  const d = 60;
+  const t = window._threeTarget || new _THREE.Vector3();
   cam.position.set(
-    t.x + d*Math.cos(ISO_V)*Math.sin(ISO_H),
-    t.y + d*Math.sin(ISO_V),
-    t.z + d*Math.cos(ISO_V)*Math.cos(ISO_H)
+    t.x + d * Math.cos(ISO_V) * Math.sin(ISO_H),
+    t.y + d * Math.sin(ISO_V),
+    t.z + d * Math.cos(ISO_V) * Math.cos(ISO_H),
   );
   cam.lookAt(t);
   cam.updateMatrixWorld();
+}
+
+/**
+ * Aligne la cible caméra sur la grille pixel écran (via Jacobienne worldToScreen).
+ * Three.js et Pixi partagent alors exactement la même matrice caméra : le terrain
+ * et les sprites overlay se déplacent ensemble, sans snap individuel par bâtiment.
+ */
+function _snapThreeTargetToScreenPixels(){
+  const t = window._threeTarget;
+  if (!t || typeof worldToScreen !== 'function') return false;
+  const y = typeof t.y === 'number' ? t.y : 0.5;
+  const s = worldToScreen(t.x, y, t.z);
+  const dpr = (typeof getRenderDpr === 'function')
+    ? getRenderDpr()
+    : Math.min(window.devicePixelRatio || 1, 1.5);
+  const sx = Math.round(s.x * dpr) / dpr;
+  const sy = Math.round(s.y * dpr) / dpr;
+  const dx = sx - s.x;
+  const dy = sy - s.y;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return false;
+
+  const eps = 0.001;
+  const sTx = worldToScreen(t.x + eps, y, t.z);
+  const sTz = worldToScreen(t.x, y, t.z + eps);
+  const jxx = (sTx.x - s.x) / eps;
+  const jxy = (sTx.y - s.y) / eps;
+  const jzx = (sTz.x - s.x) / eps;
+  const jzy = (sTz.y - s.y) / eps;
+  const det = jxx * jzy - jxy * jzx;
+  if (Math.abs(det) < 1e-12) return false;
+  t.x += (dx * jzy - dy * jzx) / det;
+  t.z += (-dx * jxy + dy * jxx) / det;
+  return true;
+}
+
+function _updateThreeCam(){
+  if (!window._threeCam) return;
+  _applyThreeCamFromTarget();
+  if (_snapThreeTargetToScreenPixels()) _applyThreeCamFromTarget();
 }
 
 /** Rectangle grille approximatif visible (culling décors avant projection coûteuse). */

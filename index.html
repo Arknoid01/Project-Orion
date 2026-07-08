@@ -2470,8 +2470,7 @@ h2{
      <button class="actionBtn" id="menuLoadBtn" onclick="loadGameFromMenu()">📂 Charger</button>
      <button class="actionBtn" id="menuPauseBtn" onclick="callGameAction('togglePause')">⏸ Pause</button>
      <button class="actionBtn" id="menuCityBtn" onclick="openCityManagement()">🏛️ Gestion de la ville</button>
-     <button class="actionBtn" onclick="openPerfSettings()">⚙️ <span data-i18n="perf.title">Performances</span></button>
-     <button class="actionBtn" id="menuDebugBtn" onclick="toggleDebugPanel()">🐛 Debug</button>
+    <button class="actionBtn" onclick="openPerfSettings()"><span data-i18n="perf.title">Performances</span></button>
      <button class="actionBtn" onclick="toggleFullscreen()">⛶ <span id="fullscreenBtnLabel">Plein écran</span></button>
      <div class="actionBtn langRow">
        <span id="settingsLanguageLabel">Langue</span>
@@ -2486,7 +2485,7 @@ h2{
 
  <aside id="perfSettingsPanel" class="panel">
    <button class="close" onclick="closePanels()">×</button>
-   <h2 id="perfTitle">⚙️ Performances</h2>
+   <h2 id="perfTitle">Performances</h2>
    <p class="manageHint" id="perfHint">…</p>
    <div class="menuList" id="perfLevelList">
      <button class="actionBtn perfLevelBtn" data-level="faible" onclick="choosePerfLevel('faible')">
