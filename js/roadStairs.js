@@ -401,9 +401,19 @@ function stairSpriteVariant(col, row){
   const tune = getStairTune(dir);
   const map = (typeof STAIR_VARIANT_BY_DIR === 'object' && STAIR_VARIANT_BY_DIR) || {};
   const base = map[dir] || { idx: 0, flipX: false };
+  const frontIdx = (typeof tune.idx === 'number') ? tune.idx : base.idx;
+  const frontFlipX = (typeof tune.flipX === 'boolean') ? tune.flipX : !!base.flipX;
+  const backIdx = (typeof tune.backIdx === 'number') ? tune.backIdx
+    : (typeof base.backIdx === 'number' ? base.backIdx : null);
+  const backFlipX = (typeof tune.backFlipX === 'boolean') ? tune.backFlipX
+    : (typeof base.backFlipX === 'boolean' ? base.backFlipX : frontFlipX);
   return {
-    idx: (typeof tune.idx === 'number') ? tune.idx : base.idx,
-    flipX: (typeof tune.flipX === 'boolean') ? tune.flipX : base.flipX,
+    idx: frontIdx,
+    flipX: frontFlipX,
+    frontIdx,
+    frontFlipX,
+    backIdx,
+    backFlipX,
     tune,
     dir,
   };
@@ -424,27 +434,49 @@ function stairRenderLayout(col, row, cx, cy){
     headY,
     drawW,
     drawH,
-    flipX: !!variant.flipX,
-    idx: variant.idx,
+    flipX: !!variant.frontFlipX,
+    idx: variant.frontIdx,
+    frontIdx: variant.frontIdx,
+    frontFlipX: !!variant.frontFlipX,
+    backIdx: variant.backIdx,
+    backFlipX: !!variant.backFlipX,
+    backOffX: tune.backOffX || 0,
+    backOffY: tune.backOffY || 0,
     dir: variant.dir,
     tune,
   };
 }
 
-function drawStairSprite(targetCtx, cx, cy, col, row){
-  if (!areStairSpritesReady()) return false;
-  const layout = stairRenderLayout(col, row, cx, cy);
-  const img = STAIR_SPRITE_IMAGES[layout.idx];
-  if (!img || !img.complete || !img.naturalWidth) return false;
-  const c = targetCtx || ctx;
-  c.save();
-  if (layout.flipX){
-    c.translate(layout.headX, layout.headY);
+function _applyStairLayoutToCanvas(c, img, layout, isBack){
+  const flipX = isBack ? layout.backFlipX : layout.frontFlipX;
+  const x = layout.headX + (isBack ? (layout.backOffX || 0) : 0);
+  const y = layout.headY + (isBack ? (layout.backOffY || 0) : 0);
+  if (flipX){
+    c.translate(x, y);
     c.scale(-1, 1);
     c.drawImage(img, -layout.drawW / 2, 0, layout.drawW, layout.drawH);
   } else {
-    c.drawImage(img, layout.headX - layout.drawW / 2, layout.headY, layout.drawW, layout.drawH);
+    c.drawImage(img, x - layout.drawW / 2, y, layout.drawW, layout.drawH);
   }
+}
+
+function drawStairSprite(targetCtx, cx, cy, col, row){
+  if (!areStairSpritesReady()) return false;
+  const layout = stairRenderLayout(col, row, cx, cy);
+  const c = targetCtx || ctx;
+  c.save();
+  if (typeof layout.backIdx === 'number'){
+    const backImg = STAIR_SPRITE_IMAGES[layout.backIdx];
+    if (backImg && backImg.complete && backImg.naturalWidth){
+      _applyStairLayoutToCanvas(c, backImg, layout, true);
+    }
+  }
+  const frontImg = STAIR_SPRITE_IMAGES[layout.frontIdx];
+  if (!frontImg || !frontImg.complete || !frontImg.naturalWidth){
+    c.restore();
+    return false;
+  }
+  _applyStairLayoutToCanvas(c, frontImg, layout, false);
   c.restore();
   return true;
 }
@@ -456,10 +488,10 @@ function stairTuneDefaults(){
   return (typeof STAIR_TUNE_DEFAULT === 'object' && STAIR_TUNE_DEFAULT)
     ? JSON.parse(JSON.stringify(STAIR_TUNE_DEFAULT))
     : {
-      n: { idx: 0, flipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
-      e: { idx: 3, flipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
-      s: { idx: 0, flipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
-      w: { idx: 3, flipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
+      n: { idx: 0, flipX: false, backIdx: 2, backFlipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
+      e: { idx: 3, flipX: false, backIdx: 9, backFlipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
+      s: { idx: 0, flipX: true, backIdx: 2, backFlipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
+      w: { idx: 3, flipX: true, backIdx: 9, backFlipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
     };
 }
 

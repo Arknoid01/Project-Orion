@@ -1286,21 +1286,56 @@ function _pixiStairVariant(col, row){
     ? stairEffectiveDir(col, row)
     : (typeof stairVisualDir === 'function' ? stairVisualDir(col, row) : 's');
   const map = (typeof STAIR_VARIANT_BY_DIR === 'object' && STAIR_VARIANT_BY_DIR) || {};
-  return map[dir] || { idx: 0, flipX: false };
+  const base = map[dir] || { idx: 0, flipX: false };
+  return {
+    idx: base.idx,
+    flipX: !!base.flipX,
+    frontIdx: base.idx,
+    frontFlipX: !!base.flipX,
+    backIdx: (typeof base.backIdx === 'number') ? base.backIdx : null,
+    backFlipX: (typeof base.backFlipX === 'boolean') ? base.backFlipX : !!base.flipX,
+  };
 }
 
-function _pixiStairTexture(col, row){
-  const variant = _pixiStairVariant(col, row);
-  const tex = window._stairTextures && window._stairTextures[variant.idx];
-  return tex ? { tex, flipX: !!variant.flipX } : null;
+function _pixiApplyStairLayoutToSprite(sprite, layout, isBack){
+  if (!sprite || !layout) return;
+  const flipX = isBack ? layout.backFlipX : layout.frontFlipX;
+  const offX = isBack ? (layout.backOffX || 0) : 0;
+  const offY = isBack ? (layout.backOffY || 0) : 0;
+  sprite.anchor.set(0.5, 0);
+  sprite.x = layout.headX + offX;
+  sprite.y = layout.headY + offY;
+  const scale = layout.drawW / sprite.texture.width;
+  sprite.scale.x = (flipX ? -1 : 1) * scale;
+  sprite.scale.y = scale * (layout.drawH / layout.drawW) * (sprite.texture.width / sprite.texture.height);
 }
 
 function _pixiCreateStairSprite(col, row){
-  const picked = _pixiStairTexture(col, row);
-  if (!picked || !picked.tex) return null;
-  const sprite = new PIXI.Sprite(picked.tex);
-  _pixiPositionStairSprite(sprite, col, row);
-  return sprite;
+  const layout = (typeof stairRenderLayout === 'function')
+    ? stairRenderLayout(col, row, 0, 0)
+    : null;
+  if (!layout) return null;
+  const textures = window._stairTextures;
+  if (!textures) return null;
+
+  const frontTex = textures[layout.frontIdx != null ? layout.frontIdx : layout.idx];
+  if (!frontTex) return null;
+
+  const backTex = (typeof layout.backIdx === 'number') ? textures[layout.backIdx] : null;
+  let display;
+  if (backTex){
+    display = new PIXI.Container();
+    const back = new PIXI.Sprite(backTex);
+    _pixiApplyStairLayoutToSprite(back, layout, true);
+    display.addChild(back);
+    const front = new PIXI.Sprite(frontTex);
+    _pixiApplyStairLayoutToSprite(front, layout, false);
+    display.addChild(front);
+  } else {
+    display = new PIXI.Sprite(frontTex);
+    _pixiApplyStairLayoutToSprite(display, layout, false);
+  }
+  return display;
 }
 
 function _pixiPositionStairSprite(sprite, col, row){
@@ -1308,15 +1343,15 @@ function _pixiPositionStairSprite(sprite, col, row){
   const layout = (typeof stairRenderLayout === 'function')
     ? stairRenderLayout(col, row, 0, 0)
     : null;
-  if (!layout){
+  if (!layout) return;
+  if (sprite instanceof PIXI.Container){
+    const back = sprite.children[0];
+    const front = sprite.children.length > 1 ? sprite.children[1] : sprite.children[0];
+    if (sprite.children.length > 1 && back) _pixiApplyStairLayoutToSprite(back, layout, true);
+    if (front) _pixiApplyStairLayoutToSprite(front, layout, false);
     return;
   }
-  sprite.anchor.set(0.5, 0);
-  sprite.x = layout.headX;
-  sprite.y = layout.headY;
-  const scale = layout.drawW / sprite.texture.width;
-  sprite.scale.x = (layout.flipX ? -1 : 1) * scale;
-  sprite.scale.y = scale * (layout.drawH / layout.drawW) * (sprite.texture.width / sprite.texture.height);
+  _pixiApplyStairLayoutToSprite(sprite, layout, false);
 }
 
 function _pixiFillTileQuadGfx(gfx, col, row, fill, stroke, fillAlpha, strokeAlpha){
@@ -1356,8 +1391,12 @@ window._buildRoadsOverlay = function(){
     }
 
     if (cell.roadStairs){
-      const picked = _pixiStairTexture(col, row);
-      if (picked && picked.tex){
+      const layout = (typeof stairRenderLayout === 'function')
+        ? stairRenderLayout(col, row, 0, 0)
+        : null;
+      const frontIdx = layout ? (layout.frontIdx != null ? layout.frontIdx : layout.idx) : 0;
+      const hasFront = window._stairTextures && window._stairTextures[frontIdx];
+      if (hasFront){
         const sprite = _pixiCreateStairSprite(col, row);
         if (sprite){
           container.addChild(sprite);

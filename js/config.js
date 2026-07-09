@@ -432,19 +432,19 @@ const STAIR_SPRITE_PATHS = Array.from({ length: 12 }, (_, i) =>
 const STAIR_DRAW_W = 112;
 const STAIR_FOOT_EXTEND_WORLD = 0.12;
 const STAIR_FOOT_PAD_PX = 10;
-// Direction → sprite planche (N/S = 0 miroir, E/W = 3 miroir)
+// Direction → face avant (marches) + face arrière (mur) — planche 6×2
 const STAIR_VARIANT_BY_DIR = {
-  n: { idx: 0, flipX: false },
-  e: { idx: 3, flipX: false },
-  s: { idx: 0, flipX: true },
-  w: { idx: 3, flipX: true },
+  n: { idx: 0, flipX: false, backIdx: 2, backFlipX: false },
+  e: { idx: 3, flipX: false, backIdx: 9, backFlipX: false },
+  s: { idx: 0, flipX: true, backIdx: 2, backFlipX: true },
+  w: { idx: 3, flipX: true, backIdx: 9, backFlipX: true },
 };
 // Réglages fin par face (idx/flipX par direction ; scale/offset communs calibrés)
 const STAIR_TUNE_DEFAULT = {
-  n: { idx: 0, flipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
-  e: { idx: 3, flipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
-  s: { idx: 0, flipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
-  w: { idx: 3, flipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42 },
+  n: { idx: 0, flipX: false, backIdx: 2, backFlipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
+  e: { idx: 3, flipX: false, backIdx: 9, backFlipX: false, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
+  s: { idx: 0, flipX: true, backIdx: 2, backFlipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
+  w: { idx: 3, flipX: true, backIdx: 9, backFlipX: true, scaleX: 1.2, scaleY: 1.85, offX: -2, offY: -42, backOffX: 0, backOffY: 0 },
 };
 const STAIR_TUNE_IDX_CYCLE = [0, 3, 6, 9];
 
